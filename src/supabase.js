@@ -1,70 +1,70 @@
 // src/supabase.js
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let _session = null;
 
-function authHeaders() {
+função authHeaders() {
   const token = _session ? _session.access_token : SUPABASE_ANON_KEY;
-  return {
+  retornar {
     "Content-Type": "application/json",
     "apikey": SUPABASE_ANON_KEY,
-    "Authorization": "Bearer " + token,
+    "Autorização": "Portador" + token,
   };
 }
 
-export const auth = {
-  async signUp(email, password) {
+exportar const auth = {
+  signUp(email, senha) assíncrono {
     const res = await fetch(SUPABASE_URL + "/auth/v1/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: email, password: password }),
+      método: "POST",
+      cabeçalhos: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
+      corpo: JSON.stringify({ email: email, password: password }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message || data.msg || "Erro ao criar conta");
-    if (data.access_token) _session = data;
-    return data;
+    se (data.access_token) _session = data;
+    retornar dados;
   },
 
-  async signIn(email, password) {
+  signIn assíncrono(email, senha) {
     const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: email, password: password }),
+      método: "POST",
+      cabeçalhos: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
+      corpo: JSON.stringify({ email: email, password: password }),
     });
     const data = await res.json();
-    if (data.error || data.error_code) throw new Error(data.error_description || data.msg || "Email ou senha incorretos");
-    _session = data;
+    if (data.error || data.error_code) throw new Error(data.error_description || data.msg || "Email ou senha incorretas");
+    _sessão = dados;
     localStorage.setItem("sb_session", JSON.stringify(data));
-    return data;
+    retornar dados;
   },
 
-  async signOut() {
-    if (_session) {
-      await fetch(SUPABASE_URL + "/auth/v1/logout", {
-        method: "POST",
-        headers: authHeaders(),
+  signOut assíncrono() {
+    se (_sessão) {
+      aguardar fetch(SUPABASE_URL + "/auth/v1/logout", {
+        método: "POST",
+        cabeçalhos: authHeaders(),
       }).catch(function() {});
     }
-    _session = null;
+    _session = nulo;
     localStorage.removeItem("sb_session");
   },
 
-  restoreSession() {
-    try {
+  restaurarSessão() {
+    tentar {
       const saved = localStorage.getItem("sb_session");
-      if (saved) {
+      se (salvo) {
         const s = JSON.parse(saved);
-        if (s.expires_at && Date.now() / 1000 < s.expires_at) {
-          _session = s;
-          return s;
-        } else {
+        se (s.expires_at && Date.now() / 1000 < s.expires_at) {
+          _sessão = s;
+          retornar s;
+        } outro {
           localStorage.removeItem("sb_session");
         }
       }
     } catch(e) {}
-    return null;
+    retornar nulo;
   },
 
   getSession() { return _session; },
@@ -72,45 +72,45 @@ export const auth = {
   getUserEmail() { return _session ? _session.user.email : null; },
 };
 
-export const db = {
-  async select(table, options) {
-    let url = SUPABASE_URL + "/rest/v1/" + table + "?order=created_at.asc";
-    if (options && options.filter) url += "&" + options.filter;
+exportar const db = {
+  async select(tabela, opções) {
+    let url = SUPABASE_URL + "/rest/v1/" + tabela + "?order=created_at.asc";
+    se (opções && opções.filtro) url += "&" + opções.filtro;
     const res = await fetch(url, { headers: authHeaders() });
-    if (!res.ok) throw new Error("Supabase select error: " + res.statusText);
-    return res.json();
+    if (!res.ok) throw new Error("Erro de seleção do Supabase: " + res.statusText);
+    retornar res.json();
   },
 
-  async upsert(table, data) {
+  async upsert(tabela, dados) {
     const uid = auth.getUserId();
     const rows = Array.isArray(data) ? data : [data];
     const body = rows.map(function(row) {
       return Object.assign({}, row, uid ? { user_id: uid } : {});
     });
     const res = await fetch(SUPABASE_URL + "/rest/v1/" + table, {
-      method: "POST",
-      headers: Object.assign({}, authHeaders(), { "Prefer": "resolution=merge-duplicates" }),
-      body: JSON.stringify(body),
+      método: "POST",
+      cabeçalhos: Object.assign({}, authHeaders(), { "Prefer": "resolution=merge-duplicates" }),
+      corpo: JSON.stringify(corpo),
     });
-    if (!res.ok) throw new Error("Supabase upsert error: " + res.statusText);
+    if (!res.ok) throw new Error("Erro de upsert do Supabase: " + res.statusText);
     return res.json().catch(function() { return null; });
   },
 
   async delete(table, id) {
     const res = await fetch(SUPABASE_URL + "/rest/v1/" + table + "?id=eq." + id, {
-      method: "DELETE",
-      headers: authHeaders(),
+      método: "EXCLUIR",
+      cabeçalhos: authHeaders(),
     });
-    if (!res.ok) throw new Error("Supabase delete error: " + res.statusText);
+    if (!res.ok) throw new Error("Erro ao excluir o Supabase: " + res.statusText);
   },
 
-  async update(table, id, data) {
+  atualização assíncrona(tabela, id, dados) {
     const res = await fetch(SUPABASE_URL + "/rest/v1/" + table + "?id=eq." + id, {
-      method: "PATCH",
-      headers: authHeaders(),
-      body: JSON.stringify(data),
+      método: "PATCH",
+      cabeçalhos: authHeaders(),
+      corpo: JSON.stringify(dados),
     });
-    if (!res.ok) throw new Error("Supabase update error: " + res.statusText);
+    if (!res.ok) throw new Error("Erro de atualização do Supabase: " + res.statusText);
     return res.json().catch(function() { return null; });
   }
 };
