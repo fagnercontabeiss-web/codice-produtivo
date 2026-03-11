@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { db } from "./supabase.js";
+import { db, auth } from "./supabase.js";
 
 // ============================================================
 // TYPES & DEFAULTS
@@ -48,6 +48,7 @@ function AppProvider({ children }) {
   useEffect(() => {
     const load = async () => {
       try {
+        auth.restoreSession();
         const [tasks, habits, clients, goals, cats, ctxs, settingsRows] = await Promise.all([
           db.select("tasks"), db.select("habits"), db.select("clients"),
           db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"),
@@ -359,12 +360,19 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #5aaff5, #2b8be8)", color: "#fff" }}>
-              {(settings.loginEmail?.[0] || "U").toUpperCase()}
+              {(auth.getUserEmail()?.[0] || settings.loginEmail?.[0] || "U").toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{settings.loginEmail || "Usuário"}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{auth.getUserEmail() || settings.loginEmail || "Usuário"}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>Administrador</p>
             </div>
+            <button onClick={onLogout} title="Sair"
+              className="flex-shrink-0 p-1.5 rounded-lg transition-colors"
+              style={{ color: "rgba(255,255,255,0.35)" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.35)"}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
           </div>
         </div>
       </aside>
@@ -4253,10 +4261,105 @@ function AppContent({ onLogout }) {
   );
 }
 
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function LoginScreen({ onLogin }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handle = async () => {
+    if (!email || !password) { setError("Preencha email e senha"); return; }
+    setLoading(true); setError("");
+    try {
+      if (mode === "login") {
+        await auth.signIn(email, password);
+      } else {
+        await auth.signUp(email, password);
+      }
+      onLogin();
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg, #1c1f26 0%, #1e2e4a 50%, #1a3a6e 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',system-ui,sans-serif" }}>
+      <div style={{ width:"100%", maxWidth:400, padding:"0 24px" }}>
+        {/* Logo */}
+        <div style={{ textAlign:"center", marginBottom:40 }}>
+          <div style={{ width:64, height:64, borderRadius:16, background:"linear-gradient(135deg,#5aaff5,#2b8be8)", display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:16, boxShadow:"0 8px 32px #2b8be840" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" style={{width:32,height:32}}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <h1 style={{ color:"#fff", fontSize:24, fontWeight:800, margin:0 }}>Códice Produtivo</h1>
+          <p style={{ color:"rgba(255,255,255,0.5)", fontSize:13, marginTop:6 }}>
+            {mode === "login" ? "Entre na sua conta" : "Crie sua conta"}
+          </p>
+        </div>
+
+        {/* Card */}
+        <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:20, padding:32, backdropFilter:"blur(12px)" }}>
+          <div style={{ display:"flex", gap:8, marginBottom:24, background:"rgba(0,0,0,0.2)", borderRadius:12, padding:4 }}>
+            {["login","signup"].map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(""); }}
+                style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, transition:"all 0.2s",
+                  background: mode===m ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "transparent",
+                  color: mode===m ? "#fff" : "rgba(255,255,255,0.5)" }}>
+                {m === "login" ? "Entrar" : "Cadastrar"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:"block", color:"rgba(255,255,255,0.7)", fontSize:12, fontWeight:600, marginBottom:6 }}>EMAIL</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              onKeyDown={e => e.key === "Enter" && handle()}
+              style={{ width:"100%", padding:"12px 14px", borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(255,255,255,0.08)", color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+          </div>
+
+          <div style={{ marginBottom:24 }}>
+            <label style={{ display:"block", color:"rgba(255,255,255,0.7)", fontSize:12, fontWeight:600, marginBottom:6 }}>SENHA</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              onKeyDown={e => e.key === "Enter" && handle()}
+              style={{ width:"100%", padding:"12px 14px", borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(255,255,255,0.08)", color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+          </div>
+
+          {error && <div style={{ background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, padding:"10px 14px", color:"#fca5a5", fontSize:13, marginBottom:16 }}>{error}</div>}
+
+          <button onClick={handle} disabled={loading}
+            style={{ width:"100%", padding:"13px 0", borderRadius:12, border:"none", cursor:loading?"not-allowed":"pointer", fontSize:15, fontWeight:700, color:"#fff",
+              background: loading ? "rgba(91,175,245,0.4)" : "linear-gradient(135deg,#5aaff5,#2b8be8)",
+              boxShadow: loading ? "none" : "0 4px 20px #2b8be850", transition:"all 0.2s" }}>
+            {loading ? "Aguarde..." : (mode === "login" ? "Entrar" : "Criar Conta")}
+          </button>
+        </div>
+        <p style={{ textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:11, marginTop:24 }}>Códice Contabilidade © 2025</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(() => !!auth.restoreSession());
+
+  const handleLogin = () => setLoggedIn(true);
+  const handleLogout = async () => {
+    await auth.signOut();
+    setLoggedIn(false);
+  };
+
+  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
+
   return (
     <AppProvider>
-      <AppContent onLogout={() => {}} />
+      <AppContent onLogout={handleLogout} />
     </AppProvider>
   );
 }
