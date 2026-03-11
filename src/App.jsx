@@ -504,7 +504,7 @@ function Tasks() {
 
   const openTaskForm = (task) => {
     setEditing(task || null);
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||startDate, clientId:task.clientId||"", isRecurring:!!task.isRecurring } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:startDate, clientId:"", isRecurring:false });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false });
     setIsFormOpen(true);
   };
 
@@ -517,7 +517,7 @@ function Tasks() {
 
   const saveMulti = () => {
     const lines = multiText.split("\n").map(l => l.trim()).filter(Boolean);
-    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: contexts[0]?.id, dueDate: startDate, completed: false, isRecurring: false, checklist: [] }));
+    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "Códice Contabilidade") || contexts[0])?.id, dueDate: new Date().toISOString().split("T")[0], completed: false, isRecurring: false, checklist: [] }));
     setMultiText(""); setIsMultiOpen(false);
   };
 
