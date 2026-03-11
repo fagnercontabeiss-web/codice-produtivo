@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { db } from "./supabase.js";
 
 // ============================================================
 // TYPES & DEFAULTS
@@ -31,52 +32,107 @@ const defaultState = {
 // ============================================================
 const AppContext = createContext(null);
 function AppProvider({ children }) {
-  const [state, setState] = useState(() => {
-    try {
-      const saved = localStorage.getItem("contaTaskState");
-      if (saved) {
-        const p = JSON.parse(saved);
-        if (!p.categories) p.categories = defaultCategories;
-        if (!p.contexts) p.contexts = defaultContexts;
-        if (!p.settings) p.settings = defaultState.settings;
-        return p;
-      }
-    } catch (e) {}
-    return defaultState;
-  });
+  const [state, setState] = useState(defaultState);
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
 
-  useEffect(() => { localStorage.setItem("contaTaskState", JSON.stringify(state)); }, [state]);
+  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, checklist:r.checklist||[] });
+  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring, checklist:t.checklist||[] });
+  const habitFromDb = r => ({ id:r.id, name:r.name, frequency:r.frequency, freqDays:r.freq_days||[], completedDates:r.completed_dates||[] });
+  const habitToDb   = h => ({ id:h.id, name:h.name, frequency:h.frequency, freq_days:h.freqDays||[], completed_dates:h.completedDates||[] });
+  const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
+  const clientToDb   = c => ({ id:c.id, name:c.name, document:c.document, type:c.type, monthly_fee:c.monthlyFee, payment_status:c.paymentStatus, payment_method:c.paymentMethod, notes:c.notes, due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active" });
+  const goalFromDb = r => ({ id:r.id, title:r.title, completed:r.completed, createdAt:r.created_at });
+  const goalToDb   = g => ({ id:g.id, title:g.title, completed:g.completed });
 
-  const set = (key, fn) => setState(s => ({ ...s, [key]: fn(s[key]) }));
-  const v = {
-    ...state,
-    addTask: t => set("tasks", ts => [...ts, t]),
-    updateTask: t => set("tasks", ts => ts.map(x => x.id === t.id ? t : x)),
-    deleteTask: id => set("tasks", ts => ts.filter(t => t.id !== id)),
-    toggleTaskCompletion: id => set("tasks", ts => ts.map(t => t.id === id ? { ...t, completed: !t.completed } : t)),
-    addHabit: h => set("habits", hs => [...hs, h]),
-    updateHabit: h => set("habits", hs => hs.map(x => x.id === h.id ? h : x)),
-    deleteHabit: id => set("habits", hs => hs.filter(h => h.id !== id)),
-    toggleHabitCompletion: (id, date) => set("habits", hs => hs.map(h => {
-      if (h.id !== id) return h;
-      const d = h.completedDates.includes(date) ? h.completedDates.filter(x => x !== date) : [...h.completedDates, date];
-      return { ...h, completedDates: d };
-    })),
-    addClient: c => set("clients", cs => [...cs, c]),
-    updateClient: c => set("clients", cs => cs.map(x => x.id === c.id ? c : x)),
-    deleteClient: id => set("clients", cs => cs.filter(c => c.id !== id)),
-    addWeeklyGoal: g => set("weeklyGoals", gs => [...gs, g]),
-    updateWeeklyGoal: g => set("weeklyGoals", gs => gs.map(x => x.id === g.id ? g : x)),
-    deleteWeeklyGoal: id => set("weeklyGoals", gs => gs.filter(g => g.id !== id)),
-    toggleWeeklyGoalCompletion: id => set("weeklyGoals", gs => gs.map(g => g.id === id ? { ...g, completed: !g.completed } : g)),
-    addCategory: c => set("categories", cs => [...cs, c]),
-    updateCategory: c => set("categories", cs => cs.map(x => x.id === c.id ? c : x)),
-    deleteCategory: id => set("categories", cs => cs.filter(c => c.id !== id)),
-    addContext: c => set("contexts", cs => [...cs, c]),
-    updateContext: c => set("contexts", cs => cs.map(x => x.id === c.id ? c : x)),
-    deleteContext: id => set("contexts", cs => cs.filter(c => c.id !== id)),
-    updateSettings: s => setState(prev => ({ ...prev, settings: s })),
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [tasks, habits, clients, goals, cats, ctxs, settingsRows] = await Promise.all([
+          db.select("tasks"), db.select("habits"), db.select("clients"),
+          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"),
+        ]);
+        const settings = settingsRows?.[0]
+          ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password }
+          : defaultState.settings;
+        setState({
+          tasks: tasks.map(taskFromDb), habits: habits.map(habitFromDb),
+          clients: clients.map(clientFromDb), weeklyGoals: goals.map(goalFromDb),
+          categories: cats.length > 0 ? cats.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultCategories,
+          contexts:   ctxs.length > 0 ? ctxs.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultContexts,
+          settings,
+        });
+        if (cats.length === 0) await db.upsert("categories", defaultCategories);
+        if (ctxs.length === 0) await db.upsert("contexts", defaultContexts);
+      } catch (e) {
+        console.error("Supabase load error:", e);
+        setDbError(true);
+        try {
+          const saved = localStorage.getItem("contaTaskState");
+          if (saved) { const p = JSON.parse(saved); if (!p.categories) p.categories = defaultCategories; if (!p.contexts) p.contexts = defaultContexts; if (!p.settings) p.settings = defaultState.settings; setState(p); }
+        } catch {}
+      } finally { setLoading(false); }
+    };
+    load();
+  }, []);
+
+  useEffect(() => { if (dbError) localStorage.setItem("contaTaskState", JSON.stringify(state)); }, [state, dbError]);
+
+  const addTask = useCallback(async t => { setState(s => ({ ...s, tasks:[...s.tasks,t] })); await db.upsert("tasks", taskToDb(t)).catch(console.error); }, []);
+  const updateTask = useCallback(async t => { setState(s => ({ ...s, tasks:s.tasks.map(x => x.id===t.id?t:x) })); await db.upsert("tasks", taskToDb(t)).catch(console.error); }, []);
+  const deleteTask = useCallback(async id => { setState(s => ({ ...s, tasks:s.tasks.filter(t => t.id!==id) })); await db.delete("tasks", id).catch(console.error); }, []);
+  const toggleTaskCompletion = useCallback(async id => {
+    let updated;
+    setState(s => { const tasks = s.tasks.map(t => t.id===id ? {...t,completed:!t.completed} : t); updated = tasks.find(t => t.id===id); return {...s,tasks}; });
+    setTimeout(() => { if (updated) db.upsert("tasks", taskToDb(updated)).catch(console.error); }, 0);
+  }, []);
+
+  const addHabit = useCallback(async h => { setState(s => ({ ...s, habits:[...s.habits,h] })); await db.upsert("habits", habitToDb(h)).catch(console.error); }, []);
+  const updateHabit = useCallback(async h => { setState(s => ({ ...s, habits:s.habits.map(x => x.id===h.id?h:x) })); await db.upsert("habits", habitToDb(h)).catch(console.error); }, []);
+  const deleteHabit = useCallback(async id => { setState(s => ({ ...s, habits:s.habits.filter(h => h.id!==id) })); await db.delete("habits", id).catch(console.error); }, []);
+  const toggleHabitCompletion = useCallback(async (id, date) => {
+    let updated;
+    setState(s => { const habits = s.habits.map(h => { if (h.id!==id) return h; const d = h.completedDates.includes(date) ? h.completedDates.filter(x => x!==date) : [...h.completedDates,date]; return {...h,completedDates:d}; }); updated = habits.find(h => h.id===id); return {...s,habits}; });
+    setTimeout(() => { if (updated) db.upsert("habits", habitToDb(updated)).catch(console.error); }, 0);
+  }, []);
+
+  const addClient = useCallback(async c => { setState(s => ({ ...s, clients:[...s.clients,c] })); await db.upsert("clients", clientToDb(c)).catch(console.error); }, []);
+  const updateClient = useCallback(async c => { setState(s => ({ ...s, clients:s.clients.map(x => x.id===c.id?c:x) })); await db.upsert("clients", clientToDb(c)).catch(console.error); }, []);
+  const deleteClient = useCallback(async id => { setState(s => ({ ...s, clients:s.clients.filter(c => c.id!==id) })); await db.delete("clients", id).catch(console.error); }, []);
+
+  const addWeeklyGoal = useCallback(async g => { setState(s => ({ ...s, weeklyGoals:[...s.weeklyGoals,g] })); await db.upsert("weekly_goals", goalToDb(g)).catch(console.error); }, []);
+  const updateWeeklyGoal = useCallback(async g => { setState(s => ({ ...s, weeklyGoals:s.weeklyGoals.map(x => x.id===g.id?g:x) })); await db.upsert("weekly_goals", goalToDb(g)).catch(console.error); }, []);
+  const deleteWeeklyGoal = useCallback(async id => { setState(s => ({ ...s, weeklyGoals:s.weeklyGoals.filter(g => g.id!==id) })); await db.delete("weekly_goals", id).catch(console.error); }, []);
+  const toggleWeeklyGoalCompletion = useCallback(async id => {
+    let updated;
+    setState(s => { const weeklyGoals = s.weeklyGoals.map(g => g.id===id ? {...g,completed:!g.completed} : g); updated = weeklyGoals.find(g => g.id===id); return {...s,weeklyGoals}; });
+    setTimeout(() => { if (updated) db.upsert("weekly_goals", goalToDb(updated)).catch(console.error); }, 0);
+  }, []);
+
+  const addCategory = useCallback(async c => { setState(s => ({ ...s, categories:[...s.categories,c] })); await db.upsert("categories", c).catch(console.error); }, []);
+  const updateCategory = useCallback(async c => { setState(s => ({ ...s, categories:s.categories.map(x => x.id===c.id?c:x) })); await db.upsert("categories", c).catch(console.error); }, []);
+  const deleteCategory = useCallback(async id => { setState(s => ({ ...s, categories:s.categories.filter(c => c.id!==id) })); await db.delete("categories", id).catch(console.error); }, []);
+
+  const addContext = useCallback(async c => { setState(s => ({ ...s, contexts:[...s.contexts,c] })); await db.upsert("contexts", c).catch(console.error); }, []);
+  const updateContext = useCallback(async c => { setState(s => ({ ...s, contexts:s.contexts.map(x => x.id===c.id?c:x) })); await db.upsert("contexts", c).catch(console.error); }, []);
+  const deleteContext = useCallback(async id => { setState(s => ({ ...s, contexts:s.contexts.filter(c => c.id!==id) })); await db.delete("contexts", id).catch(console.error); }, []);
+
+  const updateSettings = useCallback(async s => {
+    setState(prev => ({ ...prev, settings:s }));
+    await db.upsert("settings", { id:"default", app_name:s.appName, login_email:s.loginEmail, login_password:s.loginPassword }).catch(console.error);
+  }, []);
+
+  if (loading) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
+      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando Códice Produtivo...</p>
+      {dbError && <p style={{ color:"#ef4444", fontSize:12 }}>Erro ao conectar — usando dados locais</p>}
+    </div>
+  );
+
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
