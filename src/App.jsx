@@ -566,7 +566,7 @@ function Tasks() {
   const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false });
   const [multiText, setMultiText] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = React.useRef(null);
+  const recognitionRef = useRef(null);
 
   const startVoice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -759,7 +759,7 @@ function Tasks() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Cliente (Opcional)</label>
                 <select value={tf.clientId} onChange={e=>setTf(p=>({...p,clientId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
                   <option value="">Nenhum</option>
-                  {(useApp().clients || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {(clients || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
