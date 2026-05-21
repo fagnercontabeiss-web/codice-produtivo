@@ -3793,6 +3793,114 @@ function SeveranceSimulation() {
   const totalDesc = verbas.reduce((s, v) => s + (Number(v.desconto) || 0), 0);
   const totalLiq  = totalProv - totalDesc;
 
+  const handlePrint = () => {
+    if (!reportData) return;
+    const rc = reasonColors[reportData.employeeInfo.reason] || {};
+
+    const rows = verbas.map(v => {
+      const hasProv = v.provento > 0;
+      const hasDesc = v.desconto > 0;
+      return "<tr style='border-bottom:1px solid #e8edf5'>" +
+        "<td style='padding:8px 4px;color:#374151;font-size:13px'>" + v.description + "</td>" +
+        "<td style='padding:8px 4px;text-align:right;font-size:13px;font-weight:600;color:" + (hasProv ? "#2b8be8" : "#cbd5e1") + "'>" + (hasProv ? fmtCurrency(v.provento) : "—") + "</td>" +
+        "<td style='padding:8px 4px;text-align:right;font-size:13px;font-weight:600;color:" + (hasDesc ? "#ef4444" : "#cbd5e1") + "'>" + (hasDesc ? fmtCurrency(v.desconto) : "—") + "</td>" +
+        "</tr>";
+    }).join("");
+
+    const infoRows = [
+      ["Colaborador", reportData.employeeInfo.name],
+      ["CPF", reportData.employeeInfo.cpf || "—"],
+      ["Cargo", reportData.employeeInfo.cargo || "—"],
+      ["Admissão", reportData.employeeInfo.admissionDate],
+      ["Demissão", reportData.employeeInfo.dismissalDate],
+      ["Tempo de Empresa", reportData.employeeInfo.anos + " ano(s) e " + (reportData.employeeInfo.mesesCompletos % 12) + " mês(es)"],
+      ["Dias de Aviso Prévio", reportData.employeeInfo.diasAviso + " dias"],
+      ["Motivo da Saída", reportData.employeeInfo.reason],
+      ["Salário Base", fmtCurrency(reportData.employeeInfo.baseSalary)],
+      ["Dependentes", reportData.employeeInfo.dependentes || "0"],
+    ].map(([k, v]) =>
+      "<div style='display:flex;gap:4px;padding:3px 0;font-size:13px;color:#374151'><strong style='color:#1a1d23;min-width:180px'>" + k + ":</strong><span>" + v + "</span></div>"
+    ).join("");
+
+    const memoriaHtml = reportData.memoriaCalculo
+      .split("\n\n")
+      .map(p => "<p style='margin:0 0 8px;color:#374151;font-size:12px;line-height:1.6'>" + p.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#1a1d23'>$1</strong>") + "</p>")
+      .join("");
+
+    const obsHtml = reportData.observacoes.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    const html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'/><title>Rescisão — " + reportData.employeeInfo.name + "</title>" +
+      "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;background:#fff;padding:30px 40px;font-size:13px}" +
+      "h1{font-size:22px;font-weight:900;color:#1a1d23;margin-bottom:4px}" +
+      "h2{font-size:14px;font-weight:700;color:#374151;margin-bottom:2px}" +
+      "h3{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:12px}" +
+      ".section{margin-bottom:28px}" +
+      "table{width:100%;border-collapse:collapse}" +
+      "th{font-size:12px;font-weight:700;padding:8px 4px;border-bottom:2px solid #1a1d23;color:#1a1d23}" +
+      ".kpi-row{display:flex;gap:16px;margin-bottom:28px}" +
+      ".kpi{flex:1;border:1px solid #dde3ed;border-radius:10px;padding:14px}" +
+      ".kpi-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px}" +
+      ".kpi-value{font-size:20px;font-weight:900}" +
+      ".kpi-dark{background:linear-gradient(135deg,#1c1f26,#1e2e4a);color:#fff;border-color:transparent}" +
+      ".memo-box{background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:14px}" +
+      ".obs-box{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;color:#78350f}" +
+      ".assinatura{display:flex;justify-content:space-between;padding-top:24px;margin-top:32px;border-top:1px solid #dde3ed}" +
+      ".assinatura-col{width:200px;text-align:center}" +
+      ".linha-assinatura{border-top:2px solid #1a1d23;padding-top:8px;margin-top:48px;font-size:12px;font-weight:600}" +
+      "@media print{body{padding:15px 20px}}" +
+      "</style></head><body>" +
+
+      "<div style='text-align:center;padding-bottom:20px;border-bottom:2px solid #1a1d23;margin-bottom:28px'>" +
+        "<h1>Códice Contabilidade</h1>" +
+        "<h2>Relatório de Liquidação de Contrato de Trabalho</h2>" +
+        "<p style='font-size:12px;color:#94a3b8;font-style:italic;margin-top:4px'>Acerto de Vínculo — Cálculo Rescisório</p>" +
+      "</div>" +
+
+      "<div class='kpi-row'>" +
+        "<div class='kpi kpi-dark'><div class='kpi-label' style='color:rgba(255,255,255,.45)'>Total Líquido</div><div class='kpi-value' style='color:#10b981'>" + fmtCurrency(totalLiq) + "</div><div style='font-size:10px;color:rgba(255,255,255,.35);margin-top:4px'>a pagar ao colaborador</div></div>" +
+        "<div class='kpi'><div class='kpi-label'>Proventos</div><div class='kpi-value' style='color:#2b8be8'>" + fmtCurrency(totalProv) + "</div></div>" +
+        "<div class='kpi'><div class='kpi-label'>Descontos</div><div class='kpi-value' style='color:#ef4444'>" + fmtCurrency(totalDesc) + "</div></div>" +
+        "<div class='kpi' style='background:" + (rc.bg||"#f8fafc") + ";border-color:" + (rc.border||"#e8edf5") + "'><div class='kpi-label'>Motivo</div><div style='font-size:12px;font-weight:900;color:" + (rc.color||"#1a1d23") + ";line-height:1.3'>" + reportData.employeeInfo.reason + "</div></div>" +
+      "</div>" +
+
+      "<div class='section'><h3>1. Dados de Identificação</h3><div style='padding-left:16px'>" + infoRows + "</div></div>" +
+
+      "<div class='section'><h3>2. Resumo Financeiro</h3>" +
+        "<table><thead><tr>" +
+          "<th style='text-align:left'>Descrição</th>" +
+          "<th style='text-align:right'>Proventos</th>" +
+          "<th style='text-align:right'>Descontos</th>" +
+        "</tr></thead><tbody>" + rows + "</tbody>" +
+        "<tfoot>" +
+          "<tr style='border-top:2px solid #1a1d23'>" +
+            "<td style='padding:10px 4px;font-weight:900;font-size:13px'>Subtotais</td>" +
+            "<td style='padding:10px 4px;text-align:right;font-weight:900;color:#2b8be8;font-size:13px'>" + fmtCurrency(totalProv) + "</td>" +
+            "<td style='padding:10px 4px;text-align:right;font-weight:900;color:#ef4444;font-size:13px'>" + fmtCurrency(totalDesc) + "</td>" +
+          "</tr>" +
+          "<tr style='border-top:1px solid #e8edf5'>" +
+            "<td style='padding:10px 4px;font-weight:900;font-size:15px;color:#1a1d23'>TOTAL LÍQUIDO A PAGAR</td>" +
+            "<td colspan='2' style='padding:10px 4px;text-align:right;font-weight:900;font-size:15px;color:#10b981'>" + fmtCurrency(totalLiq) + "</td>" +
+          "</tr>" +
+        "</tfoot></table>" +
+      "</div>" +
+
+      "<div class='section'><h3>3. Memória de Cálculo</h3><div class='memo-box'>" + memoriaHtml + "</div></div>" +
+
+      "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + obsHtml + "</div></div>" +
+
+      "<div class='assinatura'>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>Códice Contabilidade</div></div>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>" + reportData.employeeInfo.name + (reportData.employeeInfo.cpf ? "<br/><span style='font-size:11px;color:#94a3b8;font-weight:400'>CPF: " + reportData.employeeInfo.cpf + "</span>" : "") + "</div></div>" +
+      "</div>" +
+
+      "</body></html>";
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  };
+
   const saveSimulation = () => {
     const entry = {
       id: uid(), date: new Date().toISOString(),
@@ -3915,7 +4023,7 @@ function SeveranceSimulation() {
               onMouseEnter={e=>e.currentTarget.style.background="#dbeafe"} onMouseLeave={e=>e.currentTarget.style.background="#eff6ff"}>
               <Icon.Save />Salvar
             </button>
-            <button onClick={() => window.print()}
+            <button onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white rounded-xl"
               style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
               <Icon.Download />Imprimir
