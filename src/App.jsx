@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback, createPortal } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
 
@@ -1235,22 +1235,28 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
   const isColab = currentProfile?.role === "colaborador";
   const canAssign = isAdmin || (isColab && currentProfile?.canCreateTasks);
   const [showAssign, setShowAssign] = useState(false);
-  const [assignDropUp, setAssignDropUp] = useState(false);
+  const [assignPos, setAssignPos] = useState({ top:0, left:0, dropUp:false });
   const assignRef = useRef(null);
   useEffect(() => {
     if (!showAssign) return;
-    const h = e => { if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false); };
+    const h = e => {
+      if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [showAssign]);
 
   const handleAssignOpen = () => {
     if (!canAssign) return;
-    // Calcular se deve abrir para cima ou para baixo
     if (assignRef.current) {
       const rect = assignRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      setAssignDropUp(spaceBelow < 220); // 220px = altura estimada do dropdown
+      const dropUp = spaceBelow < 240;
+      setAssignPos({
+        left: rect.left,
+        top: dropUp ? rect.top - 8 : rect.bottom + 6,
+        dropUp,
+      });
     }
     setShowAssign(v => !v);
   };
@@ -1410,34 +1416,44 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
                   {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:8,height:8,opacity:0.5}}><polyline points="6 9 12 15 18 9"/></svg>}
                 </button>
 
-                {showAssign && canAssign && (
-                  <div className="absolute z-50 left-0 rounded-xl shadow-xl py-1.5"
-                    style={{
-                      background:"#fff", border:"1px solid #dde3ed", minWidth:180,
-                      ...(assignDropUp
-                        ? { bottom:"calc(100% + 6px)" }
-                        : { top:"calc(100% + 6px)" })
-                    }}>
-                    <p className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5" style={{ color:"#94a3b8" }}>Atribuir responsável</p>
+                {showAssign && canAssign && createPortal(
+                  <div style={{
+                    position:"fixed",
+                    zIndex:9999,
+                    left: assignPos.left,
+                    ...(assignPos.dropUp
+                      ? { bottom: window.innerHeight - assignPos.top, top:"auto" }
+                      : { top: assignPos.top }),
+                    background:"#fff",
+                    border:"1px solid #dde3ed",
+                    borderRadius:12,
+                    boxShadow:"0 8px 32px rgba(26,29,35,0.18)",
+                    minWidth:190,
+                    overflow:"hidden",
+                  }}>
+                    <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"8px 12px 4px" }}>Atribuir responsável</p>
                     <button type="button" onClick={() => { onUpdate({...task, assignedTo:""}); setShowAssign(false); }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex items-center gap-2"
-                      style={{ color:"#94a3b8" }}>
-                      <div className="w-5 h-5 rounded-full border-2 border-dashed border-slate-300 flex-shrink-0" />
+                      style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <div style={{ width:20, height:20, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }} />
                       Sem responsável
                     </button>
                     {(teamUsers||[]).filter(u => u.active !== false).map(u => (
                       <button key={u.id} type="button"
                         onClick={() => { onUpdate({...task, assignedTo:u.id}); setShowAssign(false); }}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black text-white"
-                          style={{ background: u.avatarColor||"#2b8be8" }}>
+                        style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background: u.id===task.assignedTo ? (u.avatarColor||"#2b8be8")+"18" : "transparent", border:"none" }}
+                        onMouseEnter={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="#f8fafc"; }}
+                        onMouseLeave={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="transparent"; }}>
+                        <div style={{ width:20, height:20, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#fff", background: u.avatarColor||"#2b8be8" }}>
                           {u.name.charAt(0).toUpperCase()}
                         </div>
-                        <span style={{ color:"#374151", fontWeight: u.id===task.assignedTo ? 700 : 400 }}>{u.name}</span>
-                        {u.id === task.assignedTo && <span className="ml-auto" style={{ color:"#10b981" }}>✓</span>}
+                        <span style={{ color:"#374151", fontWeight: u.id===task.assignedTo ? 700 : 400, flex:1 }}>{u.name}</span>
+                        {u.id === task.assignedTo && <span style={{ color:"#10b981", fontSize:11 }}>✓</span>}
                       </button>
                     ))}
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}
