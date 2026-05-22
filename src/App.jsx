@@ -1172,23 +1172,33 @@ function Tasks() {
 
 function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  const handleOpen = () => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropUp(window.innerHeight - rect.bottom < 240);
+    }
+    setOpen(v => !v);
+  };
   return (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(v => !v)}
+      <button type="button" onClick={handleOpen}
         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
-        style={{ color: color || "#64748b", background: color ? `${color}18` : "#f1f5f9", border: `1px solid ${color ? `${color}30` : "#e2e8f0"}` }}>
+        style={{ color: color || "#64748b", background: color ? color + "18" : "#f1f5f9", border: "1px solid " + (color ? color + "30" : "#e2e8f0") }}>
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color || "#64748b" }} />
         {label}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5 opacity-50" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1.5 rounded-xl shadow-xl overflow-hidden" style={{ minWidth: 170, border: "1px solid #e2eaf3", background: "#fff", maxHeight: 220, overflowY: "auto" }}>
+        <div className="absolute z-50 left-0 rounded-xl shadow-xl overflow-hidden"
+          style={{ minWidth: 170, border: "1px solid #e2eaf3", background: "#fff", maxHeight: 220, overflowY: "auto",
+            ...(dropUp ? { bottom:"calc(100% + 6px)" } : { top:"calc(100% + 6px)" }) }}>
           <div className="px-3 py-2 sticky top-0 bg-white" style={{ borderBottom: "1px solid #dde3ed" }}>
             <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#94a3b8" }}>{menuTitle}</p>
           </div>
@@ -1219,6 +1229,7 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
   const isColab = currentProfile?.role === "colaborador";
   const canAssign = isAdmin || (isColab && currentProfile?.canCreateTasks);
   const [showAssign, setShowAssign] = useState(false);
+  const [assignDropUp, setAssignDropUp] = useState(false);
   const assignRef = useRef(null);
   useEffect(() => {
     if (!showAssign) return;
@@ -1226,6 +1237,17 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [showAssign]);
+
+  const handleAssignOpen = () => {
+    if (!canAssign) return;
+    // Calcular se deve abrir para cima ou para baixo
+    if (assignRef.current) {
+      const rect = assignRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setAssignDropUp(spaceBelow < 220); // 220px = altura estimada do dropdown
+    }
+    setShowAssign(v => !v);
+  };
 
   // checklist expand
   const [expanded, setExpanded] = useState(false);
@@ -1328,8 +1350,11 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
                 {od && "⚠ "}{task.dueDate ? fmt(task.dueDate) : "Sem data"}
               </button>
               {editingDate && (
-                <div className="absolute z-50 top-full left-0 mt-1.5 rounded-xl shadow-xl p-3"
-                  style={{ background: "#fff", border: "1px solid #dde3ed", minWidth: 200 }}>
+                <div className="absolute z-50 left-0 rounded-xl shadow-xl p-3"
+                  style={{ background: "#fff", border: "1px solid #dde3ed", minWidth: 200,
+                    ...(dateRef.current && window.innerHeight - dateRef.current.getBoundingClientRect().bottom < 180
+                      ? { bottom:"calc(100% + 6px)" }
+                      : { top:"calc(100% + 6px)" }) }}>
                   <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "#94a3b8" }}>Reagendar para</p>
                   <input
                     type="date"
@@ -1363,7 +1388,7 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
             {((teamUsers||[]).length > 1) && (
               <div ref={assignRef} className="relative">
                 <button type="button"
-                  onClick={() => canAssign && setShowAssign(v => !v)}
+                  onClick={handleAssignOpen}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
                   style={assignedUser
                     ? { background: assignedUser.avatarColor + "22", color: assignedUser.avatarColor, border: "1px solid " + assignedUser.avatarColor + "55", cursor: canAssign ? "pointer" : "default" }
@@ -1380,8 +1405,13 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
                 </button>
 
                 {showAssign && canAssign && (
-                  <div className="absolute z-50 top-full left-0 mt-1.5 rounded-xl shadow-xl py-1.5"
-                    style={{ background:"#fff", border:"1px solid #dde3ed", minWidth:180 }}>
+                  <div className="absolute z-50 left-0 rounded-xl shadow-xl py-1.5"
+                    style={{
+                      background:"#fff", border:"1px solid #dde3ed", minWidth:180,
+                      ...(assignDropUp
+                        ? { bottom:"calc(100% + 6px)" }
+                        : { top:"calc(100% + 6px)" })
+                    }}>
                     <p className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5" style={{ color:"#94a3b8" }}>Atribuir responsável</p>
                     <button type="button" onClick={() => { onUpdate({...task, assignedTo:""}); setShowAssign(false); }}
                       className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex items-center gap-2"
