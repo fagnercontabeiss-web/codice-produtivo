@@ -51,11 +51,13 @@ function AppProvider({ children }) {
   useEffect(() => {
     const load = async () => {
       try {
-        auth.restoreSession();
-        const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw, profilesRaw] = await Promise.all([
+        await auth.restoreSession(); // AWAIT obrigatório — senão as chamadas seguintes ficam sem token
+        const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw] = await Promise.all([
           db.select("tasks"), db.select("habits"), db.select("clients"),
-          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"), db.select("user_profiles"),
+          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"),
         ]);
+        // user_profiles separado — tabela pode não existir em instâncias antigas
+        const profilesRaw = await db.select("user_profiles").catch(() => []);
         const currentUserId = auth.getUserId();
         const myProfile = (profilesRaw||[]).find(p => p.id === currentUserId) || null;
         const settings = settingsRows?.[0]
