@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback, createPortal } from "react";
+import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
 
@@ -743,13 +744,17 @@ function Tasks() {
   const [calMonth, setCalMonth] = useState(new Date());
 
   const overdue = tasks.filter(t => !t.completed && t.dueDate < today());
+  // ID do usuário logado (fallback quando currentProfile ainda não carregou)
+  const sessionUserId = auth.getUserId ? auth.getUserId() : null;
+  const myUserId = currentProfile?.id || sessionUserId;
+
   // Filtro de visibilidade:
-  // - Admin: vê tudo
-  // - Colaborador/Visualizador: vê tarefas atribuídas a ele OU tarefas sem responsável com visibility="all"
+  // - Admin (ou sem perfil carregado ainda): vê tudo
+  // - Colaborador/Visualizador: vê tarefas atribuídas a ele OU sem responsável com visibility="all"
   const visibleTasks = tasks.filter(t => {
     if (!currentProfile || currentProfile.role === "admin") return true;
     // Tarefa atribuída ao próprio usuário — sempre visível
-    if (t.assignedTo === currentProfile.id) return true;
+    if (t.assignedTo && t.assignedTo === myUserId) return true;
     // Tarefa sem responsável e visível para todos — visível
     if (!t.assignedTo && t.visibility !== "assigned") return true;
     // Qualquer outro caso — não visível
