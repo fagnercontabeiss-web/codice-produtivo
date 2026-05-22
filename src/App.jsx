@@ -743,11 +743,17 @@ function Tasks() {
   const [calMonth, setCalMonth] = useState(new Date());
 
   const overdue = tasks.filter(t => !t.completed && t.dueDate < today());
-  // Filtro de visibilidade por role: colaborador/visualizador só vê tarefas atribuídas a ele ou sem restrição
+  // Filtro de visibilidade:
+  // - Admin: vê tudo
+  // - Colaborador/Visualizador: vê tarefas atribuídas a ele OU tarefas sem responsável com visibility="all"
   const visibleTasks = tasks.filter(t => {
     if (!currentProfile || currentProfile.role === "admin") return true;
-    if (t.visibility === "assigned" && t.assignedTo && t.assignedTo !== currentProfile.id) return false;
-    return true;
+    // Tarefa atribuída ao próprio usuário — sempre visível
+    if (t.assignedTo === currentProfile.id) return true;
+    // Tarefa sem responsável e visível para todos — visível
+    if (!t.assignedTo && t.visibility !== "assigned") return true;
+    // Qualquer outro caso — não visível
+    return false;
   });
 
   const filtered = visibleTasks.filter(t => {
