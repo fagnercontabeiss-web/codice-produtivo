@@ -845,7 +845,7 @@ function Tasks() {
         <div className="rounded-2xl p-5" style={{ background:"#fff8f6", border:"1px solid #fca5a5", borderLeft:"4px solid #ef4444" }}>
           <div className="flex items-center mb-3 gap-2" style={{ color:"#dc2626" }}><Icon.Alert /><h2 className="text-base font-bold">Tarefas Atrasadas ({overdue.length})</h2></div>
           <div className="space-y-2">
-            {overdue.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} />)}
+            {overdue.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} />)}
           </div>
         </div>
       )}
@@ -947,7 +947,7 @@ function Tasks() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filtered.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} />)}
+              {filtered.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} />)}
             </div>
           )}
         </div>
@@ -1210,10 +1210,22 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
   );
 }
 
-function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, contexts }) {
+function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile }) {
   const cat = categories.find(c => c.id === task.categoryId);
   const ctx = contexts.find(c => c.id === task.contextId);
   const od = isOverdue(task.dueDate, task.completed);
+  const assignedUser = (teamUsers||[]).find(u => u.id === task.assignedTo);
+  const isAdmin = currentProfile?.role === "admin" || !currentProfile;
+  const isColab = currentProfile?.role === "colaborador";
+  const canAssign = isAdmin || (isColab && currentProfile?.canCreateTasks);
+  const [showAssign, setShowAssign] = useState(false);
+  const assignRef = useRef(null);
+  useEffect(() => {
+    if (!showAssign) return;
+    const h = e => { if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [showAssign]);
 
   // checklist expand
   const [expanded, setExpanded] = useState(false);
@@ -1345,6 +1357,53 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
             {task.isRecurring && (
               <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
                 style={{ background: "#eff6ff", color: "#2b8be8", border: "1px solid #bfdbfe" }}>↻ Recorrente</span>
+            )}
+
+            {/* ── RESPONSÁVEL ── */}
+            {((teamUsers||[]).length > 1) && (
+              <div ref={assignRef} className="relative">
+                <button type="button"
+                  onClick={() => canAssign && setShowAssign(v => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
+                  style={assignedUser
+                    ? { background: assignedUser.avatarColor + "22", color: assignedUser.avatarColor, border: "1px solid " + assignedUser.avatarColor + "55", cursor: canAssign ? "pointer" : "default" }
+                    : { background: "#f5f7fb", color: "#94a3b8", border: "1px solid #dde3ed", cursor: canAssign ? "pointer" : "default" }
+                  }
+                  title={canAssign ? "Clique para atribuir responsável" : "Responsável"}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  {assignedUser ? assignedUser.name.split(" ")[0] : "Sem responsável"}
+                  {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:8,height:8,opacity:0.5}}><polyline points="6 9 12 15 18 9"/></svg>}
+                </button>
+
+                {showAssign && canAssign && (
+                  <div className="absolute z-50 top-full left-0 mt-1.5 rounded-xl shadow-xl py-1.5"
+                    style={{ background:"#fff", border:"1px solid #dde3ed", minWidth:180 }}>
+                    <p className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5" style={{ color:"#94a3b8" }}>Atribuir responsável</p>
+                    <button type="button" onClick={() => { onUpdate({...task, assignedTo:""}); setShowAssign(false); }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex items-center gap-2"
+                      style={{ color:"#94a3b8" }}>
+                      <div className="w-5 h-5 rounded-full border-2 border-dashed border-slate-300 flex-shrink-0" />
+                      Sem responsável
+                    </button>
+                    {(teamUsers||[]).filter(u => u.active !== false).map(u => (
+                      <button key={u.id} type="button"
+                        onClick={() => { onUpdate({...task, assignedTo:u.id}); setShowAssign(false); }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black text-white"
+                          style={{ background: u.avatarColor||"#2b8be8" }}>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span style={{ color:"#374151", fontWeight: u.id===task.assignedTo ? 700 : 400 }}>{u.name}</span>
+                        {u.id === task.assignedTo && <span className="ml-auto" style={{ color:"#10b981" }}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Checklist counter — clicável */}
