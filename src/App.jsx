@@ -4477,15 +4477,15 @@ function Relationship() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState("todos");
-  const [notifShown, setNotifShown] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("proximos"); // proximos | az | tipo
   const [rf, setRf] = useState({ name:"", type:"cliente", date:"", isAnnual:true, message:"", notes:"", clientId:"", whatsapp:"", email:"" });
 
   const today = new Date();
+  today.setHours(0,0,0,0);
   const todayMD = String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
-  const todayFull = today.toISOString().split("T")[0];
 
-  // Verificar datas de hoje e exibir notificação ao entrar
-  // normalizeMD é definida abaixo mas usamos lógica inline aqui pois ainda não foi declarada
+  // Normaliza qualquer formato de data para MM-DD
   const getMD = (r) => {
     const d = r.date || "";
     if (d.length === 5 && d[2] === "-") return d;
@@ -4493,136 +4493,120 @@ function Relationship() {
     return d;
   };
 
-  const todayDates = (relationships || []).filter(r => getMD(r) === todayMD);
-
-  const upcomingDates = (relationships || []).filter(r => {
-    const d = getMD(r);
-    const parts = d.split("-").map(Number);
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
-    const [m, day] = parts;
-    const next = new Date(today.getFullYear(), m-1, day);
-    if (isNaN(next.getTime())) return false;
-    if (next < today) next.setFullYear(today.getFullYear()+1);
-    const diff = Math.ceil((next - today) / (1000*60*60*24));
-    return diff > 0 && diff <= 7;
-  });
-
-  const openForm = (r = null) => {
-    setEditing(r);
-    setRf(r ? { name:r.name, type:r.type, date:r.date, isAnnual:r.isAnnual, message:r.message, notes:r.notes, clientId:r.clientId||"", whatsapp:r.whatsapp||"", email:r.email||"" } : { name:"", type:"cliente", date:"", isAnnual:true, message:"", notes:"", clientId:"", whatsapp:"", email:"" });
-    setIsFormOpen(true);
-  };
-
-  const save = async () => {
-    if (!rf.name || !rf.date) return;
-    const entry = { ...rf, id: editing ? editing.id : uid() };
-    if (editing) await updateRelationship(entry);
-    else await addRelationship(entry);
-    setIsFormOpen(false); setEditing(null);
-  };
-
-  // Normaliza a data para MM-DD independente do formato salvo
-  const normalizeMD = (r) => {
-    const d = r.date || "";
-    const isAnn = r.isAnnual === true || r.isAnnual === "true" || r.isAnnual === 1;
-    if (!d) return "";
-    // Se for anual e vier MM-DD (5 chars)
-    if (isAnn && d.length === 5 && d[2] === "-") return d;
-    // Se vier YYYY-MM-DD, pegar só MM-DD
-    if (d.length === 10 && d[4] === "-") return d.slice(5);
-    // Se vier MM-DD mesmo sendo não-anual
-    if (d.length === 5 && d[2] === "-") return d;
-    return d;
-  };
-
-  const getDaysUntil = (r) => {
-    const d = normalizeMD(r);
-    if (!d) return "—";
-    const parts = d.split("-").map(Number);
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return "—";
-    const [m, day] = parts;
-    const next = new Date(today.getFullYear(), m-1, day);
-    if (isNaN(next.getTime())) return "—";
-    if (next < today) next.setFullYear(today.getFullYear()+1);
-    const diff = Math.ceil((next - today) / (1000*60*60*24));
-    if (isNaN(diff)) return "—";
-    return diff === 0 ? "HOJE" : diff === 1 ? "amanhã" : diff + " dias";
-  };
-
   const getDaysUntilNum = (r) => {
-    const d = normalizeMD(r);
+    const d = getMD(r);
     if (!d) return 999;
-    const parts = d.split("-").map(Number);
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 999;
-    const [m, day] = parts;
+    const [m, day] = d.split("-").map(Number);
+    if (!m || !day || isNaN(m) || isNaN(day)) return 999;
     const next = new Date(today.getFullYear(), m-1, day);
-    if (isNaN(next.getTime())) return 999;
     if (next < today) next.setFullYear(today.getFullYear()+1);
-    const diff = Math.ceil((next - today) / (1000*60*60*24));
-    return isNaN(diff) ? 999 : diff;
+    return Math.round((next - today) / (1000*60*60*24));
+  };
+
+  const getDaysLabel = (r) => {
+    const n = getDaysUntilNum(r);
+    if (n === 999) return "—";
+    if (n === 0) return "HOJE";
+    if (n === 1) return "amanhã";
+    if (n <= 30) return n + " dias";
+    const months = Math.floor(n / 30);
+    return months === 1 ? "1 mês" : months + " meses";
   };
 
   const formatDate = (r) => {
     const d = r.date || "";
     const isAnn = r.isAnnual === true || r.isAnnual === "true" || r.isAnnual === 1;
-    if (!d) return "—";
     const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
     if (isAnn) {
-      const md = normalizeMD(r);
+      const md = getMD(r);
       const [m, day] = md.split("-");
       if (!m || !day || isNaN(parseInt(m))) return d;
-      return day + " de " + (months[parseInt(m)-1] || "?");
+      return day.padStart(2,"0") + "/" + m.padStart(2,"0");
     }
-    // Data completa YYYY-MM-DD
-    try { return new Date(d + "T12:00:00").toLocaleDateString("pt-BR"); } catch { return d; }
+    if (d.length === 10) {
+      const [y,m,day] = d.split("-");
+      return day + "/" + m + "/" + y;
+    }
+    return d;
   };
 
   const typeColors = {
-    cliente: { bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe", label:"Cliente" },
-    data_comemorativa: { bg:"#fdf4ff", color:"#a855f7", border:"#e9d5ff", label:"Data Comemorativa" },
-    fornecedor: { bg:"#f0fdf4", color:"#10b981", border:"#bbf7d0", label:"Fornecedor" },
-    parceiro: { bg:"#fff7ed", color:"#f97316", border:"#fed7aa", label:"Parceiro" },
-    outro: { bg:"#f8fafc", color:"#64748b", border:"#e2e8f0", label:"Outro" },
+    cliente:          { bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe", label:"Cliente",        emoji:"👤" },
+    data_comemorativa:{ bg:"#fdf4ff", color:"#a855f7", border:"#e9d5ff", label:"Comemorativa",   emoji:"🎉" },
+    fornecedor:       { bg:"#f0fdf4", color:"#10b981", border:"#bbf7d0", label:"Fornecedor",     emoji:"🏢" },
+    parceiro:         { bg:"#fff7ed", color:"#f97316", border:"#fed7aa", label:"Parceiro",       emoji:"🤝" },
+    outro:            { bg:"#f8fafc", color:"#64748b", border:"#e2e8f0", label:"Outro",          emoji:"📌" },
   };
 
-  const filtered = (relationships || []).filter(r => filter === "todos" || r.type === filter)
-    .sort((a,b) => getDaysUntilNum(a) - getDaysUntilNum(b));
+  const daysColor = (n) => {
+    if (n === 0) return "#a855f7";
+    if (n <= 7)  return "#ef4444";
+    if (n <= 30) return "#f97316";
+    return "#94a3b8";
+  };
+
+  const todayDates   = (relationships||[]).filter(r => getMD(r) === todayMD);
+  const upcomingDates= (relationships||[]).filter(r => { const n = getDaysUntilNum(r); return n > 0 && n <= 7; });
+
+  const openForm = (r=null) => {
+    setEditing(r);
+    setRf(r ? {
+      name:r.name, type:r.type, date:r.date, isAnnual:r.isAnnual===true||r.isAnnual==="true"||r.isAnnual===1,
+      message:r.message||"", notes:r.notes||"", clientId:r.clientId||"",
+      whatsapp:r.whatsapp||"", email:r.email||""
+    } : { name:"", type:"cliente", date:"", isAnnual:true, message:"", notes:"", clientId:"", whatsapp:"", email:"" });
+    setIsFormOpen(true);
+  };
+
+  const save = async () => {
+    if (!rf.name.trim() || !rf.date) return;
+    const entry = { ...rf, id: editing ? editing.id : uid(), isAnnual: rf.isAnnual };
+    if (editing) await updateRelationship(entry);
+    else await addRelationship(entry);
+    setIsFormOpen(false); setEditing(null);
+  };
 
   const whatsappLink = (r) => {
-    const num = (r.whatsapp||"").replace(/\D/g,"");
-    const msg = encodeURIComponent(r.message || "Olá " + r.name + "! 😊");
+    const num = (r.whatsapp||"").replace(/[^0-9]/g,"");
+    const msg = encodeURIComponent(r.message || "Ola " + r.name + "!");
     return "https://wa.me/55" + num + "?text=" + msg;
   };
 
+  // Filtrar e ordenar
+  const list = (relationships||[])
+    .filter(r => filter === "todos" || r.type === filter)
+    .filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()) || (r.notes||"").toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => {
+      if (sortBy === "az")    return (a.name||"").localeCompare(b.name||"");
+      if (sortBy === "tipo")  return (a.type||"").localeCompare(b.type||"");
+      return getDaysUntilNum(a) - getDaysUntilNum(b); // proximos
+    });
+
+  // Contadores por tipo
+  const counts = (relationships||[]).reduce((acc, r) => { acc[r.type] = (acc[r.type]||0)+1; return acc; }, {});
+
   return (
-    <div className="space-y-5">
-      {/* Notificações de hoje */}
+    <div className="space-y-4">
+
+      {/* Banner hoje */}
       {todayDates.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ background:"linear-gradient(135deg,#fdf4ff,#fce7f3)", border:"1px solid #e9d5ff" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)" }}>
-              <Icon.Bell />
-            </div>
-            <div>
-              <p className="font-black text-sm" style={{ color:"#6b21a8" }}>
-                🎉 {todayDates.length === 1 ? "1 data especial hoje!" : todayDates.length + " datas especiais hoje!"}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color:"#9333ea" }}>
-                {todayDates.map(r => r.name).join(" · ")}
-              </p>
-            </div>
+        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background:"linear-gradient(135deg,#6d28d9,#a855f7)", color:"#fff" }}>
+          <div className="text-3xl">🎉</div>
+          <div>
+            <p className="font-black text-sm">Hoje é dia especial!</p>
+            <p className="text-xs opacity-80">{todayDates.map(r => r.name).join(" · ")}</p>
           </div>
         </div>
       )}
 
-      {/* Próximas datas — 7 dias */}
+      {/* Próximos 7 dias */}
       {upcomingDates.length > 0 && (
         <div className="rounded-2xl p-4" style={{ background:"#fffbeb", border:"1px solid #fde68a" }}>
           <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#92400e" }}>📅 Próximos 7 dias</p>
           <div className="flex flex-wrap gap-2">
             {upcomingDates.map(r => (
-              <span key={r.id} className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background:"#fef3c7", color:"#92400e", border:"1px solid #fde68a" }}>
-                {r.name} — {getDaysUntil(r)}
+              <span key={r.id} className="text-xs px-3 py-1 rounded-full font-bold" style={{ background:"#fef3c7", color:"#92400e", border:"1px solid #fde68a" }}>
+                {r.name} — {getDaysLabel(r)}
               </span>
             ))}
           </div>
@@ -4630,90 +4614,111 @@ function Relationship() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Relacionamento</h2>
-          <p className="text-sm" style={{ color:"#94a3b8" }}>Aniversários, datas comemorativas e mensagens</p>
+          <p className="text-sm" style={{ color:"#94a3b8" }}>{(relationships||[]).length} contatos · {todayDates.length} hoje · {upcomingDates.length} em breve</p>
         </div>
-        <button onClick={() => openForm()}
-          className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+        <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
           style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", boxShadow:"0 2px 8px rgba(168,85,247,0.3)" }}>
           <Icon.Plus />Nova Data
         </button>
       </div>
 
-      {/* Filtros */}
+      {/* Busca + Ordenação */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex-1 min-w-48 relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{width:16,height:16,position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar contato..." className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-purple-300" />
+        </div>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-300" style={{ color:"#64748b" }}>
+          <option value="proximos">Mais próximos</option>
+          <option value="az">A → Z</option>
+          <option value="tipo">Por tipo</option>
+        </select>
+      </div>
+
+      {/* Filtros por tipo com contadores */}
       <div className="flex gap-2 flex-wrap">
-        {[["todos","Todos"],["cliente","Clientes"],["data_comemorativa","Datas"],["fornecedor","Fornecedores"],["parceiro","Parceiros"],["outro","Outros"]].map(([v,l]) => (
+        {[["todos","Todos",(relationships||[]).length],["cliente","Clientes",counts.cliente||0],["data_comemorativa","Datas",counts.data_comemorativa||0],["fornecedor","Fornecedores",counts.fornecedor||0],["parceiro","Parceiros",counts.parceiro||0],["outro","Outros",counts.outro||0]].map(([v,l,c]) => (
           <button key={v} onClick={() => setFilter(v)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
             style={{ background: filter===v ? "linear-gradient(135deg,#a855f7,#ec4899)" : "#f0f4f8", color: filter===v ? "#fff" : "#64748b" }}>
             {l}
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background: filter===v ? "rgba(255,255,255,0.25)" : "#e2e8f0", color: filter===v ? "#fff" : "#94a3b8" }}>{c}</span>
           </button>
         ))}
       </div>
 
       {/* Lista */}
-      {filtered.length === 0 ? (
+      {list.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
-          <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background:"#fdf4ff" }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" style={{width:32,height:32}}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </div>
-          <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhuma data cadastrada</p>
-          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Adicione aniversários de clientes e datas especiais</p>
+          <div className="text-5xl mb-4">💝</div>
+          <p className="font-bold" style={{ color:"#1a1d23" }}>{search || filter!=="todos" ? "Nenhum resultado encontrado" : "Nenhum contato cadastrado"}</p>
+          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>{search || filter!=="todos" ? "Tente outros filtros" : "Adicione aniversários de clientes e datas especiais"}</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filtered.map(r => {
+        <div className="space-y-3">
+          {list.map(r => {
             const tc = typeColors[r.type] || typeColors.outro;
             const daysNum = getDaysUntilNum(r);
             const isToday = daysNum === 0;
+            const isUrgent = daysNum <= 7 && daysNum > 0;
+            const isAnn = r.isAnnual === true || r.isAnnual === "true" || r.isAnnual === 1;
             return (
-              <div key={r.id} className="rounded-2xl p-5" style={{ background:"#fff", border: isToday ? "2px solid #a855f7" : "1px solid #dde3ed", boxShadow: isToday ? "0 0 0 4px rgba(168,85,247,0.1)" : "0 2px 8px rgba(26,29,35,0.06)" }}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {/* Avatar / Badge */}
-                    <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black" style={{ background: isToday ? "linear-gradient(135deg,#a855f7,#ec4899)" : tc.bg, color: isToday ? "#fff" : tc.color }}>
-                      {isToday ? "🎉" : r.name.charAt(0).toUpperCase()}
+              <div key={r.id} className="rounded-2xl p-4" style={{
+                background:"#fff",
+                border: isToday ? "2px solid #a855f7" : isUrgent ? "1.5px solid #fde68a" : "1px solid #dde3ed",
+                boxShadow: isToday ? "0 0 0 4px rgba(168,85,247,0.08)" : "0 2px 6px rgba(26,29,35,0.05)"
+              }}>
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-xl font-black select-none" style={{ background: isToday ? "linear-gradient(135deg,#a855f7,#ec4899)" : tc.bg, color: isToday ? "#fff" : tc.color }}>
+                    {isToday ? "🎉" : tc.emoji}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{r.name}</p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:tc.bg, color:tc.color, border:"1px solid "+tc.border }}>{tc.label}</span>
+                      {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", color:"#fff" }}>HOJE 🎉</span>}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{r.name}</p>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:tc.bg, color:tc.color, border:"1px solid "+tc.border }}>{tc.label}</span>
-                        {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", color:"#fff" }}>HOJE 🎉</span>}
-                      </div>
-                      <p className="text-xs mt-0.5" style={{ color:"#64748b" }}>
-                        📅 {formatDate(r)} {r.isAnnual ? "(anual)" : "(única)"} · <span style={{ color: daysNum <= 7 ? "#a855f7" : "#94a3b8", fontWeight: daysNum <= 7 ? 700 : 400 }}>{getDaysUntil(r)}</span>
-                      </p>
-                      {r.message && <p className="text-xs mt-1 line-clamp-1" style={{ color:"#94a3b8", fontStyle:"italic" }}>✉️ "{r.message}"</p>}
-                      {r.notes && <p className="text-xs mt-0.5 line-clamp-1" style={{ color:"#94a3b8" }}>📝 {r.notes}</p>}
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <span className="text-xs" style={{ color:"#94a3b8" }}>📅 {formatDate(r)} {isAnn ? "(anual)" : "(única)"}</span>
+                      {/* Badge dias */}
+                      <span className="text-xs font-black px-2 py-0.5 rounded-full" style={{ background: daysNum <= 7 ? (isToday ? "#f3e8ff" : "#fef9c3") : "#f0f4f8", color: daysColor(daysNum) }}>
+                        {isToday ? "🎂 Hoje!" : daysNum <= 7 ? "⚡ " + getDaysLabel(r) : getDaysLabel(r)}
+                      </span>
                     </div>
+                    {r.message && <p className="text-xs mt-1 truncate" style={{ color:"#94a3b8", fontStyle:"italic" }}>✉️ {r.message}</p>}
+                    {r.notes && <p className="text-xs mt-0.5 truncate" style={{ color:"#94a3b8" }}>📝 {r.notes}</p>}
                   </div>
 
                   {/* Ações */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {r.whatsapp && (
                       <a href={whatsappLink(r)} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                        style={{ background:"#dcfce7", color:"#16a34a" }}
-                        title="Enviar mensagem no WhatsApp">
-                        <Icon.Whatsapp />Enviar
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold"
+                        style={{ background:"#dcfce7", color:"#16a34a" }} title="WhatsApp">
+                        <Icon.Whatsapp />
                       </a>
                     )}
                     {r.email && (
-                      <a href={"mailto:"+r.email+"?subject=Parabéns, "+r.name+"!&body="+encodeURIComponent(r.message||"")}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                        style={{ background:"#eff6ff", color:"#2b8be8" }}
-                        title="Enviar e-mail">
-                        <Icon.Send />E-mail
+                      <a href={"mailto:"+r.email+"?subject=Parabens "+r.name+"!&body="+encodeURIComponent(r.message||"")}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold"
+                        style={{ background:"#eff6ff", color:"#2b8be8" }} title="E-mail">
+                        <Icon.Send />
                       </a>
                     )}
-                    <button onClick={() => openForm(r)} className="p-2 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    <button onClick={() => openForm(r)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
                       onMouseEnter={e=>{e.currentTarget.style.background="#f0f4f8";e.currentTarget.style.color="#2b8be8"}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
                       <Icon.Edit />
                     </button>
-                    <button onClick={() => deleteRelationship(r.id)} className="p-2 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    <button onClick={() => deleteRelationship(r.id)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
                       onMouseEnter={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.color="#ef4444"}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
                       <Icon.Trash />
@@ -4726,42 +4731,47 @@ function Relationship() {
         </div>
       )}
 
-      {/* Modal formulário */}
+      {/* Modal */}
       {isFormOpen && (
-        <Modal title={editing ? "Editar Data" : "Nova Data Especial"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-lg">
+        <Modal title={editing ? "Editar Contato" : "Novo Contato / Data"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-lg">
           <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+              <input value={rf.name} onChange={e=>setRf(p=>({...p,name:e.target.value}))} placeholder="Ex: João Silva, Natal..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
-                <input value={rf.name} onChange={e=>setRf(p=>({...p,name:e.target.value}))} placeholder="Ex: João Silva, Natal, Dia do Cliente..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
                 <select value={rf.type} onChange={e=>setRf(p=>({...p,type:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400">
-                  <option value="cliente">Cliente</option>
-                  <option value="data_comemorativa">Data Comemorativa</option>
-                  <option value="fornecedor">Fornecedor</option>
-                  <option value="parceiro">Parceiro</option>
-                  <option value="outro">Outro</option>
+                  <option value="cliente">👤 Cliente</option>
+                  <option value="data_comemorativa">🎉 Data Comemorativa</option>
+                  <option value="fornecedor">🏢 Fornecedor</option>
+                  <option value="parceiro">🤝 Parceiro</option>
+                  <option value="outro">📌 Outro</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Recorrência</label>
                 <select value={rf.isAnnual ? "anual" : "unica"} onChange={e=>setRf(p=>({...p,isAnnual:e.target.value==="anual",date:""}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400">
-                  <option value="anual">Anual (ex: aniversário)</option>
-                  <option value="unica">Data única</option>
+                  <option value="anual">🔁 Anual (aniversário)</option>
+                  <option value="unica">📌 Data única</option>
                 </select>
               </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {rf.isAnnual ? "Dia e Mês (MM-DD) *" : "Data completa *"}
-                </label>
-                {rf.isAnnual ? (
-                  <input type="text" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} placeholder="MM-DD (ex: 07-15 para 15 de julho)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" maxLength={5} />
-                ) : (
-                  <input type="date" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
-                )}
-              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {rf.isAnnual ? "Dia e Mês *" : "Data completa *"}
+              </label>
+              {rf.isAnnual ? (
+                <div>
+                  <input type="text" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} placeholder="MM-DD (ex: 03-25 = 25 de março)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" maxLength={5} />
+                  <p className="text-xs text-slate-400 mt-1">Formato: MM-DD (mês-dia) ex: 07-15 = 15 de julho</p>
+                </div>
+              ) : (
+                <input type="date" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
                 <input value={rf.whatsapp} onChange={e=>setRf(p=>({...p,whatsapp:e.target.value}))} placeholder="(81) 99999-9999" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
@@ -4770,19 +4780,20 @@ function Relationship() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
                 <input type="email" value={rf.email} onChange={e=>setRf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
               </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mensagem</label>
-                <textarea value={rf.message} onChange={e=>setRf(p=>({...p,message:e.target.value}))} rows={3} placeholder="Mensagem padrão para enviar no dia (WhatsApp ou e-mail)..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
-                <p className="text-xs text-slate-400 mt-1">Esta mensagem será pré-carregada ao clicar em "Enviar"</p>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notas internas</label>
-                <textarea value={rf.notes} onChange={e=>setRf(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Observações sobre o contato, preferências, etc..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
-              </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Mensagem para enviar no dia</label>
+              <textarea value={rf.message} onChange={e=>setRf(p=>({...p,message:e.target.value}))} rows={3} placeholder="Parabens pelo seu aniversario! Que este novo ano seja repleto de conquistas..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Notas internas</label>
+              <textarea value={rf.notes} onChange={e=>setRf(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Observacoes sobre este contato..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
+            </div>
+            {!rf.name.trim() || !rf.date ? <p className="text-xs text-red-500">* Nome e data são obrigatórios</p> : null}
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
-              <button onClick={save} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)" }}>
+              <button onClick={save} disabled={!rf.name.trim()||!rf.date} className="px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)" }}>
                 {editing ? "Salvar" : "Adicionar"}
               </button>
             </div>
@@ -4792,6 +4803,7 @@ function Relationship() {
     </div>
   );
 }
+
 
 // APP ROOT
 // ============================================================
