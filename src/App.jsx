@@ -4892,6 +4892,49 @@ function Team() {
   const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8", allowedTabs:null, canCreateTasks:false };
 
   const [uf, setUf] = useState(emptyUf);
+  const [confirmingDelete, setConfirmingDelete] = useState(null); // usuário a deletar
+  const [newPassword, setNewPassword] = useState(""); // redefinir senha
+
+  const confirmDelete = (u) => setConfirmingDelete(u);
+
+  const deleteUser = async (u) => {
+    setLoading(true);
+    try {
+      const session = JSON.parse(localStorage.getItem("sb_session") || "{}");
+      const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/delete-team-user", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+(session.access_token||""), "apikey":import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ user_id: u.id }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      await removeTeamUser(u.id);
+      setConfirmingDelete(null);
+    } catch(e) {
+      setError(e.message || "Erro ao remover usuário");
+      setConfirmingDelete(null);
+    } finally { setLoading(false); }
+  };
+
+  const resetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) { setError("Senha deve ter pelo menos 6 caracteres"); return; }
+    setLoading(true); setError("");
+    try {
+      const session = JSON.parse(localStorage.getItem("sb_session") || "{}");
+      const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/create-team-user", {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+(session.access_token||""), "apikey":import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ user_id: editing?.id, password: newPassword }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSuccess("Senha redefinida com sucesso!");
+      setNewPassword("");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch(e) {
+      setError(e.message || "Erro ao redefinir senha");
+    } finally { setLoading(false); }
+  };
 
   const toggleTab = (id) => {
     const current = uf.allowedTabs || ALL_TABS.map(t => t.id);
@@ -5032,6 +5075,11 @@ function Team() {
                     onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
                     <Icon.Edit />
                   </button>
+                  <button onClick={() => confirmDelete(u)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }} title="Remover usuário"
+                    onMouseEnter={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.color="#ef4444"}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                    <Icon.Trash />
+                  </button>
                 </div>
               )}
             </div>
@@ -5045,7 +5093,36 @@ function Team() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal confirmação de delete */}
+      {confirmingDelete && (
+        <Modal title="Remover Usuário" onClose={() => setConfirmingDelete(null)} maxWidth="max-w-sm">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black text-white flex-shrink-0"
+                style={{ background: confirmingDelete.avatarColor||"#ef4444" }}>
+                {confirmingDelete.name.charAt(0)}
+              </div>
+              <div>
+                <p className="font-black" style={{ color:"#1a1d23" }}>{confirmingDelete.name}</p>
+                <p className="text-sm" style={{ color:"#94a3b8" }}>Esta ação removerá o acesso do usuário ao app.</p>
+              </div>
+            </div>
+            <div className="rounded-xl p-3" style={{ background:"#fff5f5", border:"1px solid #fecaca" }}>
+              <p className="text-xs" style={{ color:"#dc2626" }}>⚠️ O usuário perderá acesso imediatamente. Os dados criados por ele serão mantidos.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmingDelete(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+              <button onClick={() => deleteUser(confirmingDelete)} disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-60"
+                style={{ background:"linear-gradient(135deg,#ef4444,#dc2626)" }}>
+                {loading ? <><Icon.Loader />Removendo...</> : <><Icon.Trash />Remover</>}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal criar/editar */}
       {isFormOpen && (
         <Modal title={editing ? "Editar Usuário" : "Novo Usuário"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-lg">
           <div className="p-6 space-y-5">
@@ -5134,6 +5211,23 @@ function Team() {
                     <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Se desmarcado, o colaborador só visualiza as tarefas atribuídas a ele, sem criar nem editar.</p>
                   </div>
                 </label>
+              </div>
+            )}
+
+            {/* Redefinir senha — só na edição */}
+            {editing && (
+              <div className="rounded-xl border border-slate-200 p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700">Redefinir senha</p>
+                <div className="flex gap-2">
+                  <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}
+                    placeholder="Nova senha (mín. 6 caracteres)"
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  <button type="button" onClick={resetPassword} disabled={loading || !newPassword}
+                    className="px-3 py-2 text-white rounded-lg text-sm font-bold disabled:opacity-50"
+                    style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                    Salvar
+                  </button>
+                </div>
               </div>
             )}
 
