@@ -4485,15 +4485,23 @@ function Relationship() {
   const todayFull = today.toISOString().split("T")[0];
 
   // Verificar datas de hoje e exibir notificação ao entrar
-  const todayDates = (relationships || []).filter(r => {
-    const d = r.isAnnual ? r.date : r.date?.slice(5);
-    return d === todayMD;
-  });
+  // normalizeMD é definida abaixo mas usamos lógica inline aqui pois ainda não foi declarada
+  const getMD = (r) => {
+    const d = r.date || "";
+    if (d.length === 5 && d[2] === "-") return d;
+    if (d.length === 10 && d[4] === "-") return d.slice(5);
+    return d;
+  };
+
+  const todayDates = (relationships || []).filter(r => getMD(r) === todayMD);
 
   const upcomingDates = (relationships || []).filter(r => {
-    const d = r.isAnnual ? r.date : r.date?.slice(5);
-    const [m, day] = (d||"").split("-").map(Number);
+    const d = getMD(r);
+    const parts = d.split("-").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
+    const [m, day] = parts;
     const next = new Date(today.getFullYear(), m-1, day);
+    if (isNaN(next.getTime())) return false;
     if (next < today) next.setFullYear(today.getFullYear()+1);
     const diff = Math.ceil((next - today) / (1000*60*60*24));
     return diff > 0 && diff <= 7;
@@ -4513,32 +4521,60 @@ function Relationship() {
     setIsFormOpen(false); setEditing(null);
   };
 
+  // Normaliza a data para MM-DD independente do formato salvo
+  const normalizeMD = (r) => {
+    const d = r.date || "";
+    const isAnn = r.isAnnual === true || r.isAnnual === "true" || r.isAnnual === 1;
+    if (!d) return "";
+    // Se for anual e vier MM-DD (5 chars)
+    if (isAnn && d.length === 5 && d[2] === "-") return d;
+    // Se vier YYYY-MM-DD, pegar só MM-DD
+    if (d.length === 10 && d[4] === "-") return d.slice(5);
+    // Se vier MM-DD mesmo sendo não-anual
+    if (d.length === 5 && d[2] === "-") return d;
+    return d;
+  };
+
   const getDaysUntil = (r) => {
-    const d = r.isAnnual ? r.date : r.date?.slice(5);
-    const [m, day] = (d||"").split("-").map(Number);
+    const d = normalizeMD(r);
+    if (!d) return "—";
+    const parts = d.split("-").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return "—";
+    const [m, day] = parts;
     const next = new Date(today.getFullYear(), m-1, day);
+    if (isNaN(next.getTime())) return "—";
     if (next < today) next.setFullYear(today.getFullYear()+1);
     const diff = Math.ceil((next - today) / (1000*60*60*24));
+    if (isNaN(diff)) return "—";
     return diff === 0 ? "HOJE" : diff === 1 ? "amanhã" : diff + " dias";
   };
 
   const getDaysUntilNum = (r) => {
-    const d = r.isAnnual ? r.date : r.date?.slice(5);
-    const [m, day] = (d||"").split("-").map(Number);
+    const d = normalizeMD(r);
+    if (!d) return 999;
+    const parts = d.split("-").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 999;
+    const [m, day] = parts;
     const next = new Date(today.getFullYear(), m-1, day);
+    if (isNaN(next.getTime())) return 999;
     if (next < today) next.setFullYear(today.getFullYear()+1);
-    return Math.ceil((next - today) / (1000*60*60*24));
+    const diff = Math.ceil((next - today) / (1000*60*60*24));
+    return isNaN(diff) ? 999 : diff;
   };
 
   const formatDate = (r) => {
-    const d = r.date;
+    const d = r.date || "";
+    const isAnn = r.isAnnual === true || r.isAnnual === "true" || r.isAnnual === 1;
     if (!d) return "—";
-    if (r.isAnnual) {
-      const [m, day] = d.split("-");
-      const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-      return day + " de " + months[parseInt(m)-1];
+    const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    if (isAnn) {
+      const md = normalizeMD(r);
+      const [m, day] = md.split("-");
+      if (!m || !day || isNaN(parseInt(m))) return d;
+      return day + " de " + (months[parseInt(m)-1] || "?");
     }
-    return new Date(d + "T12:00:00").toLocaleDateString("pt-BR");
+    // Data completa YYYY-MM-DD
+    try { return new Date(d + "T12:00:00").toLocaleDateString("pt-BR"); } catch { return d; }
   };
 
   const typeColors = {
