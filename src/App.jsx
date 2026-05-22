@@ -74,8 +74,8 @@ function AppProvider({ children }) {
             message:r.message||"", notes:r.notes||"", clientId:r.client_id||"",
             whatsapp:r.whatsapp||"", email:r.email||"", notifiedAt:r.notified_at||"",
           })),
-          teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active })),
-          currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color } : null,
+          teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
+          currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
         });
         if (cats.length === 0) await db.upsert("categories", defaultCategories);
         if (ctxs.length === 0) await db.upsert("contexts", defaultContexts);
@@ -164,11 +164,11 @@ function AppProvider({ children }) {
   // Team user management — DEVE ficar antes do if(loading) return
   const addTeamUser = useCallback(async (profile) => {
     setState(s => ({ ...s, teamUsers: [...s.teamUsers, profile] }));
-    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:true }).catch(console.error);
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:true, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
   }, []);
   const updateTeamUser = useCallback(async (profile) => {
     setState(s => ({ ...s, teamUsers: s.teamUsers.map(u => u.id===profile.id ? profile : u) }));
-    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:profile.active }).catch(console.error);
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:profile.active, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
   }, []);
   const removeTeamUser = useCallback(async (id) => {
     setState(s => ({ ...s, teamUsers: s.teamUsers.filter(u => u.id !== id) }));
@@ -396,34 +396,52 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const navGroups = [
+  const isAdmin = currentProfile?.role === "admin";
+  const isColab = currentProfile?.role === "colaborador";
+  const isViewer = currentProfile?.role === "visualizador";
+  // Se allowedTabs está definido, usá-lo como filtro; null = sem restrição
+  const allowedTabs = currentProfile?.allowedTabs || null;
+  const canTab = (id) => isAdmin || !allowedTabs || allowedTabs.includes(id);
+
+  // Todas as abas possíveis por grupo — o filtro canTab decide quem vê cada uma
+  const allNavDefs = [
     {
       label: "Principal",
       items: [
         { id: "dashboard", label: "Dashboard", icon: Icon.Dashboard },
-        { id: "tasks", label: "Tarefas", icon: Icon.Tasks },
-        { id: "habits", label: "Hábitos e Rotina", icon: Icon.Habits },
+        { id: "tasks",     label: "Tarefas",         icon: Icon.Tasks },
+        { id: "habits",    label: "Hábitos e Rotina", icon: Icon.Habits },
       ]
     },
     {
       label: "Escritório",
       items: [
-        { id: "clients", label: "Clientes", icon: Icon.Clients },
-        { id: "relationship", label: "Relacionamento", icon: Icon.Heart },
-        { id: "finances", label: "Finanças", icon: Icon.Finance },
-        { id: "obligations", label: "Obrigações", icon: Icon.Obligations },
-        { id: "severance", label: "Simulação Rescisória", icon: Icon.Calculator },
+        { id: "clients",      label: "Clientes",              icon: Icon.Clients },
+        { id: "relationship", label: "Relacionamento",         icon: Icon.Heart },
+        { id: "obligations",  label: "Obrigações",             icon: Icon.Obligations },
+        { id: "severance",    label: "Simulação Rescisória",   icon: Icon.Calculator },
       ]
     },
     {
       label: "Análise",
       items: [
-        { id: "reports", label: "Relatórios", icon: Icon.Reports },
-        ...(currentProfile?.role === "admin" ? [{ id: "settings", label: "Configurações", icon: Icon.Settings }] : []),
-        ...(currentProfile?.role === "admin" ? [{ id: "team", label: "Equipe", icon: Icon.Clients }] : []),
+        { id: "reports",  label: "Relatórios",    icon: Icon.Reports },
+        { id: "settings", label: "Configurações", icon: Icon.Settings },
+        { id: "team",     label: "Equipe",         icon: Icon.Clients },
       ]
-    }
+    },
   ];
+
+  // Abas exclusivas do admin (nunca aparecem para outros)
+  const adminOnlyTabs = ["settings", "team", "severance", "reports"];
+
+  const navGroups = allNavDefs.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      if (adminOnlyTabs.includes(item.id) && !isAdmin) return false;
+      return canTab(item.id);
+    })
+  })).filter(g => g.items.length > 0);
   const allItems = navGroups.flatMap(g => g.items);
   const currentLabel = allItems.find(i => i.id === activeTab)?.label || "";
 
@@ -749,6 +767,13 @@ function Tasks() {
 
   const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
   const [multiText, setMultiText] = useState("");
+  const canEditTask = (task) => {
+    if (!currentProfile || currentProfile.role === "admin") return true;
+    if (currentProfile.role === "visualizador") return false;
+    // colaborador só edita tarefas atribuídas a ele ou sem responsável
+    if (task.assignedTo && task.assignedTo !== currentProfile.id) return false;
+    return true;
+  };
   const [isListening, setIsListening] = useState(false);
   const [voiceTarget, setVoiceTarget] = useState("single"); // "single" | "multi"
   const recognitionRef = useRef(null);
@@ -785,6 +810,14 @@ function Tasks() {
   };
 
   const openTaskForm = (task) => {
+    // Bloquear edição para visualizador
+    if (currentProfile?.role === "visualizador") return;
+    // Colaborador: nova tarefa só se canCreateTasks=true
+    if (!task && currentProfile?.role === "colaborador" && !currentProfile?.canCreateTasks) return;
+    // Colaborador: só edita tarefas atribuídas a ele ou sem responsável
+    if (task && currentProfile?.role === "colaborador") {
+      if (task.assignedTo && task.assignedTo !== currentProfile.id) return;
+    }
     setEditing(task || null);
     setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
@@ -846,7 +879,9 @@ function Tasks() {
                 </span>
               )}
             </button>
-            <button onClick={() => setIsMultiOpen(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-colors" style={{ background:"#f0f4f8", color:"#1a1d23" }}><Icon.List />Em Lote</button>
+            {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
+              <button onClick={() => setIsMultiOpen(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-colors" style={{ background:"#f0f4f8", color:"#1a1d23" }}><Icon.List />Em Lote</button>
+            )}
             <button onClick={isListening ? stopVoice : startVoice}
               className="flex items-center px-4 py-2 rounded-xl text-sm font-bold gap-1.5 transition-all"
               style={{ background: isListening ? "linear-gradient(135deg,#ef4444,#dc2626)" : "#f0f4f8", color: isListening ? "#fff" : "#1a1d23", boxShadow: isListening ? "0 0 0 4px rgba(239,68,68,0.2)" : "none", animation: isListening ? "pulse 1.5s infinite" : "none" }}
@@ -859,7 +894,9 @@ function Tasks() {
               </svg>
               {isListening ? "Gravando..." : "Voz"}
             </button>
-            <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}><Icon.Plus />Nova Tarefa</button>
+            {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
+              <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}><Icon.Plus />Nova Tarefa</button>
+            )}
           </div>
         </div>
 
@@ -2889,356 +2926,6 @@ function Clients() {
 // ============================================================
 // FINANCES
 // ============================================================
-function Finances() {
-  const { clients } = useApp();
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [snapshots, setSnapshots] = useState(() => { try { return JSON.parse(localStorage.getItem("financeSnapshots") || "{}"); } catch { return {}; } });
-  useEffect(() => { localStorage.setItem("financeSnapshots", JSON.stringify(snapshots)); }, [snapshots]);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-
-  const records = snapshots[month] || null;
-
-  // ── Totals ────────────────────────────────────────────────
-  const total   = records?.reduce((s, r) => s + (r.monthlyFee || 0), 0) || 0;
-  const paid    = records?.filter(r => r.paymentStatus === "paid").reduce((s, r) => s + r.monthlyFee, 0) || 0;
-  const pending = records?.filter(r => r.paymentStatus === "pending").reduce((s, r) => s + r.monthlyFee, 0) || 0;
-  const overdue = records?.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + r.monthlyFee, 0) || 0;
-  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
-  const cntPaid    = records?.filter(r => r.paymentStatus === "paid").length || 0;
-  const cntPending = records?.filter(r => r.paymentStatus === "pending").length || 0;
-  const cntOverdue = records?.filter(r => r.paymentStatus === "overdue").length || 0;
-
-  // ── Historical data (last 6 months from snapshots) ───────
-  const histData = useMemo(() => {
-    const result = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(); d.setMonth(d.getMonth() - i);
-      const key = d.toISOString().slice(0, 7);
-      const recs = snapshots[key] || [];
-      const lbl = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".","");
-      result.push({
-        mes: lbl.charAt(0).toUpperCase() + lbl.slice(1),
-        Previsto: recs.reduce((s, r) => s + (r.monthlyFee || 0), 0),
-        Recebido: recs.filter(r => r.paymentStatus === "paid").reduce((s, r) => s + r.monthlyFee, 0),
-        Atrasado: recs.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + r.monthlyFee, 0),
-      });
-    }
-    return result;
-  }, [snapshots]);
-
-  const hasHistory = histData.some(d => d.Previsto > 0);
-
-  // ── Actions ───────────────────────────────────────────────
-  const generate = () => {
-    const nr = clients.map(c => ({
-      clientId: c.id, name: c.name, document: c.document,
-      monthlyFee: c.monthlyFee || 0, paymentMethod: c.paymentMethod || "pix",
-      paymentStatus: "pending", billingSent: false, paidAt: null,
-    }));
-    setSnapshots(p => ({ ...p, [month]: nr }));
-  };
-
-  const syncNew = () => {
-    const existing = new Set(records.map(r => r.clientId));
-    const newOnes = clients.filter(c => !existing.has(c.id)).map(c => ({
-      clientId: c.id, name: c.name, document: c.document,
-      monthlyFee: c.monthlyFee || 0, paymentMethod: c.paymentMethod || "pix",
-      paymentStatus: "pending", billingSent: false, paidAt: null,
-    }));
-    if (!newOnes.length) return;
-    setSnapshots(p => ({ ...p, [month]: [...p[month], ...newOnes] }));
-  };
-
-  const chStatus = (id, st) => setSnapshots(p => ({
-    ...p,
-    [month]: p[month].map(r => r.clientId === id
-      ? { ...r, paymentStatus: st, paidAt: st === "paid" ? today() : r.paidAt }
-      : r)
-  }));
-
-  const chBilling = (id) => setSnapshots(p => ({
-    ...p, [month]: p[month].map(r => r.clientId === id ? { ...r, billingSent: !r.billingSent } : r)
-  }));
-
-  // ── Export CSV ────────────────────────────────────────────
-  const exportCSV = () => {
-    if (!records) return;
-    const header = ["Cliente","CNPJ/CPF","Honorários","Forma Pagamento","Status","Cobrança Enviada","Data Pagamento"];
-    const methodLabel = { boleto:"Boleto", pix:"Pix", transfer:"Transferência" };
-    const statusLabel = { paid:"Em dia", pending:"Pendente", overdue:"Atrasado" };
-    const rows = records.map(r => [
-      r.name, r.document || "", r.monthlyFee,
-      methodLabel[r.paymentMethod] || r.paymentMethod,
-      statusLabel[r.paymentStatus] || r.paymentStatus,
-      r.billingSent ? "Sim" : "Não",
-      r.paidAt || "",
-    ]);
-    const csv = [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `financeiro-${month}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // ── Filtered records ──────────────────────────────────────
-  const filtered = (records || []).filter(r => {
-    if (filterStatus !== "all" && r.paymentStatus !== filterStatus) return false;
-    if (search && !r.name.toLowerCase().includes(search.toLowerCase()) && !(r.document||"").includes(search)) return false;
-    return true;
-  });
-
-  const methodLabel = { boleto:"Boleto", pix:"Pix", transfer:"Transferência" };
-  const statusCfg = {
-    paid:    { label:"Em dia",   dot:"#10b981", bg:"#f0fdf4", color:"#16a34a", border:"#bbf7d0" },
-    pending: { label:"Pendente", dot:"#f59e0b", bg:"#fffbeb", color:"#d97706", border:"#fde68a" },
-    overdue: { label:"Atrasado", dot:"#ef4444", bg:"#fff5f5", color:"#dc2626", border:"#fca5a5" },
-  };
-
-  return (
-    <div className="space-y-5">
-
-      {/* ── HEADER ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-black" style={{ color:"#1a1d23" }}>Gestão Financeira</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Controle de honorários por competência</p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 1px 4px rgba(26,29,35,0.06)" }}>
-          <Icon.Calendar />
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="border-none focus:ring-0 font-semibold bg-transparent text-sm cursor-pointer outline-none" style={{ color:"#374151" }} />
-        </div>
-      </div>
-
-      {/* ── MÊS NÃO INICIADO ── */}
-      {!records ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background:"#eff6ff", border:"1px solid #bfdbfe" }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#2b8be8" strokeWidth="1.5" className="w-8 h-8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
-          </div>
-          <h3 className="text-lg font-black mb-1" style={{ color:"#1a1d23" }}>Competência não iniciada</h3>
-          <p className="text-sm mb-6" style={{ color:"#94a3b8" }}>
-            {clients.length === 0
-              ? "Cadastre clientes antes de gerar o controle mensal."
-              : `Gere o controle para importar os ${clients.length} clientes cadastrados.`}
-          </p>
-          <button onClick={generate} disabled={clients.length === 0}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-white rounded-xl font-bold text-sm disabled:opacity-40"
-            style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
-            <Icon.Save />Gerar Controle do Mês
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* ── KPI + BARRA DE RECEBIMENTO ── */}
-          <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#fff" }}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Total Previsto</p>
-                <p className="text-3xl font-black" style={{ letterSpacing:"-1px" }}>{fmtCurrency(total)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Taxa de Recebimento</p>
-                <p className="text-3xl font-black" style={{ color: paidPct >= 80 ? "#10b981" : paidPct >= 50 ? "#f59e0b" : "#ef4444" }}>{paidPct}%</p>
-              </div>
-            </div>
-            {/* Barra de progresso segmentada */}
-            <div className="mb-3">
-              <div className="flex h-3 rounded-full overflow-hidden gap-0.5" style={{ background:"rgba(255,255,255,0.08)" }}>
-                {paid > 0 && <div className="h-full rounded-l-full transition-all duration-700" style={{ width:`${(paid/total)*100}%`, background:"#10b981" }} />}
-                {pending > 0 && <div className="h-full transition-all duration-700" style={{ width:`${(pending/total)*100}%`, background:"#f59e0b" }} />}
-                {overdue > 0 && <div className="h-full rounded-r-full transition-all duration-700" style={{ width:`${(overdue/total)*100}%`, background:"#ef4444" }} />}
-              </div>
-            </div>
-            {/* Legenda */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label:"Recebido",  value: paid,    count: cntPaid,    color:"#10b981" },
-                { label:"Pendente",  value: pending,  count: cntPending, color:"#f59e0b" },
-                { label:"Atrasado",  value: overdue,  count: cntOverdue, color:"#ef4444" },
-              ].map(item => (
-                <div key={item.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.07)" }}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-2 h-2 rounded-full" style={{ background: item.color }} />
-                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color:"rgba(255,255,255,0.5)" }}>{item.label}</span>
-                  </div>
-                  <p className="text-base font-black">{fmtCurrency(item.value)}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>{item.count} cliente(s)</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── GRÁFICO HISTÓRICO ── */}
-          {hasHistory && (
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-              <p className="text-sm font-black mb-4" style={{ color:"#1a1d23" }}>Evolução dos Últimos 6 Meses</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={histData} barCategoryGap="25%" barGap={3}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f8" vertical={false} />
-                  <XAxis dataKey="mes" tick={{ fontSize:11, fill:"#94a3b8", fontWeight:600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize:10, fill:"#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} width={36} />
-                  <Tooltip
-                    contentStyle={{ borderRadius:12, border:"1px solid #dde3ed", boxShadow:"0 4px 16px rgba(0,0,0,0.08)", fontSize:12 }}
-                    formatter={(v, n) => [fmtCurrency(v), n]}
-                  />
-                  <Bar dataKey="Previsto" fill="#dbeafe" radius={[4,4,0,0]} />
-                  <Bar dataKey="Recebido" fill="#2b8be8" radius={[4,4,0,0]} />
-                  <Bar dataKey="Atrasado" fill="#fca5a5" radius={[4,4,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-5 mt-2 justify-center">
-                {[["Previsto","#dbeafe"],["Recebido","#2b8be8"],["Atrasado","#fca5a5"]].map(([l,c]) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded" style={{ background:c }} />
-                    <span className="text-[11px] font-semibold" style={{ color:"#94a3b8" }}>{l}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── TABELA ── */}
-          <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-            {/* Toolbar */}
-            <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom:"1px solid #e8edf5" }}>
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Search */}
-                <div className="relative">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente..."
-                    className="pl-9 pr-3 py-1.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-blue-400"
-                    style={{ border:"1px solid #dde3ed", width:180, color:"#374151" }} />
-                </div>
-                {/* Status filter */}
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                  className="text-sm rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-400"
-                  style={{ border:"1px solid #dde3ed", color:"#374151" }}>
-                  <option value="all">Todos status</option>
-                  <option value="paid">Em dia</option>
-                  <option value="pending">Pendente</option>
-                  <option value="overdue">Atrasado</option>
-                </select>
-                {filtered.length !== records.length && (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2b8be8" }}>
-                    {filtered.length} de {records.length}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={syncNew}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-xl transition-all"
-                  style={{ color:"#2b8be8", background:"#eff6ff", border:"1px solid #bfdbfe" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#dbeafe"} onMouseLeave={e=>e.currentTarget.style.background="#eff6ff"}>
-                  <Icon.Refresh />Sincronizar
-                </button>
-                <button onClick={exportCSV}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-xl transition-all"
-                  style={{ color:"#16a34a", background:"#f0fdf4", border:"1px solid #bbf7d0" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#dcfce7"} onMouseLeave={e=>e.currentTarget.style.background="#f0fdf4"}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Exportar CSV
-                </button>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[700px]">
-                <thead style={{ background:"#f8fafc", borderBottom:"2px solid #e8edf5" }}>
-                  <tr>
-                    {["Cliente","Honorários","Pagamento","Cobrança","Data Pgto","Status"].map(h => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-10 text-center text-sm" style={{ color:"#94a3b8" }}>Nenhum registro encontrado.</td></tr>
-                  ) : filtered.map(r => {
-                    const st = statusCfg[r.paymentStatus || "pending"];
-                    return (
-                      <tr key={r.clientId} className="group" style={{ borderBottom:"1px solid #f0f4f8", borderLeft:`3px solid ${st.dot}` }}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        {/* Cliente */}
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>{r.name}</p>
-                          <p className="text-xs" style={{ color:"#94a3b8" }}>{r.document || "—"}</p>
-                        </td>
-                        {/* Honorários */}
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>{fmtCurrency(r.monthlyFee)}</p>
-                        </td>
-                        {/* Forma pagamento */}
-                        <td className="px-4 py-3 text-sm" style={{ color:"#64748b" }}>
-                          {methodLabel[r.paymentMethod] || "—"}
-                        </td>
-                        {/* Cobrança enviada */}
-                        <td className="px-4 py-3">
-                          <button onClick={() => chBilling(r.clientId)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
-                            style={r.billingSent
-                              ? { background:"#eff6ff", color:"#2b8be8", border:"1px solid #bfdbfe" }
-                              : { background:"#f5f7fb", color:"#94a3b8", border:"1px solid #e8edf5" }}>
-                            <Icon.Send />{r.billingSent ? "Enviada" : "Pendente"}
-                          </button>
-                        </td>
-                        {/* Data pagamento */}
-                        <td className="px-4 py-3">
-                          {r.paymentStatus === "paid" ? (
-                            <span className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}>
-                              {r.paidAt ? fmt(r.paidAt) : "—"}
-                            </span>
-                          ) : (
-                            <span className="text-xs" style={{ color:"#cbd5e1" }}>—</span>
-                          )}
-                        </td>
-                        {/* Status buttons */}
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            {Object.entries(statusCfg).map(([k, v]) => {
-                              const active = (r.paymentStatus || "pending") === k;
-                              return (
-                                <button key={k} onClick={() => chStatus(r.clientId, k)}
-                                  className="px-2 py-1 text-[10px] font-bold rounded-lg transition-all"
-                                  style={active
-                                    ? { background:v.bg, color:v.color, border:`1px solid ${v.border}` }
-                                    : { background:"transparent", color:"#cbd5e1", border:"1px solid #e8edf5" }}
-                                  onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background=v.bg; e.currentTarget.style.color=v.color; }}}
-                                  onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#cbd5e1"; }}}>
-                                  {v.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                {/* Footer totals */}
-                {filtered.length > 0 && (
-                  <tfoot>
-                    <tr style={{ borderTop:"2px solid #e8edf5", background:"#f8fafc" }}>
-                      <td className="px-4 py-3 text-xs font-bold" style={{ color:"#64748b" }}>{filtered.length} cliente(s)</td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{fmtCurrency(filtered.reduce((s,r)=>s+(r.monthlyFee||0),0))}</p>
-                        <p className="text-[10px]" style={{ color:"#94a3b8" }}>filtrado</p>
-                      </td>
-                      <td colSpan={4} />
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 // ============================================================
 // OBLIGATIONS
@@ -5129,7 +4816,31 @@ function Team() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [uf, setUf] = useState({ name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8" });
+
+  // Abas disponíveis para configurar (admin-only ficam fora)
+  const ALL_TABS = [
+    { id:"dashboard",    label:"Dashboard",           group:"Principal" },
+    { id:"tasks",        label:"Tarefas",             group:"Principal" },
+    { id:"habits",       label:"Hábitos e Rotina",    group:"Principal" },
+    { id:"clients",      label:"Clientes",            group:"Escritório" },
+    { id:"relationship", label:"Relacionamento",      group:"Escritório" },
+    { id:"obligations",  label:"Obrigações",          group:"Escritório" },
+  ];
+
+  const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8", allowedTabs:null, canCreateTasks:false };
+
+  const [uf, setUf] = useState(emptyUf);
+
+  const toggleTab = (id) => {
+    const current = uf.allowedTabs || ALL_TABS.map(t => t.id);
+    const next = current.includes(id) ? current.filter(t => t !== id) : [...current, id];
+    setUf(p => ({ ...p, allowedTabs: next }));
+  };
+
+  const isTabEnabled = (id) => {
+    if (uf.allowedTabs === null) return true; // null = todas habilitadas
+    return uf.allowedTabs.includes(id);
+  };
 
   const roleColors = {
     admin:        { bg:"#eff6ff", color:"#2b8be8", label:"Administrador" },
@@ -5139,7 +4850,12 @@ function Team() {
 
   const openForm = (u=null) => {
     setEditing(u);
-    setUf(u ? { name:u.name, email:"", password:"", role:u.role, avatarColor:u.avatarColor||"#2b8be8" } : { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8" });
+    if (u) {
+      setUf({ name:u.name, email:"", password:"", role:u.role, avatarColor:u.avatarColor||"#2b8be8",
+        allowedTabs: u.allowedTabs || null, canCreateTasks: u.canCreateTasks !== false });
+    } else {
+      setUf(emptyUf);
+    }
     setError(""); setSuccess("");
     setIsFormOpen(true);
   };
@@ -5149,49 +4865,40 @@ function Team() {
     setLoading(true); setError(""); setSuccess("");
     try {
       if (editing) {
-        // Apenas atualizar perfil (nome, role, cor)
-        await updateTeamUser({ ...editing, name:uf.name, role:uf.role, avatarColor:uf.avatarColor });
-        setSuccess("Usuário atualizado com sucesso!");
+        await updateTeamUser({ ...editing, name:uf.name, role:uf.role, avatarColor:uf.avatarColor, allowedTabs:uf.allowedTabs, canCreateTasks:uf.canCreateTasks });
+        setSuccess("Usuário atualizado!");
       } else {
-        // Criar novo usuário via Edge Function
         if (!uf.email.trim() || !uf.password || uf.password.length < 6) {
-          setError("Email e senha (mín. 6 caracteres) são obrigatórios para novos usuários");
-          setLoading(false); return;
+          setError("Email e senha (mín. 6 caracteres) são obrigatórios"); setLoading(false); return;
         }
         const session = JSON.parse(localStorage.getItem("sb_session") || "{}");
         const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/create-team-user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + (session.access_token || ""),
-            "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
+          method:"POST",
+          headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+(session.access_token||""), "apikey":import.meta.env.VITE_SUPABASE_ANON_KEY },
           body: JSON.stringify({ email:uf.email.trim(), password:uf.password, name:uf.name.trim(), role:uf.role, avatarColor:uf.avatarColor }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        // Adicionar ao estado local
-        await addTeamUser({ id:data.user.id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true });
+        await addTeamUser({ id:data.user.id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true, allowedTabs:uf.allowedTabs, canCreateTasks:uf.canCreateTasks });
         setSuccess("Usuário " + uf.name + " criado! Login: " + uf.email);
       }
       setTimeout(() => { setIsFormOpen(false); setEditing(null); setSuccess(""); }, 1500);
     } catch(e) {
-      setError(e.message || "Erro ao salvar usuário");
+      setError(e.message || "Erro ao salvar");
     } finally { setLoading(false); }
   };
 
-  const toggleActive = async (u) => {
-    await updateTeamUser({ ...u, active: !u.active });
-  };
+  const toggleActive = async (u) => { await updateTeamUser({ ...u, active: !u.active }); };
 
   const colorOptions = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#64748b"];
+  const tabGroups = [...new Set(ALL_TABS.map(t => t.group))];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Equipe</h2>
-          <p className="text-sm" style={{ color:"#94a3b8" }}>Gerencie usuários e permissões de acesso</p>
+          <p className="text-sm" style={{ color:"#94a3b8" }}>Gerencie usuários, acessos e permissões</p>
         </div>
         <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
           style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.3)" }}>
@@ -5199,12 +4906,12 @@ function Team() {
         </button>
       </div>
 
-      {/* Info de permissões */}
-      <div className="rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
+      {/* Legenda de roles */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {[
-          { role:"Administrador", icon:"👑", desc:"Acesso total: todas as abas, criar usuários, ver todos os dados", color:"#2b8be8" },
-          { role:"Colaborador",   icon:"💼", desc:"Vê tarefas atribuídas a ele, hábitos, e dados gerais. Sem configurações", color:"#10b981" },
-          { role:"Visualizador",  icon:"👁️", desc:"Apenas leitura das tarefas pertinentes a ele. Sem criação ou edição", color:"#a855f7" },
+          { role:"Administrador", icon:"👑", desc:"Acesso total — todas as abas e configurações", color:"#2b8be8" },
+          { role:"Colaborador",   icon:"💼", desc:"Abas configuráveis + pode ou não criar tarefas", color:"#10b981" },
+          { role:"Visualizador",  icon:"👁️", desc:"Somente leitura das tarefas atribuídas a ele", color:"#a855f7" },
         ].map(r => (
           <div key={r.role} className="p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
             <p className="text-sm font-black mb-1" style={{ color:r.color }}>{r.icon} {r.role}</p>
@@ -5213,30 +4920,35 @@ function Team() {
         ))}
       </div>
 
-      {/* Lista de usuários */}
+      {/* Lista */}
       <div className="space-y-3">
-        {teamUsers.map(u => {
+        {(teamUsers||[]).map(u => {
           const rc = roleColors[u.role] || roleColors.colaborador;
           const isMe = u.id === currentProfile?.id;
+          const tabCount = u.allowedTabs ? u.allowedTabs.length : ALL_TABS.length;
           return (
             <div key={u.id} className="rounded-2xl p-4 flex items-center gap-4" style={{ background:"#fff", border:"1px solid #dde3ed", opacity: u.active ? 1 : 0.5 }}>
-              {/* Avatar */}
-              <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black text-white" style={{ background: u.avatarColor || "#2b8be8" }}>
+              <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black text-white" style={{ background: u.avatarColor||"#2b8be8" }}>
                 {u.name.charAt(0).toUpperCase()}
               </div>
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{u.name} {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"#e0f2fe", color:"#0284c7" }}>Você</span>}</p>
+                  <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{u.name}</p>
+                  {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"#e0f2fe", color:"#0284c7" }}>Você</span>}
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:rc.bg, color:rc.color }}>{rc.label}</span>
                   {!u.active && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#f1f5f9", color:"#94a3b8" }}>Inativo</span>}
                 </div>
-                <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>ID: {u.id.slice(0,8)}...</p>
+                {u.role !== "admin" && (
+                  <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>
+                    {tabCount} aba{tabCount!==1?"s":""} visível{tabCount!==1?"s":""} · {u.canCreateTasks ? "✅ pode criar tarefas" : "❌ não cria tarefas"}
+                  </p>
+                )}
               </div>
-              {/* Ações — admin não pode ser editado por padrão */}
               {!isMe && (
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => toggleActive(u)} className="p-2 rounded-lg text-xs font-medium" style={{ background: u.active ? "#fef9c3" : "#f0fdf4", color: u.active ? "#92400e" : "#166534" }} title={u.active ? "Desativar" : "Ativar"}>
+                  <button onClick={() => toggleActive(u)} className="p-2 rounded-lg text-xs font-medium"
+                    style={{ background: u.active ? "#fef9c3" : "#f0fdf4", color: u.active ? "#92400e" : "#166534" }}
+                    title={u.active ? "Desativar" : "Ativar"}>
                     {u.active ? "⏸" : "▶"}
                   </button>
                   <button onClick={() => openForm(u)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
@@ -5249,55 +4961,112 @@ function Team() {
             </div>
           );
         })}
-        {teamUsers.length === 0 && (
+        {(!teamUsers||teamUsers.length===0) && (
           <div className="rounded-2xl p-10 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
             <p className="text-4xl mb-3">👥</p>
             <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum usuário na equipe</p>
-            <p className="text-sm" style={{ color:"#94a3b8" }}>Crie o primeiro colaborador</p>
           </div>
         )}
       </div>
 
-      {/* Modal criar/editar */}
+      {/* Modal */}
       {isFormOpen && (
-        <Modal title={editing ? "Editar Usuário" : "Criar Novo Usuário"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-md">
-          <div className="p-6 space-y-4">
+        <Modal title={editing ? "Editar Usuário" : "Novo Usuário"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-lg">
+          <div className="p-6 space-y-5">
             {error && <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca" }}>{error}</div>}
             {success && <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background:"#f0fdf4", color:"#166534", border:"1px solid #bbf7d0" }}>✅ {success}</div>}
 
+            {/* Nome */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nome completo *</label>
-              <input value={uf.name} onChange={e=>setUf(p=>({...p,name:e.target.value}))} placeholder="Ex: Iris Cavalcanti" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Nome completo *</label>
+              <input value={uf.name} onChange={e=>setUf(p=>({...p,name:e.target.value}))} placeholder="Ex: Iris Cavalcanti"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
             </div>
 
+            {/* Email e senha — só no cadastro */}
             {!editing && (
-              <>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail *</label>
-                  <input type="email" value={uf.email} onChange={e=>setUf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail *</label>
+                  <input type="email" value={uf.email} onChange={e=>setUf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Senha inicial *</label>
-                  <input type="password" value={uf.password} onChange={e=>setUf(p=>({...p,password:e.target.value}))} placeholder="Mínimo 6 caracteres" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
-                  <p className="text-xs text-slate-400 mt-1">O usuário poderá alterar a senha depois</p>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Senha *</label>
+                  <input type="password" value={uf.password} onChange={e=>setUf(p=>({...p,password:e.target.value}))} placeholder="Mín. 6 caracteres"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
                 </div>
-              </>
+              </div>
             )}
 
+            {/* Nível de acesso */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nível de acesso *</label>
-              <select value={uf.role} onChange={e=>setUf(p=>({...p,role:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
-                <option value="colaborador">💼 Colaborador — acesso parcial</option>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Nível de acesso</label>
+              <select value={uf.role} onChange={e=>setUf(p=>({...p,role:e.target.value}))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                <option value="colaborador">💼 Colaborador</option>
                 <option value="visualizador">👁️ Visualizador — somente leitura</option>
                 <option value="admin">👑 Administrador — acesso total</option>
               </select>
             </div>
 
+            {/* Abas visíveis — só para colaborador/visualizador */}
+            {uf.role !== "admin" && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-700">Abas visíveis</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setUf(p=>({...p,allowedTabs:ALL_TABS.map(t=>t.id)}))}
+                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#eff6ff", color:"#2b8be8" }}>Todas</button>
+                    <button type="button" onClick={() => setUf(p=>({...p,allowedTabs:[]}))}
+                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#f1f5f9", color:"#64748b" }}>Nenhuma</button>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  {tabGroups.map((group, gi) => (
+                    <div key={group}>
+                      {gi > 0 && <div style={{ height:1, background:"#e8edf5" }} />}
+                      <div className="px-3 py-1.5" style={{ background:"#f8fafc" }}>
+                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{group}</p>
+                      </div>
+                      {ALL_TABS.filter(t => t.group === group).map(tab => (
+                        <label key={tab.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors">
+                          <input type="checkbox" checked={isTabEnabled(tab.id)}
+                            onChange={() => toggleTab(tab.id)}
+                            className="rounded text-blue-600 w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm" style={{ color:"#374151" }}>{tab.label}</span>
+                          {(tab.id === "dashboard" || tab.id === "tasks") && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background:"#fef9c3", color:"#92400e" }}>padrão</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Dashboard e Tarefas sempre aparecem independente da seleção.</p>
+              </div>
+            )}
+
+            {/* Permissão de criar tarefas — só para colaborador */}
+            {uf.role === "colaborador" && (
+              <div className="rounded-xl border border-slate-200 p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={uf.canCreateTasks} onChange={e=>setUf(p=>({...p,canCreateTasks:e.target.checked}))}
+                    className="rounded text-blue-600 w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color:"#374151" }}>Pode criar e editar tarefas</p>
+                    <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Se desmarcado, o colaborador só visualiza as tarefas atribuídas a ele, sem criar nem editar.</p>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            {/* Cor do avatar */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cor do avatar</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Cor do avatar</label>
               <div className="flex gap-2 flex-wrap">
                 {colorOptions.map(c => (
-                  <button key={c} onClick={() => setUf(p=>({...p,avatarColor:c}))}
+                  <button key={c} type="button" onClick={() => setUf(p=>({...p,avatarColor:c}))}
                     className="w-8 h-8 rounded-lg transition-all"
                     style={{ background:c, border: uf.avatarColor===c ? "3px solid #1a1d23" : "2px solid transparent", transform: uf.avatarColor===c ? "scale(1.2)" : "scale(1)" }} />
                 ))}
@@ -5318,45 +5087,55 @@ function Team() {
   );
 }
 
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { currentProfile } = useApp();
+  const isAdmin    = !currentProfile || currentProfile.role === "admin";
+  const isColab    = currentProfile?.role === "colaborador";
+  const isViewer   = currentProfile?.role === "visualizador";
 
-  // ITEM 11: Atalhos de teclado globais
+  // Guard: redirecionar se aba não permitida
+  useEffect(() => {
+    const adminOnly = ["severance","settings","team"];
+    const notForViewer = ["habits","clients","relationship","obligations","reports","severance","settings","team"];
+    if (isViewer && notForViewer.includes(activeTab)) setActiveTab("tasks");
+    if (!isAdmin && adminOnly.includes(activeTab)) setActiveTab("dashboard");
+  }, [activeTab, isAdmin, isViewer]);
+
+  // Atalhos de teclado
   useEffect(() => {
     const handler = (e) => {
-      // Ignorar se estiver em input/textarea/select
       if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
       const k = e.key.toLowerCase();
       if (k === "1") setActiveTab("dashboard");
       if (k === "2") setActiveTab("tasks");
-      if (k === "3") setActiveTab("habits");
-      if (k === "4") setActiveTab("clients");
-      if (k === "5") setActiveTab("finances");
-      if (k === "6") setActiveTab("obligations");
-      if (k === "7") setActiveTab("severance");
-      if (k === "8") setActiveTab("relationship");
-      if (k === "9") setActiveTab("reports");
-      if (k === "0") setActiveTab("settings");
+      if (!isViewer && k === "3") setActiveTab("habits");
+      if (!isViewer && k === "4") setActiveTab("clients");
+      if (!isViewer && k === "6") setActiveTab("obligations");
+      if (isAdmin  && k === "7") setActiveTab("severance");
+      if (!isViewer && k === "8") setActiveTab("relationship");
+      if (!isViewer && k === "9") setActiveTab("reports");
+      if (isAdmin  && k === "0") setActiveTab("settings");
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [isAdmin, isViewer]);
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout}>
       {activeTab === "dashboard" && <Dashboard />}
       {activeTab === "tasks" && <Tasks />}
-      {activeTab === "habits" && <Habits />}
-      {activeTab === "clients" && <Clients />}
-      {activeTab === "finances" && <Finances />}
-      {activeTab === "obligations" && <Obligations />}
-      {activeTab === "reports" && <Reports />}
-      {activeTab === "severance" && <SeveranceSimulation />}
-      {activeTab === "relationship" && <Relationship />}
-      {activeTab === "settings" && <SettingsPage />}
-      {activeTab === "team" && <Team />}
+      {!isViewer && activeTab === "habits" && <Habits />}
+      {!isViewer && activeTab === "clients" && <Clients />}
+      {!isViewer && activeTab === "obligations" && <Obligations />}
+      {!isViewer && activeTab === "reports" && <Reports />}
+      {isAdmin   && activeTab === "severance" && <SeveranceSimulation />}
+      {!isViewer && activeTab === "relationship" && <Relationship />}
+      {isAdmin   && activeTab === "settings" && <SettingsPage />}
+      {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
   );
 }
