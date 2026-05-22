@@ -5445,13 +5445,31 @@ function LoginScreen({ onLogin }) {
 }
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(() => !!auth.restoreSession());
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    auth.restoreSession().then(session => {
+      setLoggedIn(!!session);
+      setAuthChecked(true);
+    });
+  }, []);
 
   const handleLogin = () => setLoggedIn(true);
   const handleLogout = async () => {
     await auth.signOut();
     setLoggedIn(false);
   };
+
+  // Aguardar verificação de sessão antes de renderizar
+  if (!authChecked) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
+      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando...</p>
+    </div>
+  );
 
   if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
