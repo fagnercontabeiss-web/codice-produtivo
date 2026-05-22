@@ -4940,9 +4940,23 @@ function Team() {
           body: JSON.stringify({ email:uf.email.trim(), password:uf.password, name:uf.name.trim(), role:uf.role, avatarColor:uf.avatarColor }),
         });
         const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        await addTeamUser({ id:data.user.id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true, allowedTabs:uf.allowedTabs, canCreateTasks:uf.canCreateTasks });
-        setSuccess("Usuário " + uf.name + " criado! Login: " + uf.email);
+        if (data.error) {
+          // Se usuário já existe, tentar buscar o ID dele e só atualizar o perfil
+          if (data.error.includes("already been registered") || data.error.includes("already exists")) {
+            // Buscar o user_id pelo email via user_profiles ou pelo erro
+            if (data.user_id) {
+              await addTeamUser({ id:data.user_id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true, allowedTabs:uf.allowedTabs, canCreateTasks:uf.canCreateTasks });
+              setSuccess("Perfil de " + uf.name + " vinculado à equipe!");
+            } else {
+              throw new Error("Este e-mail já está cadastrado. Vá em Editar para atualizar as permissões do usuário existente.");
+            }
+          } else {
+            throw new Error(data.error);
+          }
+        } else {
+          await addTeamUser({ id:data.user.id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true, allowedTabs:uf.allowedTabs, canCreateTasks:uf.canCreateTasks });
+          setSuccess("Usuário " + uf.name + " criado! Login: " + uf.email);
+        }
       }
       setTimeout(() => { setIsFormOpen(false); setEditing(null); setSuccess(""); }, 1500);
     } catch(e) {
