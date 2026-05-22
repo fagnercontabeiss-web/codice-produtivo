@@ -24,6 +24,7 @@ const defaultContexts = [
 const defaultState = {
   tasks: [], habits: [], clients: [], weeklyGoals: [],
   categories: defaultCategories, contexts: defaultContexts,
+  relationships: [],
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
 };
 
@@ -49,9 +50,9 @@ function AppProvider({ children }) {
     const load = async () => {
       try {
         auth.restoreSession();
-        const [tasks, habits, clients, goals, cats, ctxs, settingsRows] = await Promise.all([
+        const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw] = await Promise.all([
           db.select("tasks"), db.select("habits"), db.select("clients"),
-          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"),
+          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"),
         ]);
         const settings = settingsRows?.[0]
           ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password }
@@ -62,6 +63,11 @@ function AppProvider({ children }) {
           categories: cats.length > 0 ? cats.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultCategories,
           contexts:   ctxs.length > 0 ? ctxs.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultContexts,
           settings,
+          relationships: (relsRaw || []).map(r => ({
+            id:r.id, name:r.name, type:r.type, date:r.date, isAnnual:r.is_annual,
+            message:r.message||"", notes:r.notes||"", clientId:r.client_id||"",
+            whatsapp:r.whatsapp||"", email:r.email||"", notifiedAt:r.notified_at||"",
+          })),
         });
         if (cats.length === 0) await db.upsert("categories", defaultCategories);
         if (ctxs.length === 0) await db.upsert("contexts", defaultContexts);
@@ -123,6 +129,19 @@ function AppProvider({ children }) {
     await db.upsert("settings", { id:"default", app_name:s.appName, login_email:s.loginEmail, login_password:s.loginPassword }).catch(console.error);
   }, []);
 
+  const addRelationship = useCallback(async r => {
+    setState(s => ({ ...s, relationships:[...s.relationships, r] }));
+    await db.upsert("relationships", { id:r.id, name:r.name, type:r.type, date:r.date, is_annual:r.isAnnual, message:r.message, notes:r.notes, client_id:r.clientId||null, whatsapp:r.whatsapp||null, email:r.email||null, notified_at:r.notifiedAt||null }).catch(console.error);
+  }, []);
+  const updateRelationship = useCallback(async r => {
+    setState(s => ({ ...s, relationships:s.relationships.map(x => x.id===r.id?r:x) }));
+    await db.upsert("relationships", { id:r.id, name:r.name, type:r.type, date:r.date, is_annual:r.isAnnual, message:r.message, notes:r.notes, client_id:r.clientId||null, whatsapp:r.whatsapp||null, email:r.email||null, notified_at:r.notifiedAt||null }).catch(console.error);
+  }, []);
+  const deleteRelationship = useCallback(async id => {
+    setState(s => ({ ...s, relationships:s.relationships.filter(r => r.id!==id) }));
+    await db.delete("relationships", id).catch(console.error);
+  }, []);
+
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
       <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -133,7 +152,7 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -199,6 +218,9 @@ const Icon = {
   Filter: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
   List: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
   Calendar: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  Heart: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+  Bell: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  Whatsapp: () => <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.532 5.859L.057 23.57a.75.75 0 0 0 .918.932l5.919-1.55A11.955 11.955 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22a9.955 9.955 0 0 1-5.193-1.453l-.371-.221-3.853 1.009 1.026-3.742-.242-.385A9.956 9.956 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>,
   Lock: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
   User: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
   Loader: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>,
@@ -289,6 +311,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       label: "Escritório",
       items: [
         { id: "clients", label: "Clientes", icon: Icon.Clients },
+        { id: "relationship", label: "Relacionamento", icon: Icon.Heart },
         { id: "finances", label: "Finanças", icon: Icon.Finance },
         { id: "obligations", label: "Obrigações", icon: Icon.Obligations },
         { id: "severance", label: "Simulação Rescisória", icon: Icon.Calculator },
@@ -4445,6 +4468,295 @@ function SettingsPage() {
 }
 
 // ============================================================
+
+// ============================================================
+// RELATIONSHIP
+// ============================================================
+function Relationship() {
+  const { relationships, addRelationship, updateRelationship, deleteRelationship, clients } = useApp();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [filter, setFilter] = useState("todos");
+  const [notifShown, setNotifShown] = useState(false);
+  const [rf, setRf] = useState({ name:"", type:"cliente", date:"", isAnnual:true, message:"", notes:"", clientId:"", whatsapp:"", email:"" });
+
+  const today = new Date();
+  const todayMD = String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
+  const todayFull = today.toISOString().split("T")[0];
+
+  // Verificar datas de hoje e exibir notificação ao entrar
+  const todayDates = (relationships || []).filter(r => {
+    const d = r.isAnnual ? r.date : r.date?.slice(5);
+    return d === todayMD;
+  });
+
+  const upcomingDates = (relationships || []).filter(r => {
+    const d = r.isAnnual ? r.date : r.date?.slice(5);
+    const [m, day] = (d||"").split("-").map(Number);
+    const next = new Date(today.getFullYear(), m-1, day);
+    if (next < today) next.setFullYear(today.getFullYear()+1);
+    const diff = Math.ceil((next - today) / (1000*60*60*24));
+    return diff > 0 && diff <= 7;
+  });
+
+  const openForm = (r = null) => {
+    setEditing(r);
+    setRf(r ? { name:r.name, type:r.type, date:r.date, isAnnual:r.isAnnual, message:r.message, notes:r.notes, clientId:r.clientId||"", whatsapp:r.whatsapp||"", email:r.email||"" } : { name:"", type:"cliente", date:"", isAnnual:true, message:"", notes:"", clientId:"", whatsapp:"", email:"" });
+    setIsFormOpen(true);
+  };
+
+  const save = async () => {
+    if (!rf.name || !rf.date) return;
+    const entry = { ...rf, id: editing ? editing.id : uid() };
+    if (editing) await updateRelationship(entry);
+    else await addRelationship(entry);
+    setIsFormOpen(false); setEditing(null);
+  };
+
+  const getDaysUntil = (r) => {
+    const d = r.isAnnual ? r.date : r.date?.slice(5);
+    const [m, day] = (d||"").split("-").map(Number);
+    const next = new Date(today.getFullYear(), m-1, day);
+    if (next < today) next.setFullYear(today.getFullYear()+1);
+    const diff = Math.ceil((next - today) / (1000*60*60*24));
+    return diff === 0 ? "HOJE" : diff === 1 ? "amanhã" : diff + " dias";
+  };
+
+  const getDaysUntilNum = (r) => {
+    const d = r.isAnnual ? r.date : r.date?.slice(5);
+    const [m, day] = (d||"").split("-").map(Number);
+    const next = new Date(today.getFullYear(), m-1, day);
+    if (next < today) next.setFullYear(today.getFullYear()+1);
+    return Math.ceil((next - today) / (1000*60*60*24));
+  };
+
+  const formatDate = (r) => {
+    const d = r.date;
+    if (!d) return "—";
+    if (r.isAnnual) {
+      const [m, day] = d.split("-");
+      const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+      return day + " de " + months[parseInt(m)-1];
+    }
+    return new Date(d + "T12:00:00").toLocaleDateString("pt-BR");
+  };
+
+  const typeColors = {
+    cliente: { bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe", label:"Cliente" },
+    data_comemorativa: { bg:"#fdf4ff", color:"#a855f7", border:"#e9d5ff", label:"Data Comemorativa" },
+    fornecedor: { bg:"#f0fdf4", color:"#10b981", border:"#bbf7d0", label:"Fornecedor" },
+    parceiro: { bg:"#fff7ed", color:"#f97316", border:"#fed7aa", label:"Parceiro" },
+    outro: { bg:"#f8fafc", color:"#64748b", border:"#e2e8f0", label:"Outro" },
+  };
+
+  const filtered = (relationships || []).filter(r => filter === "todos" || r.type === filter)
+    .sort((a,b) => getDaysUntilNum(a) - getDaysUntilNum(b));
+
+  const whatsappLink = (r) => {
+    const num = (r.whatsapp||"").replace(/\D/g,"");
+    const msg = encodeURIComponent(r.message || "Olá " + r.name + "! 😊");
+    return "https://wa.me/55" + num + "?text=" + msg;
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Notificações de hoje */}
+      {todayDates.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background:"linear-gradient(135deg,#fdf4ff,#fce7f3)", border:"1px solid #e9d5ff" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)" }}>
+              <Icon.Bell />
+            </div>
+            <div>
+              <p className="font-black text-sm" style={{ color:"#6b21a8" }}>
+                🎉 {todayDates.length === 1 ? "1 data especial hoje!" : todayDates.length + " datas especiais hoje!"}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color:"#9333ea" }}>
+                {todayDates.map(r => r.name).join(" · ")}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Próximas datas — 7 dias */}
+      {upcomingDates.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background:"#fffbeb", border:"1px solid #fde68a" }}>
+          <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#92400e" }}>📅 Próximos 7 dias</p>
+          <div className="flex flex-wrap gap-2">
+            {upcomingDates.map(r => (
+              <span key={r.id} className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background:"#fef3c7", color:"#92400e", border:"1px solid #fde68a" }}>
+                {r.name} — {getDaysUntil(r)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Relacionamento</h2>
+          <p className="text-sm" style={{ color:"#94a3b8" }}>Aniversários, datas comemorativas e mensagens</p>
+        </div>
+        <button onClick={() => openForm()}
+          className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+          style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", boxShadow:"0 2px 8px rgba(168,85,247,0.3)" }}>
+          <Icon.Plus />Nova Data
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex gap-2 flex-wrap">
+        {[["todos","Todos"],["cliente","Clientes"],["data_comemorativa","Datas"],["fornecedor","Fornecedores"],["parceiro","Parceiros"],["outro","Outros"]].map(([v,l]) => (
+          <button key={v} onClick={() => setFilter(v)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            style={{ background: filter===v ? "linear-gradient(135deg,#a855f7,#ec4899)" : "#f0f4f8", color: filter===v ? "#fff" : "#64748b" }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
+          <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background:"#fdf4ff" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" style={{width:32,height:32}}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhuma data cadastrada</p>
+          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Adicione aniversários de clientes e datas especiais</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map(r => {
+            const tc = typeColors[r.type] || typeColors.outro;
+            const daysNum = getDaysUntilNum(r);
+            const isToday = daysNum === 0;
+            return (
+              <div key={r.id} className="rounded-2xl p-5" style={{ background:"#fff", border: isToday ? "2px solid #a855f7" : "1px solid #dde3ed", boxShadow: isToday ? "0 0 0 4px rgba(168,85,247,0.1)" : "0 2px 8px rgba(26,29,35,0.06)" }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Avatar / Badge */}
+                    <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black" style={{ background: isToday ? "linear-gradient(135deg,#a855f7,#ec4899)" : tc.bg, color: isToday ? "#fff" : tc.color }}>
+                      {isToday ? "🎉" : r.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{r.name}</p>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:tc.bg, color:tc.color, border:"1px solid "+tc.border }}>{tc.label}</span>
+                        {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", color:"#fff" }}>HOJE 🎉</span>}
+                      </div>
+                      <p className="text-xs mt-0.5" style={{ color:"#64748b" }}>
+                        📅 {formatDate(r)} {r.isAnnual ? "(anual)" : "(única)"} · <span style={{ color: daysNum <= 7 ? "#a855f7" : "#94a3b8", fontWeight: daysNum <= 7 ? 700 : 400 }}>{getDaysUntil(r)}</span>
+                      </p>
+                      {r.message && <p className="text-xs mt-1 line-clamp-1" style={{ color:"#94a3b8", fontStyle:"italic" }}>✉️ "{r.message}"</p>}
+                      {r.notes && <p className="text-xs mt-0.5 line-clamp-1" style={{ color:"#94a3b8" }}>📝 {r.notes}</p>}
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {r.whatsapp && (
+                      <a href={whatsappLink(r)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{ background:"#dcfce7", color:"#16a34a" }}
+                        title="Enviar mensagem no WhatsApp">
+                        <Icon.Whatsapp />Enviar
+                      </a>
+                    )}
+                    {r.email && (
+                      <a href={"mailto:"+r.email+"?subject=Parabéns, "+r.name+"!&body="+encodeURIComponent(r.message||"")}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{ background:"#eff6ff", color:"#2b8be8" }}
+                        title="Enviar e-mail">
+                        <Icon.Send />E-mail
+                      </a>
+                    )}
+                    <button onClick={() => openForm(r)} className="p-2 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#f0f4f8";e.currentTarget.style.color="#2b8be8"}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                      <Icon.Edit />
+                    </button>
+                    <button onClick={() => deleteRelationship(r.id)} className="p-2 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.color="#ef4444"}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                      <Icon.Trash />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal formulário */}
+      {isFormOpen && (
+        <Modal title={editing ? "Editar Data" : "Nova Data Especial"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-lg">
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+                <input value={rf.name} onChange={e=>setRf(p=>({...p,name:e.target.value}))} placeholder="Ex: João Silva, Natal, Dia do Cliente..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                <select value={rf.type} onChange={e=>setRf(p=>({...p,type:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400">
+                  <option value="cliente">Cliente</option>
+                  <option value="data_comemorativa">Data Comemorativa</option>
+                  <option value="fornecedor">Fornecedor</option>
+                  <option value="parceiro">Parceiro</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Recorrência</label>
+                <select value={rf.isAnnual ? "anual" : "unica"} onChange={e=>setRf(p=>({...p,isAnnual:e.target.value==="anual",date:""}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400">
+                  <option value="anual">Anual (ex: aniversário)</option>
+                  <option value="unica">Data única</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {rf.isAnnual ? "Dia e Mês (MM-DD) *" : "Data completa *"}
+                </label>
+                {rf.isAnnual ? (
+                  <input type="text" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} placeholder="MM-DD (ex: 07-15 para 15 de julho)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" maxLength={5} />
+                ) : (
+                  <input type="date" value={rf.date} onChange={e=>setRf(p=>({...p,date:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                <input value={rf.whatsapp} onChange={e=>setRf(p=>({...p,whatsapp:e.target.value}))} placeholder="(81) 99999-9999" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                <input type="email" value={rf.email} onChange={e=>setRf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mensagem</label>
+                <textarea value={rf.message} onChange={e=>setRf(p=>({...p,message:e.target.value}))} rows={3} placeholder="Mensagem padrão para enviar no dia (WhatsApp ou e-mail)..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
+                <p className="text-xs text-slate-400 mt-1">Esta mensagem será pré-carregada ao clicar em "Enviar"</p>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Notas internas</label>
+                <textarea value={rf.notes} onChange={e=>setRf(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Observações sobre o contato, preferências, etc..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 resize-none" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+              <button onClick={save} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)" }}>
+                {editing ? "Salvar" : "Adicionar"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -4459,6 +4771,7 @@ function AppContent({ onLogout }) {
       {activeTab === "obligations" && <Obligations />}
       {activeTab === "reports" && <Reports />}
       {activeTab === "severance" && <SeveranceSimulation />}
+      {activeTab === "relationship" && <Relationship />}
       {activeTab === "settings" && <SettingsPage />}
     </Layout>
   );
