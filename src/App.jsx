@@ -25,6 +25,8 @@ const defaultState = {
   tasks: [], habits: [], clients: [], weeklyGoals: [],
   categories: defaultCategories, contexts: defaultContexts,
   relationships: [],
+  teamUsers: [], // perfis da equipe
+  currentProfile: null, // perfil do usuário logado
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
 };
 
@@ -37,8 +39,8 @@ function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
-  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, checklist:r.checklist||[] });
-  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring, checklist:t.checklist||[] });
+  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all" });
+  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all" });
   const habitFromDb = r => ({ id:r.id, name:r.name, frequency:r.frequency, freqDays:r.freq_days||[], completedDates:r.completed_dates||[] });
   const habitToDb   = h => ({ id:h.id, name:h.name, frequency:h.frequency, freq_days:h.freqDays||[], completed_dates:h.completedDates||[] });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
@@ -50,10 +52,12 @@ function AppProvider({ children }) {
     const load = async () => {
       try {
         auth.restoreSession();
-        const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw] = await Promise.all([
+        const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw, profilesRaw] = await Promise.all([
           db.select("tasks"), db.select("habits"), db.select("clients"),
-          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"),
+          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"), db.select("user_profiles"),
         ]);
+        const currentUserId = auth.getUserId();
+        const myProfile = (profilesRaw||[]).find(p => p.id === currentUserId) || null;
         const settings = settingsRows?.[0]
           ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password }
           : defaultState.settings;
@@ -68,6 +72,8 @@ function AppProvider({ children }) {
             message:r.message||"", notes:r.notes||"", clientId:r.client_id||"",
             whatsapp:r.whatsapp||"", email:r.email||"", notifiedAt:r.notified_at||"",
           })),
+          teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active })),
+          currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color } : null,
         });
         if (cats.length === 0) await db.upsert("categories", defaultCategories);
         if (ctxs.length === 0) await db.upsert("contexts", defaultContexts);
@@ -163,7 +169,21 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship };
+  // Team user management
+  const addTeamUser = useCallback(async (profile) => {
+    setState(s => ({ ...s, teamUsers: [...s.teamUsers, profile] }));
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:true }).catch(console.error);
+  }, []);
+  const updateTeamUser = useCallback(async (profile) => {
+    setState(s => ({ ...s, teamUsers: s.teamUsers.map(u => u.id===profile.id ? profile : u) }));
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:profile.active }).catch(console.error);
+  }, []);
+  const removeTeamUser = useCallback(async (id) => {
+    setState(s => ({ ...s, teamUsers: s.teamUsers.filter(u => u.id !== id) }));
+    await db.delete("user_profiles", id).catch(console.error);
+  }, []);
+
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -369,7 +389,7 @@ function GlobalSearchResults({ query, onSelect, setActiveTab }) {
 }
 
 function Layout({ children, activeTab, setActiveTab, onLogout }) {
-  const { settings } = useApp();
+  const { settings, currentProfile } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -397,7 +417,8 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       label: "Análise",
       items: [
         { id: "reports", label: "Relatórios", icon: Icon.Reports },
-        { id: "settings", label: "Configurações", icon: Icon.Settings },
+        ...(currentProfile?.role === "admin" ? [{ id: "settings", label: "Configurações", icon: Icon.Settings }] : []),
+        ...(currentProfile?.role === "admin" ? [{ id: "team", label: "Equipe", icon: Icon.Clients }] : []),
       ]
     }
   ];
@@ -459,10 +480,11 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #5aaff5, #2b8be8)", color: "#fff" }}>
-              {(auth.getUserEmail()?.[0] || settings.loginEmail?.[0] || "U").toUpperCase()}
+              {(currentProfile?.name?.[0] || auth.getUserEmail()?.[0] || "U").toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{auth.getUserEmail() || settings.loginEmail || "Usuário"}</p>
+              <p className="text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{currentProfile?.name || auth.getUserEmail() || "Usuário"}</p>
+              <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{currentProfile?.role === "admin" ? "Administrador" : currentProfile?.role === "colaborador" ? "Colaborador" : currentProfile?.role === "visualizador" ? "Visualizador" : ""}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>Administrador</p>
             </div>
             <button onClick={onLogout} title="Sair"
@@ -681,7 +703,7 @@ function Dashboard() {
 // TASKS
 // ============================================================
 function Tasks() {
-  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion, clients, categories, contexts } = useApp();
+  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion, clients, categories, contexts, currentProfile, teamUsers } = useApp();
   const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split("T")[0]; });
   const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 2); return d.toISOString().split("T")[0]; });
   const [filterStatus, setFilterStatus] = useState("all");
@@ -698,7 +720,14 @@ function Tasks() {
   const [calMonth, setCalMonth] = useState(new Date());
 
   const overdue = tasks.filter(t => !t.completed && t.dueDate < today());
-  const filtered = tasks.filter(t => {
+  // Filtro de visibilidade por role: colaborador/visualizador só vê tarefas atribuídas a ele ou sem restrição
+  const visibleTasks = tasks.filter(t => {
+    if (!currentProfile || currentProfile.role === "admin") return true;
+    if (t.visibility === "assigned" && t.assignedTo && t.assignedTo !== currentProfile.id) return false;
+    return true;
+  });
+
+  const filtered = visibleTasks.filter(t => {
     if (filterStatus === "completed" && !t.completed) return false;
     if (filterStatus === "pending" && t.completed) return false;
     if (hideCompleted && t.completed) return false;
@@ -716,7 +745,7 @@ function Tasks() {
   for (let i = 0; i < firstDay; i++) calDays.push(null);
   for (let i = 1; i <= daysInMonth; i++) calDays.push(i);
 
-  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false });
+  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
   const [multiText, setMultiText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [voiceTarget, setVoiceTarget] = useState("single"); // "single" | "multi"
@@ -755,7 +784,7 @@ function Tasks() {
 
   const openTaskForm = (task) => {
     setEditing(task || null);
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
@@ -925,6 +954,27 @@ function Tasks() {
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" checked={tf.isRecurring} onChange={e=>setTf(p=>({...p,isRecurring:e.target.checked}))} className="rounded text-indigo-600" />Tarefa Recorrente</label>
+
+            {/* Responsável e visibilidade — só admin vê */}
+            {currentProfile?.role === "admin" && teamUsers.length > 1 && (
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">👤 Responsável</label>
+                  <select value={tf.assignedTo} onChange={e=>setTf(p=>({...p,assignedTo:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                    <option value="">Todos / Sem responsável</option>
+                    {teamUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">👁️ Visibilidade</label>
+                  <select value={tf.visibility} onChange={e=>setTf(p=>({...p,visibility:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                    <option value="all">Todos veem</option>
+                    <option value="assigned">Somente responsável</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveTask} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button></div>
           </div>
         </Modal>
@@ -5066,6 +5116,206 @@ function Relationship() {
 }
 
 
+
+// ============================================================
+// TEAM MANAGEMENT (Multi-usuário)
+// ============================================================
+function Team() {
+  const { teamUsers, addTeamUser, updateTeamUser, removeTeamUser, currentProfile } = useApp();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [uf, setUf] = useState({ name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8" });
+
+  const roleColors = {
+    admin:        { bg:"#eff6ff", color:"#2b8be8", label:"Administrador" },
+    colaborador:  { bg:"#f0fdf4", color:"#10b981", label:"Colaborador" },
+    visualizador: { bg:"#fdf4ff", color:"#a855f7", label:"Visualizador" },
+  };
+
+  const openForm = (u=null) => {
+    setEditing(u);
+    setUf(u ? { name:u.name, email:"", password:"", role:u.role, avatarColor:u.avatarColor||"#2b8be8" } : { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8" });
+    setError(""); setSuccess("");
+    setIsFormOpen(true);
+  };
+
+  const save = async () => {
+    if (!uf.name.trim()) { setError("Nome é obrigatório"); return; }
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      if (editing) {
+        // Apenas atualizar perfil (nome, role, cor)
+        await updateTeamUser({ ...editing, name:uf.name, role:uf.role, avatarColor:uf.avatarColor });
+        setSuccess("Usuário atualizado com sucesso!");
+      } else {
+        // Criar novo usuário via Edge Function
+        if (!uf.email.trim() || !uf.password || uf.password.length < 6) {
+          setError("Email e senha (mín. 6 caracteres) são obrigatórios para novos usuários");
+          setLoading(false); return;
+        }
+        const session = JSON.parse(localStorage.getItem("sb_session") || "{}");
+        const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/create-team-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + (session.access_token || ""),
+            "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ email:uf.email.trim(), password:uf.password, name:uf.name.trim(), role:uf.role, avatarColor:uf.avatarColor }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        // Adicionar ao estado local
+        await addTeamUser({ id:data.user.id, name:uf.name.trim(), role:uf.role, ownerId:currentProfile?.id, avatarColor:uf.avatarColor, active:true });
+        setSuccess("Usuário " + uf.name + " criado! Login: " + uf.email);
+      }
+      setTimeout(() => { setIsFormOpen(false); setEditing(null); setSuccess(""); }, 1500);
+    } catch(e) {
+      setError(e.message || "Erro ao salvar usuário");
+    } finally { setLoading(false); }
+  };
+
+  const toggleActive = async (u) => {
+    await updateTeamUser({ ...u, active: !u.active });
+  };
+
+  const colorOptions = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#64748b"];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Equipe</h2>
+          <p className="text-sm" style={{ color:"#94a3b8" }}>Gerencie usuários e permissões de acesso</p>
+        </div>
+        <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.3)" }}>
+          <Icon.Plus />Novo Usuário
+        </button>
+      </div>
+
+      {/* Info de permissões */}
+      <div className="rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
+        {[
+          { role:"Administrador", icon:"👑", desc:"Acesso total: todas as abas, criar usuários, ver todos os dados", color:"#2b8be8" },
+          { role:"Colaborador",   icon:"💼", desc:"Vê tarefas atribuídas a ele, hábitos, e dados gerais. Sem configurações", color:"#10b981" },
+          { role:"Visualizador",  icon:"👁️", desc:"Apenas leitura das tarefas pertinentes a ele. Sem criação ou edição", color:"#a855f7" },
+        ].map(r => (
+          <div key={r.role} className="p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+            <p className="text-sm font-black mb-1" style={{ color:r.color }}>{r.icon} {r.role}</p>
+            <p className="text-xs" style={{ color:"#64748b" }}>{r.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Lista de usuários */}
+      <div className="space-y-3">
+        {teamUsers.map(u => {
+          const rc = roleColors[u.role] || roleColors.colaborador;
+          const isMe = u.id === currentProfile?.id;
+          return (
+            <div key={u.id} className="rounded-2xl p-4 flex items-center gap-4" style={{ background:"#fff", border:"1px solid #dde3ed", opacity: u.active ? 1 : 0.5 }}>
+              {/* Avatar */}
+              <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black text-white" style={{ background: u.avatarColor || "#2b8be8" }}>
+                {u.name.charAt(0).toUpperCase()}
+              </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{u.name} {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"#e0f2fe", color:"#0284c7" }}>Você</span>}</p>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:rc.bg, color:rc.color }}>{rc.label}</span>
+                  {!u.active && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#f1f5f9", color:"#94a3b8" }}>Inativo</span>}
+                </div>
+                <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>ID: {u.id.slice(0,8)}...</p>
+              </div>
+              {/* Ações — admin não pode ser editado por padrão */}
+              {!isMe && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => toggleActive(u)} className="p-2 rounded-lg text-xs font-medium" style={{ background: u.active ? "#fef9c3" : "#f0fdf4", color: u.active ? "#92400e" : "#166534" }} title={u.active ? "Desativar" : "Ativar"}>
+                    {u.active ? "⏸" : "▶"}
+                  </button>
+                  <button onClick={() => openForm(u)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2b8be8"}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                    <Icon.Edit />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {teamUsers.length === 0 && (
+          <div className="rounded-2xl p-10 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
+            <p className="text-4xl mb-3">👥</p>
+            <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum usuário na equipe</p>
+            <p className="text-sm" style={{ color:"#94a3b8" }}>Crie o primeiro colaborador</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modal criar/editar */}
+      {isFormOpen && (
+        <Modal title={editing ? "Editar Usuário" : "Criar Novo Usuário"} onClose={() => { setIsFormOpen(false); setEditing(null); }} maxWidth="max-w-md">
+          <div className="p-6 space-y-4">
+            {error && <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca" }}>{error}</div>}
+            {success && <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background:"#f0fdf4", color:"#166534", border:"1px solid #bbf7d0" }}>✅ {success}</div>}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome completo *</label>
+              <input value={uf.name} onChange={e=>setUf(p=>({...p,name:e.target.value}))} placeholder="Ex: Iris Cavalcanti" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+            </div>
+
+            {!editing && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail *</label>
+                  <input type="email" value={uf.email} onChange={e=>setUf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Senha inicial *</label>
+                  <input type="password" value={uf.password} onChange={e=>setUf(p=>({...p,password:e.target.value}))} placeholder="Mínimo 6 caracteres" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  <p className="text-xs text-slate-400 mt-1">O usuário poderá alterar a senha depois</p>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nível de acesso *</label>
+              <select value={uf.role} onChange={e=>setUf(p=>({...p,role:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                <option value="colaborador">💼 Colaborador — acesso parcial</option>
+                <option value="visualizador">👁️ Visualizador — somente leitura</option>
+                <option value="admin">👑 Administrador — acesso total</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cor do avatar</label>
+              <div className="flex gap-2 flex-wrap">
+                {colorOptions.map(c => (
+                  <button key={c} onClick={() => setUf(p=>({...p,avatarColor:c}))}
+                    className="w-8 h-8 rounded-lg transition-all"
+                    style={{ background:c, border: uf.avatarColor===c ? "3px solid #1a1d23" : "2px solid transparent", transform: uf.avatarColor===c ? "scale(1.2)" : "scale(1)" }} />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+              <button onClick={save} disabled={loading} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-60"
+                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                {loading ? <><Icon.Loader />Salvando...</> : editing ? "Salvar" : "Criar Usuário"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -5104,6 +5354,7 @@ function AppContent({ onLogout }) {
       {activeTab === "severance" && <SeveranceSimulation />}
       {activeTab === "relationship" && <Relationship />}
       {activeTab === "settings" && <SettingsPage />}
+      {activeTab === "team" && <Team />}
     </Layout>
   );
 }
