@@ -91,7 +91,18 @@ function AppProvider({ children }) {
   const toggleTaskCompletion = useCallback(async id => {
     let updated;
     setState(s => { const tasks = s.tasks.map(t => t.id===id ? {...t,completed:!t.completed} : t); updated = tasks.find(t => t.id===id); return {...s,tasks}; });
-    setTimeout(() => { if (updated) db.upsert("tasks", taskToDb(updated)).catch(console.error); }, 0);
+    setTimeout(() => {
+      if (!updated) return;
+      db.upsert("tasks", taskToDb(updated)).catch(console.error);
+      // ITEM 8: Se completou e é recorrente, criar próxima ocorrência
+      if (updated.completed && updated.isRecurring && updated.dueDate) {
+        const next = new Date(updated.dueDate + "T12:00:00");
+        next.setDate(next.getDate() + 7); // próxima semana por padrão
+        const nextTask = { ...updated, id: uid(), completed: false, dueDate: next.toISOString().split("T")[0] };
+        setState(s => ({ ...s, tasks: [...s.tasks, nextTask] }));
+        db.upsert("tasks", taskToDb(nextTask)).catch(console.error);
+      }
+    }, 0);
   }, []);
 
   const addHabit = useCallback(async h => { setState(s => ({ ...s, habits:[...s.habits,h] })); await db.upsert("habits", habitToDb(h)).catch(console.error); }, []);
@@ -294,9 +305,74 @@ function Login({ onLogin, settings }) {
 // ============================================================
 // LAYOUT
 // ============================================================
+
+// ============================================================
+// GLOBAL SEARCH RESULTS (Item 9)
+// ============================================================
+function GlobalSearchResults({ query, onSelect, setActiveTab }) {
+  const { tasks, clients, relationships } = useApp();
+  const q = (query||"").toLowerCase();
+
+  const matchTasks    = (tasks||[]).filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)).slice(0,4);
+  const matchClients  = (clients||[]).filter(c => c.name?.toLowerCase().includes(q) || c.document?.toLowerCase().includes(q)).slice(0,3);
+  const matchRels     = (relationships||[]).filter(r => r.name?.toLowerCase().includes(q)).slice(0,2);
+
+  const total = matchTasks.length + matchClients.length + matchRels.length;
+  if (total === 0) return (
+    <div className="absolute top-full mt-1 left-0 w-72 rounded-xl shadow-xl z-50 p-3 text-center text-xs" style={{ background:"#fff", border:"1px solid #e2e8f0" }}>
+      <span style={{ color:"#94a3b8" }}>Nenhum resultado para "{query}"</span>
+    </div>
+  );
+
+  return (
+    <div className="absolute top-full mt-1 left-0 w-80 rounded-xl shadow-xl z-50 overflow-hidden" style={{ background:"#fff", border:"1px solid #e2e8f0" }}>
+      {matchTasks.length > 0 && (
+        <div>
+          <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Tarefas</p>
+          {matchTasks.map(t => (
+            <button key={t.id} onClick={() => { setActiveTab("tasks"); onSelect(); }}
+              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
+              <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : "#f59e0b" }} />
+              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
+              {t.dueDate && <span className="text-[10px] ml-auto flex-shrink-0" style={{ color:"#94a3b8" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {matchClients.length > 0 && (
+        <div>
+          <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Clientes</p>
+          {matchClients.map(c => (
+            <button key={c.id} onClick={() => { setActiveTab("clients"); onSelect(); }}
+              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0" style={{ background:"#eff6ff", color:"#2b8be8" }}>{c.name.charAt(0)}</div>
+              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{c.name}</span>
+              <span className="text-[10px] ml-auto flex-shrink-0" style={{ color:"#94a3b8" }}>{fmtCurrency(c.monthlyFee||0)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {matchRels.length > 0 && (
+        <div>
+          <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Relacionamentos</p>
+          {matchRels.map(r => (
+            <button key={r.id} onClick={() => { setActiveTab("relationship"); onSelect(); }}
+              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
+              <span className="text-base flex-shrink-0">💝</span>
+              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{r.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Layout({ children, activeTab, setActiveTab, onLogout }) {
   const { settings } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const navGroups = [
     {
@@ -408,6 +484,18 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
             <h1 className="text-base font-bold" style={{ color: "#1a1d23" }}>{currentLabel}</h1>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {/* ITEM 9 — Busca Global */}
+            <div className="relative hidden sm:block">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{width:15,height:15,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input value={globalSearch} onChange={e=>{ setGlobalSearch(e.target.value); setSearchOpen(e.target.value.length > 0); }}
+                onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
+                placeholder="Buscar..." className="border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs w-44 focus:w-56 transition-all focus:ring-2 focus:ring-blue-300" />
+              {searchOpen && globalSearch.length > 0 && (
+                <GlobalSearchResults query={globalSearch} onSelect={() => { setGlobalSearch(""); setSearchOpen(false); }} setActiveTab={setActiveTab} />
+              )}
+            </div>
             <div className="text-xs font-medium px-3 py-1 rounded-full" style={{ background: "#dbeafe", color: "#2b8be8" }}>
               {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
             </div>
@@ -516,6 +604,48 @@ function Dashboard() {
           </div>
         </div>
       </div>
+      {/* ITEM 4 — Alertas de prazo */}
+      {(() => {
+        const t2 = today();
+        const in7 = new Date(); in7.setDate(in7.getDate() + 7);
+        const in7s = in7.toISOString().split("T")[0];
+        const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < t2);
+        const soonTasks    = tasks.filter(t => !t.completed && t.dueDate && t.dueDate >= t2 && t.dueDate <= in7s);
+        if (overdueTasks.length === 0 && soonTasks.length === 0) return null;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {overdueTasks.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background:"#fff5f5", border:"1.5px solid #fecaca" }}>
+                <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#dc2626" }}>🚨 Atrasadas ({overdueTasks.length})</p>
+                <div className="space-y-1.5">
+                  {overdueTasks.slice(0,4).map(t => (
+                    <div key={t.id} className="flex items-center justify-between text-xs">
+                      <span className="font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
+                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#dc2626" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>
+                    </div>
+                  ))}
+                  {overdueTasks.length > 4 && <p className="text-xs" style={{ color:"#94a3b8" }}>+{overdueTasks.length-4} mais</p>}
+                </div>
+              </div>
+            )}
+            {soonTasks.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background:"#fffbeb", border:"1.5px solid #fde68a" }}>
+                <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#d97706" }}>⚡ Próximos 7 dias ({soonTasks.length})</p>
+                <div className="space-y-1.5">
+                  {soonTasks.slice(0,4).map(t => (
+                    <div key={t.id} className="flex items-center justify-between text-xs">
+                      <span className="font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
+                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#d97706" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>
+                    </div>
+                  ))}
+                  {soonTasks.length > 4 && <p className="text-xs" style={{ color:"#94a3b8" }}>+{soonTasks.length-4} mais</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
           <h3 className="text-base font-semibold text-slate-800 mb-4">Foco de Hoje</h3>
@@ -2159,6 +2289,102 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
 // ============================================================
 // CLIENTS
 // ============================================================
+
+// ============================================================
+// CLIENT DETAIL MODAL (Item 5)
+// ============================================================
+function ClientDetailModal({ client: c, onClose, onEdit }) {
+  const { tasks, severanceSimulations } = useApp() || {};
+  const clientTasks = (tasks||[]).filter(t => t.clientId === c.id);
+  const clientSims  = (severanceSimulations||[]).filter(s => s.clientId === c.id);
+  const done = clientTasks.filter(t => t.completed).length;
+  const pending = clientTasks.filter(t => !t.completed).length;
+  const overdue = clientTasks.filter(t => !t.completed && t.dueDate < today()).length;
+
+  const statusColors = { paid:"#10b981", pending:"#f59e0b", overdue:"#ef4444" };
+  const statusLabels = { paid:"Pago", pending:"Pendente", overdue:"Atrasado" };
+
+  return (
+    <Modal title={"Ficha — " + c.name} onClose={onClose} maxWidth="max-w-2xl">
+      <div className="p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5" }}>
+              {c.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-black" style={{ color:"#1a1d23" }}>{c.name}</p>
+              <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "Sem documento"} · {c.type === "pj" ? "Pessoa Jurídica" : "Pessoa Física"}</p>
+            </div>
+          </div>
+          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:"#eff6ff", color:"#2b8be8" }}>
+            <Icon.Edit />Editar
+          </button>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label:"Mensalidade", value: fmtCurrency(c.monthlyFee||0), color:"#10b981" },
+            { label:"Status Pgto", value: statusLabels[c.paymentStatus]||"—", color: statusColors[c.paymentStatus]||"#94a3b8" },
+            { label:"Tarefas", value: clientTasks.length + " total", color:"#2b8be8" },
+            { label:"Atrasadas", value: overdue > 0 ? overdue + " ⚠️" : "Nenhuma ✅", color: overdue > 0 ? "#ef4444" : "#10b981" },
+          ].map(k => (
+            <div key={k.label} className="rounded-xl p-3 text-center" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+              <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color:"#94a3b8" }}>{k.label}</p>
+              <p className="text-sm font-black" style={{ color:k.color }}>{k.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tarefas */}
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Tarefas vinculadas</p>
+          {clientTasks.length === 0 ? (
+            <p className="text-sm text-center py-4" style={{ color:"#94a3b8" }}>Nenhuma tarefa vinculada a este cliente.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {clientTasks.sort((a,b) => (a.dueDate||"") > (b.dueDate||"") ? 1 : -1).map(t => (
+                <div key={t.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : (!t.completed && t.dueDate < today()) ? "#ef4444" : "#f59e0b" }} />
+                    <span className={"text-xs font-medium truncate " + (t.completed ? "line-through" : "")} style={{ color: t.completed ? "#94a3b8" : "#1a1d23" }}>{t.title}</span>
+                  </div>
+                  {t.dueDate && <span className="text-[10px] flex-shrink-0 ml-2" style={{ color:"#94a3b8" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Simulações */}
+        {clientSims && clientSims.length > 0 && (
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Simulações rescisórias</p>
+            <div className="space-y-1.5">
+              {clientSims.map(s => (
+                <div key={s.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+                  <span className="text-xs font-medium" style={{ color:"#1a1d23" }}>{s.employeeName}</span>
+                  <span className="text-xs font-black" style={{ color:"#10b981" }}>{fmtCurrency(s.netAmount||0)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notas */}
+        {c.notes && (
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Notas</p>
+            <p className="text-sm rounded-xl p-3" style={{ background:"#f8fafc", border:"1px solid #e8edf5", color:"#374151" }}>{c.notes}</p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function Clients() {
   const { clients, addClient, updateClient, deleteClient } = useApp();
   const [isOpen, setIsOpen] = useState(false);
@@ -2170,6 +2396,7 @@ function Clients() {
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
   const [importOpen, setImportOpen] = useState(false);
+  const [clientDetail, setClientDetail] = useState(null);
 
   const handleImport = (toAdd, toUpdate) => {
     toAdd.forEach(c => addClient(c));
@@ -2344,6 +2571,9 @@ function Clients() {
                           <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "—"}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <button onClick={() => setClientDetail(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }} title="Ver ficha"
+                            onMouseEnter={e=>{e.currentTarget.style.background="#fdf4ff";e.currentTarget.style.color="#a855f7";}}
+                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Eye /></button>
                           <button onClick={() => open(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }}
                             onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2b8be8";}}
                             onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Edit /></button>
@@ -2594,6 +2824,11 @@ function Clients() {
           existingClients={clients}
           onImport={handleImport}
         />
+      )}
+
+      {/* ITEM 5 — Ficha completa do cliente */}
+      {clientDetail && (
+        <ClientDetailModal client={clientDetail} onClose={() => setClientDetail(null)} onEdit={() => { open(clientDetail); setClientDetail(null); }} />
       )}
     </div>
   );
@@ -3535,9 +3770,30 @@ function Reports() {
   const generateFeedback = async () => {
     setLoading(true); setAiFeedback(null);
     try {
-      const fb = await callClaude(`Atue como consultor de produtividade para escritório de contabilidade. Analise: Total de tarefas: ${total}, Concluídas: ${completed} (${rate}%), Categoria mais focada: ${catStats[0]?.name || "N/A"} (${catStats[0]?.total || 0} tarefas), Contexto mais focado: ${ctxStats[0]?.name || "N/A"}. Forneça feedback construtivo em Markdown com: 1) Resumo do desempenho, 2) Pontos fortes, 3) Oportunidades de melhoria.`);
+      const fb = await callClaude("Atue como consultor de produtividade para escritório de contabilidade. Analise: Total de tarefas: " + total + ", Concluidas: " + completed + " (" + rate + "%), Categoria mais focada: " + (catStats[0]?.name||"N/A") + " (" + (catStats[0]?.total||0) + " tarefas), Contexto mais focado: " + (ctxStats[0]?.name||"N/A") + ". Forneca feedback construtivo em Markdown com: 1) Resumo do desempenho, 2) Pontos fortes, 3) Oportunidades de melhoria.");
       setAiFeedback(fb);
-    } catch { setAiFeedback("Erro ao gerar análise."); } finally { setLoading(false); }
+    } catch { setAiFeedback("Erro ao gerar analise."); } finally { setLoading(false); }
+  };
+
+  // ITEM 10: Exportar relatório gerencial em PDF
+  const exportPDF = () => {
+    const catRows = catStats.map(c => "<tr><td style='padding:6px 8px;border-bottom:1px solid #e8edf5'>" + c.name + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5'>" + c.total + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5'>" + c.done + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5;font-weight:700;color:#2b8be8'>" + (c.total>0?Math.round(c.done/c.total*100):0) + "%</td></tr>").join("");
+    const taskRows = filtered.slice(0,30).map(t => "<tr><td style='padding:5px 8px;border-bottom:1px solid #f0f4f8;font-size:12px'>" + t.title + "</td><td style='padding:5px 8px;text-align:center;border-bottom:1px solid #f0f4f8;font-size:12px'>" + (t.dueDate||"—") + "</td><td style='padding:5px 8px;text-align:center;border-bottom:1px solid #f0f4f8;font-size:12px;font-weight:700;color:" + (t.completed?"#10b981":"#f59e0b") + "'>" + (t.completed?"Concluída":"Pendente") + "</td></tr>").join("");
+    const html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'/><title>Relatório Gerencial — Códice</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;background:#fff;padding:30px 40px}h1{font-size:22px;font-weight:900;color:#1a1d23}h2{font-size:13px;font-weight:700;color:#374151}h3{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:12px}.kpi{display:inline-flex;flex-direction:column;padding:14px 20px;border:1px solid #dde3ed;border-radius:10px;min-width:130px;margin:0 8px 8px 0}.kpi-v{font-size:24px;font-weight:900}.kpi-l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;padding:8px;text-align:left;border-bottom:2px solid #1a1d23}@media print{body{padding:15px 20px}}</style></head><body>"
+      + "<div style='text-align:center;padding-bottom:20px;border-bottom:2px solid #1a1d23;margin-bottom:24px'><h1>Códice Contabilidade</h1><h2 style='margin-top:4px'>Relatório Gerencial de Produtividade</h2><p style='font-size:12px;color:#94a3b8;margin-top:4px'>Período: " + startDate.split("-").reverse().join("/") + " a " + endDate.split("-").reverse().join("/") + " · Gerado em " + new Date().toLocaleDateString("pt-BR") + "</p></div>"
+      + "<div style='margin-bottom:24px'><h3>Resumo Executivo</h3><div>"
+        + "<div class='kpi'><div class='kpi-l'>Total Tarefas</div><div class='kpi-v' style='color:#2b8be8'>" + total + "</div></div>"
+        + "<div class='kpi'><div class='kpi-l'>Concluídas</div><div class='kpi-v' style='color:#10b981'>" + completed + "</div></div>"
+        + "<div class='kpi'><div class='kpi-l'>Pendentes</div><div class='kpi-v' style='color:#f59e0b'>" + (total-completed) + "</div></div>"
+        + "<div class='kpi'><div class='kpi-l'>Taxa de Conclusão</div><div class='kpi-v' style='color:" + (rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444") + "'>" + rate + "%</div></div>"
+      + "</div></div>"
+      + "<div style='margin-bottom:24px'><h3>Desempenho por Categoria</h3><table><thead><tr><th>Categoria</th><th style='text-align:right'>Total</th><th style='text-align:right'>Concluídas</th><th style='text-align:right'>Taxa</th></tr></thead><tbody>" + catRows + "</tbody></table></div>"
+      + "<div style='margin-bottom:24px'><h3>Tarefas do Período" + (filtered.length>30?" (primeiras 30)":"") + "</h3><table><thead><tr><th>Título</th><th style='text-align:center'>Prazo</th><th style='text-align:center'>Status</th></tr></thead><tbody>" + taskRows + "</tbody></table></div>"
+      + "<div style='padding-top:24px;border-top:1px solid #dde3ed;font-size:11px;color:#94a3b8;text-align:center'>Códice Contabilidade · Relatório gerado automaticamente pelo Códice Produtivo</div>"
+      + "</body></html>";
+    const w = window.open("","_blank","width=900,height=700");
+    w.document.write(html); w.document.close();
+    w.onload = () => { w.focus(); w.print(); };
   };
 
   return (
@@ -3593,9 +3849,14 @@ function Reports() {
           <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <h3 className="text-base font-semibold text-indigo-900 flex items-center gap-2"><Icon.Sparkles />Análise Inteligente com IA</h3>
-              <button onClick={generateFeedback} disabled={loading} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
-                {loading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Gerar Análise</>}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={exportPDF} disabled={total===0} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"#f0f4f8", color:"#374151" }}>
+                  <Icon.Download />PDF
+                </button>
+                <button onClick={generateFeedback} disabled={loading} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
+                  {loading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Gerar Análise</>}
+                </button>
+              </div>
             </div>
             <div className="bg-white rounded-lg p-5 border border-indigo-100 shadow-sm text-sm text-slate-700">
               {aiFeedback ? <div dangerouslySetInnerHTML={{ __html: aiFeedback.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/#{1,3} (.*)/g, "<h4 class='font-bold mt-3 mb-1'>$1</h4>").replace(/\n/g, "<br/>") }} /> : loading ? <div className="text-indigo-500 flex items-center gap-2"><Icon.Loader />Processando...</div> : <div className="text-center py-6 text-slate-500"><p>Clique para gerar uma análise personalizada do seu desempenho.</p></div>}
@@ -4809,6 +5070,28 @@ function Relationship() {
 // ============================================================
 function AppContent({ onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // ITEM 11: Atalhos de teclado globais
+  useEffect(() => {
+    const handler = (e) => {
+      // Ignorar se estiver em input/textarea/select
+      if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+      const k = e.key.toLowerCase();
+      if (k === "1") setActiveTab("dashboard");
+      if (k === "2") setActiveTab("tasks");
+      if (k === "3") setActiveTab("habits");
+      if (k === "4") setActiveTab("clients");
+      if (k === "5") setActiveTab("finances");
+      if (k === "6") setActiveTab("obligations");
+      if (k === "7") setActiveTab("severance");
+      if (k === "8") setActiveTab("relationship");
+      if (k === "9") setActiveTab("reports");
+      if (k === "0") setActiveTab("settings");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout}>
       {activeTab === "dashboard" && <Dashboard />}
