@@ -724,6 +724,9 @@ function Dashboard() {
 // ============================================================
 function Tasks() {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion, clients, categories, contexts, currentProfile, teamUsers } = useApp();
+  const isAdmin  = currentProfile?.role === "admin" || !currentProfile;
+  const isColab  = currentProfile?.role === "colaborador";
+  const isViewer = currentProfile?.role === "visualizador";
   const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split("T")[0]; });
   const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 2); return d.toISOString().split("T")[0]; });
   const [filterStatus, setFilterStatus] = useState("all");
