@@ -578,7 +578,7 @@ function StatCard({ title, value, icon, trend, trendColor, accent = "#3b82f6" })
 }
 
 function Dashboard() {
-  const { tasks, habits, clients, weeklyGoals, categories } = useApp();
+  const { tasks, habits, clients, weeklyGoals, categories, teamUsers, currentProfile } = useApp();
   const t = today();
   const overdue = tasks.filter(t => !t.completed && t.dueDate < today());
   const todayTasks = tasks.filter(t2 => t2.dueDate === t);
@@ -597,9 +597,30 @@ function Dashboard() {
       const d = new Date(); d.setDate(d.getDate() - 6 + i);
       const ds = d.toISOString().split("T")[0];
       const dt = tasks.filter(t2 => t2.dueDate === ds);
-      return { name: d.toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3), Tarefas: dt.length, Concluídas: dt.filter(t2 => t2.completed).length };
+      const isToday = ds === today();
+      return {
+        name: isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".",""),
+        Pendentes: dt.filter(t2 => !t2.completed).length,
+        Concluídas: dt.filter(t2 => t2.completed).length,
+        date: ds,
+        isToday,
+      };
     });
   }, [tasks]);
+
+  // Resumo por membro da equipe
+  const teamSummary = useMemo(() => {
+    return (teamUsers||[]).map(u => {
+      const mine = tasks.filter(t => t.assignedTo === u.id);
+      return {
+        ...u,
+        total: mine.length,
+        done: mine.filter(t => t.completed).length,
+        overdue: mine.filter(t => !t.completed && t.dueDate < today()).length,
+        pending: mine.filter(t => !t.completed).length,
+      };
+    }).filter(u => u.total > 0 || u.id === currentProfile?.id);
+  }, [tasks, teamUsers, currentProfile]);
 
   return (
     <div className="space-y-6">
@@ -621,36 +642,111 @@ function Dashboard() {
         <StatCard title="Hábitos Hoje" value={`${habitsToday}/${habits.length}`} icon={<svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" className="w-6 h-6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>} trend={`${weeklyGoals.filter(g => !g.completed).length} metas pendentes`} trendColor="text-amber-600" accent="#f59e0b" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* GRÁFICO DE PRODUTIVIDADE SEMANAL */}
         <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4 flex items-center gap-2"><Icon.Reports /> Volume de Atividades (7 dias)</h3>
-          <div className="h-56">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-base font-semibold text-slate-800">Produtividade Semanal</h3>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:2,background:"#2b8be8",display:"inline-block"}}/>Concluídas</span>
+              <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:2,background:"#e2e8f0",display:"inline-block"}}/>Pendentes</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mb-4">Tarefas com prazo nos últimos 7 dias</p>
+          <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekDays}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }} />
-                <Legend verticalAlign="top" height={32} iconType="circle" />
-                <Bar dataKey="Tarefas" fill="#bfdbfe" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Concluídas" fill="#2b8be8" radius={[4, 4, 0, 0]} />
+              <BarChart data={weekDays} barGap={2} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:11 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:11 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius:"12px", border:"1px solid #dde3ed", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:12 }}
+                  formatter={(val, name) => [val, name]}
+                  labelStyle={{ fontWeight:700, color:"#1a1d23" }}
+                />
+                <Bar dataKey="Concluídas" fill="#2b8be8" radius={[4,4,0,0]} stackId="a" />
+                <Bar dataKey="Pendentes" fill="#e2e8f0" radius={[4,4,0,0]} stackId="a" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          {/* Resumo total da semana */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+            <div className="text-center">
+              <p className="text-xl font-black" style={{ color:"#2b8be8" }}>{weekDays.reduce((s,d)=>s+d.Concluídas,0)}</p>
+              <p className="text-xs text-slate-400">concluídas</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-black" style={{ color:"#94a3b8" }}>{weekDays.reduce((s,d)=>s+d.Pendentes,0)}</p>
+              <p className="text-xs text-slate-400">pendentes</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-black" style={{ color:"#10b981" }}>
+                {weekDays.reduce((s,d)=>s+d.Concluídas+d.Pendentes,0) > 0
+                  ? Math.round(weekDays.reduce((s,d)=>s+d.Concluídas,0) / weekDays.reduce((s,d)=>s+d.Concluídas+d.Pendentes,0) * 100)
+                  : 0}%
+              </p>
+              <p className="text-xs text-slate-400">taxa semana</p>
+            </div>
+          </div>
         </div>
+
+        {/* RESUMO DA EQUIPE */}
         <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4">Atividades por Categoria</h3>
-          <div className="h-56">
-            {catData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={catData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value">
-                    {catData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: "8px", border: "none" }} />
-                  <Legend verticalAlign="bottom" height={32} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <div className="h-full flex items-center justify-center text-slate-400 text-sm">Nenhuma atividade ainda.</div>}
+          <h3 className="text-base font-semibold text-slate-800 mb-1">Resumo da Equipe</h3>
+          <p className="text-xs text-slate-400 mb-4">Tarefas atribuídas por colaborador</p>
+          {teamSummary.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-52 gap-3">
+              <p className="text-4xl">👥</p>
+              <p className="text-sm text-slate-400 text-center">Atribua tarefas à equipe<br/>para ver o resumo aqui</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {teamSummary.map(u => {
+                const pct = u.total > 0 ? Math.round(u.done / u.total * 100) : 0;
+                return (
+                  <div key={u.id} className="p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0"
+                          style={{ background: u.avatarColor||"#2b8be8" }}>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{u.name.split(" ")[0]}</p>
+                          <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.role === "admin" ? "Administrador" : u.role === "colaborador" ? "Colaborador" : "Visualizador"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-right">
+                        <div>
+                          <p className="text-xs font-black" style={{ color:"#10b981" }}>{u.done}</p>
+                          <p className="text-[9px] text-slate-400">feitas</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black" style={{ color:"#f59e0b" }}>{u.pending}</p>
+                          <p className="text-[9px] text-slate-400">pendentes</p>
+                        </div>
+                        {u.overdue > 0 && (
+                          <div>
+                            <p className="text-xs font-black" style={{ color:"#ef4444" }}>{u.overdue}</p>
+                            <p className="text-[9px] text-slate-400">atrasadas</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Barra de progresso */}
+                    <div className="w-full rounded-full h-1.5" style={{ background:"#e2e8f0" }}>
+                      <div className="h-1.5 rounded-full transition-all"
+                        style={{ width: pct + "%", background: pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#ef4444" }} />
+                    </div>
+                    <p className="text-[10px] text-right mt-0.5" style={{ color:"#94a3b8" }}>{pct}% concluído</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* Totais */}
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+            <p className="text-xs text-slate-400">{(teamUsers||[]).length} membros · {tasks.filter(t=>t.assignedTo).length} tarefas atribuídas</p>
+            <p className="text-xs font-semibold" style={{ color:"#2b8be8" }}>{tasks.filter(t=>!t.assignedTo).length} sem responsável</p>
           </div>
         </div>
       </div>
