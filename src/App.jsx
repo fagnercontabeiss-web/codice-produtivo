@@ -189,17 +189,7 @@ function AppProvider({ children }) {
     await db.delete("user_profiles", id).catch(console.error);
   }, []);
 
-  if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
-      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      </div>
-      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando Códice Produtivo...</p>
-      {dbError && <p style={{ color:"#ef4444", fontSize:12 }}>Erro ao conectar — usando dados locais</p>}
-    </div>
-  );
-
-  // Onboarding actions
+  // Onboarding actions — DEVE ficar antes do if(loading) return
   const addOnboarding = useCallback(async o => {
     setState(s => ({ ...s, onboardings:[...s.onboardings, o] }));
     await db.upsert("onboardings", { id:o.id, title:o.title, type:o.type, status:o.status, client_id:o.clientId||null, client_name:o.clientName||"", responsible_id:o.responsibleId||null, notes:o.notes||"", start_date:o.startDate||null, target_date:o.targetDate||null }).catch(console.error);
@@ -224,6 +214,16 @@ function AppProvider({ children }) {
     setState(s => ({ ...s, onboardingSteps:s.onboardingSteps.filter(x => x.id!==id) }));
     await db.delete("onboarding_steps", id).catch(console.error);
   }, []);
+
+  if (loading) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
+      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando Códice Produtivo...</p>
+      {dbError && <p style={{ color:"#ef4444", fontSize:12 }}>Erro ao conectar — usando dados locais</p>}
+    </div>
+  );
 
   const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
