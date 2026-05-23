@@ -26,6 +26,8 @@ const defaultState = {
   tasks: [], habits: [], clients: [], weeklyGoals: [],
   categories: defaultCategories, contexts: defaultContexts,
   relationships: [],
+  onboardings: [],
+  onboardingSteps: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
@@ -58,7 +60,9 @@ function AppProvider({ children }) {
           db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"),
         ]);
         // user_profiles separado — tabela pode não existir em instâncias antigas
-        const profilesRaw = await db.select("user_profiles").catch(() => []);
+        const profilesRaw  = await db.select("user_profiles").catch(() => []);
+        const onboardRaw   = await db.select("onboardings").catch(() => []);
+        const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
         const currentUserId = auth.getUserId();
         const myProfile = (profilesRaw||[]).find(p => p.id === currentUserId) || null;
         const settings = settingsRows?.[0]
@@ -77,6 +81,8 @@ function AppProvider({ children }) {
           })),
           teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
+          onboardings: (onboardRaw||[]).map(o => ({ id:o.id, title:o.title, type:o.type, status:o.status, clientId:o.client_id||"", clientName:o.client_name||"", responsibleId:o.responsible_id||null, notes:o.notes||"", startDate:o.start_date||"", targetDate:o.target_date||"", completedAt:o.completed_at||"" })),
+          onboardingSteps: (stepsRaw||[]).map(s => ({ id:s.id, onboardingId:s.onboarding_id, title:s.title, description:s.description||"", status:s.status, responsibleId:s.responsible_id||null, orderIndex:s.order_index||0, dueDate:s.due_date||"", completedAt:s.completed_at||"", notes:s.notes||"" })),
         });
         // Só criar categorias/contextos padrão se for admin e não tiver nenhum ainda
         // Colaboradores/Visualizadores usam as categorias que o Supabase retorna
@@ -193,7 +199,33 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser };
+  // Onboarding actions
+  const addOnboarding = useCallback(async o => {
+    setState(s => ({ ...s, onboardings:[...s.onboardings, o] }));
+    await db.upsert("onboardings", { id:o.id, title:o.title, type:o.type, status:o.status, client_id:o.clientId||null, client_name:o.clientName||"", responsible_id:o.responsibleId||null, notes:o.notes||"", start_date:o.startDate||null, target_date:o.targetDate||null }).catch(console.error);
+  }, []);
+  const updateOnboarding = useCallback(async o => {
+    setState(s => ({ ...s, onboardings:s.onboardings.map(x => x.id===o.id?o:x) }));
+    await db.upsert("onboardings", { id:o.id, title:o.title, type:o.type, status:o.status, client_id:o.clientId||null, client_name:o.clientName||"", responsible_id:o.responsibleId||null, notes:o.notes||"", start_date:o.startDate||null, target_date:o.targetDate||null, completed_at:o.completedAt||null }).catch(console.error);
+  }, []);
+  const deleteOnboarding = useCallback(async id => {
+    setState(s => ({ ...s, onboardings:s.onboardings.filter(o => o.id!==id), onboardingSteps:s.onboardingSteps.filter(s2 => s2.onboardingId!==id) }));
+    await db.delete("onboardings", id).catch(console.error);
+  }, []);
+  const addStep = useCallback(async s => {
+    setState(st => ({ ...st, onboardingSteps:[...st.onboardingSteps, s] }));
+    await db.upsert("onboarding_steps", { id:s.id, onboarding_id:s.onboardingId, title:s.title, description:s.description||"", status:s.status, responsible_id:s.responsibleId||null, order_index:s.orderIndex||0, due_date:s.dueDate||null, notes:s.notes||"" }).catch(console.error);
+  }, []);
+  const updateStep = useCallback(async s => {
+    setState(st => ({ ...st, onboardingSteps:st.onboardingSteps.map(x => x.id===s.id?s:x) }));
+    await db.upsert("onboarding_steps", { id:s.id, onboarding_id:s.onboardingId, title:s.title, description:s.description||"", status:s.status, responsible_id:s.responsibleId||null, order_index:s.orderIndex||0, due_date:s.dueDate||null, notes:s.notes||"", completed_at:s.completedAt||null }).catch(console.error);
+  }, []);
+  const deleteStep = useCallback(async id => {
+    setState(s => ({ ...s, onboardingSteps:s.onboardingSteps.filter(x => x.id!==id) }));
+    await db.delete("onboarding_steps", id).catch(console.error);
+  }, []);
+
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -426,6 +458,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       items: [
         { id: "clients",      label: "Clientes",              icon: Icon.Clients },
         { id: "relationship", label: "Relacionamento",         icon: Icon.Heart },
+        { id: "onboarding",   label: "Onboarding",             icon: Icon.Clients },
         { id: "obligations",  label: "Obrigações",             icon: Icon.Obligations },
         { id: "severance",    label: "Simulação Rescisória",   icon: Icon.Calculator },
       ]
@@ -5046,6 +5079,7 @@ function Team() {
     { id:"habits",       label:"Hábitos e Rotina",    group:"Principal" },
     { id:"clients",      label:"Clientes",            group:"Escritório" },
     { id:"relationship", label:"Relacionamento",      group:"Escritório" },
+    { id:"onboarding",   label:"Onboarding",          group:"Escritório" },
     { id:"obligations",  label:"Obrigações",          group:"Escritório" },
   ];
 
@@ -5418,6 +5452,517 @@ function Team() {
 }
 
 
+
+// ============================================================
+// ONBOARDING
+// ============================================================
+
+const ONBOARDING_TYPES = {
+  abertura_cnpj:      { label:"Abertura de CNPJ",         emoji:"🏢", color:"#2b8be8", bg:"#eff6ff" },
+  novo_cliente:       { label:"Chegada de Novo Cliente",   emoji:"🤝", color:"#10b981", bg:"#f0fdf4" },
+  regularizacao_fiscal:{ label:"Regularização Fiscal",    emoji:"📋", color:"#f97316", bg:"#fff7ed" },
+};
+
+const STEP_TEMPLATES = {
+  abertura_cnpj: [
+    "Coleta de documentos dos sócios",
+    "Definição do objeto social",
+    "Escolha do regime tributário",
+    "Elaboração do contrato social",
+    "Registro na Junta Comercial",
+    "Obtenção do CNPJ (Receita Federal)",
+    "Inscrição Estadual",
+    "Inscrição Municipal / Alvará",
+    "Abertura de conta bancária PJ",
+    "Cadastro no sistema contábil",
+    "Entrega de documentos ao cliente",
+  ],
+  novo_cliente: [
+    "Reunião de boas-vindas",
+    "Coleta de documentos da empresa",
+    "Levantamento de pendências fiscais",
+    "Migração de dados do contador anterior",
+    "Regularização de obrigações em atraso",
+    "Parametrização no sistema",
+    "Treinamento do cliente",
+    "Primeiro fechamento contábil",
+    "Confirmação de dados cadastrais",
+  ],
+  regularizacao_fiscal: [
+    "Diagnóstico fiscal inicial",
+    "Levantamento de débitos",
+    "Parcelamento de dívidas (REFIS/PERT)",
+    "Entrega de declarações em atraso",
+    "Regularização junto à Receita Federal",
+    "Regularização junto à Secretaria Estadual",
+    "Regularização junto à Prefeitura",
+    "Obtenção de Certidões Negativas",
+    "Relatório final ao cliente",
+  ],
+};
+
+const STATUS_CONFIG = {
+  pendente:      { label:"Pendente",     color:"#94a3b8", bg:"#f1f5f9", dot:"#cbd5e1" },
+  em_andamento:  { label:"Em andamento", color:"#2b8be8", bg:"#eff6ff", dot:"#2b8be8" },
+  concluido:     { label:"Concluído",    color:"#10b981", bg:"#f0fdf4", dot:"#10b981" },
+  bloqueado:     { label:"Bloqueado",    color:"#ef4444", bg:"#fef2f2", dot:"#ef4444" },
+};
+
+const ONB_STATUS = {
+  em_andamento: { label:"Em andamento", color:"#2b8be8", bg:"#eff6ff" },
+  concluido:    { label:"Concluído",    color:"#10b981", bg:"#f0fdf4" },
+  pausado:      { label:"Pausado",      color:"#f59e0b", bg:"#fffbeb" },
+  cancelado:    { label:"Cancelado",    color:"#ef4444", bg:"#fef2f2" },
+};
+
+function OnboardingDetail({ onb, onClose }) {
+  const { onboardingSteps, addStep, updateStep, deleteStep, updateOnboarding, teamUsers, currentProfile, clients } = useApp();
+  const steps = onboardingSteps.filter(s => s.onboardingId === onb.id).sort((a,b) => a.orderIndex - b.orderIndex);
+  const [newStepTitle, setNewStepTitle] = useState("");
+  const [editingStep, setEditingStep] = useState(null);
+  const [showAddStep, setShowAddStep] = useState(false);
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
+
+  const doneCount = steps.filter(s => s.status === "concluido").length;
+  const pct = steps.length > 0 ? Math.round(doneCount / steps.length * 100) : 0;
+
+  const addNewStep = async () => {
+    if (!newStepTitle.trim()) return;
+    const step = { id:uid(), onboardingId:onb.id, title:newStepTitle.trim(), description:"", status:"pendente", responsibleId:null, orderIndex:steps.length, dueDate:"", completedAt:"", notes:"" };
+    await addStep(step);
+    setNewStepTitle(""); setShowAddStep(false);
+  };
+
+  const toggleStep = async (step) => {
+    const next = step.status === "concluido" ? "pendente" : "concluido";
+    const updated = { ...step, status:next, completedAt: next==="concluido" ? new Date().toISOString() : "" };
+    await updateStep(updated);
+    // Se todos concluídos, marcar onboarding como concluído
+    const allDone = steps.filter(s => s.id !== step.id).every(s => s.status==="concluido") && next==="concluido";
+    if (allDone && onb.status !== "concluido") {
+      await updateOnboarding({ ...onb, status:"concluido", completedAt:new Date().toISOString() });
+    }
+  };
+
+  const changeStepStatus = async (step, status) => {
+    await updateStep({ ...step, status, completedAt: status==="concluido" ? new Date().toISOString() : "" });
+  };
+
+  const typeInfo = ONBOARDING_TYPES[onb.type] || ONBOARDING_TYPES.abertura_cnpj;
+  const onbStatus = ONB_STATUS[onb.status] || ONB_STATUS.em_andamento;
+
+  return (
+    <Modal title="" onClose={onClose} maxWidth="max-w-2xl">
+      <div className="flex flex-col" style={{ maxHeight:"85vh" }}>
+        {/* Header */}
+        <div className="p-6 pb-4" style={{ borderBottom:"1px solid #e8edf5" }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                style={{ background:typeInfo.bg }}>
+                {typeInfo.emoji}
+              </div>
+              <div>
+                <h2 className="text-lg font-black" style={{ color:"#1a1d23" }}>{onb.title}</h2>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:typeInfo.bg, color:typeInfo.color }}>{typeInfo.label}</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:onbStatus.bg, color:onbStatus.color }}>{onbStatus.label}</span>
+                  {onb.clientName && <span className="text-xs" style={{ color:"#94a3b8" }}>👤 {onb.clientName}</span>}
+                  {onb.targetDate && <span className="text-xs" style={{ color:"#94a3b8" }}>📅 Prazo: {new Date(onb.targetDate+"T12:00:00").toLocaleDateString("pt-BR")}</span>}
+                </div>
+              </div>
+            </div>
+            {isAdmin && (
+              <div className="flex gap-2 flex-shrink-0">
+                {Object.entries(ONB_STATUS).map(([k,v]) => (
+                  <button key={k} onClick={() => updateOnboarding({...onb, status:k})}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg transition-all"
+                    style={{ background: onb.status===k ? v.bg : "#f8fafc", color: onb.status===k ? v.color : "#94a3b8", border: onb.status===k ? "1.5px solid "+v.color+"40" : "1px solid #e2e8f0" }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Barra de progresso */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
+              <span className="text-xs font-black" style={{ color: pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{doneCount}/{steps.length} etapas ({pct}%)</span>
+            </div>
+            <div className="w-full rounded-full h-2" style={{ background:"#e2e8f0" }}>
+              <div className="h-2 rounded-full transition-all duration-500"
+                style={{ width:pct+"%", background: pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?"linear-gradient(90deg,#2b8be8,#1d6fd4)":"linear-gradient(90deg,#f59e0b,#d97706)" }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-2">
+          {steps.length === 0 && (
+            <div className="text-center py-8" style={{ color:"#94a3b8" }}>
+              <p className="text-3xl mb-2">📋</p>
+              <p className="text-sm">Nenhuma etapa ainda. Adicione abaixo.</p>
+            </div>
+          )}
+          {steps.map((step, idx) => {
+            const sc = STATUS_CONFIG[step.status] || STATUS_CONFIG.pendente;
+            const assignedUser = (teamUsers||[]).find(u => u.id === step.responsibleId);
+            return (
+              <div key={step.id} className="flex items-start gap-3 p-3 rounded-xl group transition-all"
+                style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="#dde3ed"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="#e8edf5"}>
+                {/* Número + checkbox */}
+                <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                  <span className="text-[10px] font-black w-5 text-right" style={{ color:"#cbd5e1" }}>{idx+1}</span>
+                  <button type="button" onClick={() => toggleStep(step)}
+                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0"
+                    style={{ borderColor: step.status==="concluido" ? "#10b981" : "#cbd5e1", background: step.status==="concluido" ? "#10b981" : "transparent" }}>
+                    {step.status==="concluido" && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:10,height:10}}><polyline points="20 6 9 17 4 12"/></svg>}
+                  </button>
+                </div>
+                {/* Conteúdo */}
+                <div className="flex-1 min-w-0">
+                  <p className={"text-sm font-medium " + (step.status==="concluido"?"line-through":"")}
+                    style={{ color: step.status==="concluido"?"#94a3b8":"#1a1d23" }}>{step.title}</p>
+                  {step.description && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{step.description}</p>}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {/* Status badge */}
+                    {isAdmin && (
+                      <select value={step.status} onChange={e=>changeStepStatus(step,e.target.value)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border-0 cursor-pointer"
+                        style={{ background:sc.bg, color:sc.color }}>
+                        {Object.entries(STATUS_CONFIG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                    )}
+                    {/* Responsável */}
+                    {(teamUsers||[]).length > 1 && isAdmin && (
+                      <select value={step.responsibleId||""} onChange={e=>updateStep({...step,responsibleId:e.target.value||null})}
+                        className="text-[10px] px-2 py-0.5 rounded-full border-0 cursor-pointer"
+                        style={{ background:"#f0f4f8", color:"#64748b" }}>
+                        <option value="">Sem responsável</option>
+                        {(teamUsers||[]).map(u => <option key={u.id} value={u.id}>{u.name.split(" ")[0]}</option>)}
+                      </select>
+                    )}
+                    {assignedUser && !isAdmin && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background:assignedUser.avatarColor+"22", color:assignedUser.avatarColor }}>
+                        👤 {assignedUser.name.split(" ")[0]}
+                      </span>
+                    )}
+                    {step.dueDate && <span className="text-[10px]" style={{ color:"#94a3b8" }}>📅 {new Date(step.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                  </div>
+                </div>
+                {/* Ações */}
+                {isAdmin && (
+                  <button onClick={() => deleteStep(step.id)} className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all flex-shrink-0"
+                    style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.color="#ef4444"}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                    <Icon.Trash />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Adicionar etapa */}
+          {isAdmin && (
+            <div className="pt-2">
+              {showAddStep ? (
+                <div className="flex gap-2">
+                  <input value={newStepTitle} onChange={e=>setNewStepTitle(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter") addNewStep(); if(e.key==="Escape") setShowAddStep(false); }}
+                    placeholder="Nome da etapa..." autoFocus
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  <button onClick={addNewStep} className="px-3 py-2 text-white rounded-lg text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Adicionar</button>
+                  <button onClick={()=>setShowAddStep(false)} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+                </div>
+              ) : (
+                <button onClick={()=>setShowAddStep(true)} className="flex items-center gap-2 text-sm font-medium w-full p-3 rounded-xl transition-all"
+                  style={{ color:"#94a3b8", border:"1.5px dashed #e2e8f0" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#2b8be8";e.currentTarget.style.color="#2b8be8";e.currentTarget.style.background="#f8fafc"}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.color="#94a3b8";e.currentTarget.style.background="transparent"}}>
+                  <Icon.Plus /> Nova etapa
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
+        {(onb.notes || isAdmin) && (
+          <div className="p-4 pt-0">
+            <textarea value={onb.notes||""} onChange={e=>isAdmin&&updateOnboarding({...onb,notes:e.target.value})}
+              readOnly={!isAdmin} placeholder="Observações gerais sobre este onboarding..."
+              rows={2} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-300 resize-none"
+              style={{ color:"#374151", background: isAdmin?"#fff":"#f8fafc" }} />
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function Onboarding() {
+  const { onboardings, onboardingSteps, addOnboarding, updateOnboarding, deleteOnboarding, addStep, clients, teamUsers, currentProfile } = useApp();
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
+  const canManage = isAdmin || currentProfile?.role === "colaborador";
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [detailOnb, setDetailOnb] = useState(null);
+  const [filter, setFilter] = useState("todos");
+  const [filterType, setFilterType] = useState("todos");
+  const [of, setOf] = useState({ title:"", type:"abertura_cnpj", clientName:"", clientId:"", responsibleId:"", targetDate:"", notes:"" });
+  const [useTemplate, setUseTemplate] = useState(true);
+
+  const openForm = () => {
+    setOf({ title:"", type:"abertura_cnpj", clientName:"", clientId:"", responsibleId:"", targetDate:"", notes:"" });
+    setUseTemplate(true);
+    setIsFormOpen(true);
+  };
+
+  const save = async () => {
+    if (!of.title.trim()) return;
+    const newOnb = { id:uid(), title:of.title.trim(), type:of.type, status:"em_andamento", clientId:of.clientId||"", clientName:of.clientName||"", responsibleId:of.responsibleId||null, notes:of.notes||"", startDate:new Date().toISOString().split("T")[0], targetDate:of.targetDate||"", completedAt:"" };
+    await addOnboarding(newOnb);
+    // Criar etapas do template automaticamente
+    if (useTemplate && STEP_TEMPLATES[of.type]) {
+      for (let i=0; i<STEP_TEMPLATES[of.type].length; i++) {
+        await addStep({ id:uid(), onboardingId:newOnb.id, title:STEP_TEMPLATES[of.type][i], description:"", status:"pendente", responsibleId:null, orderIndex:i, dueDate:"", completedAt:"", notes:"" });
+      }
+    }
+    setIsFormOpen(false);
+    setDetailOnb(newOnb);
+  };
+
+  const getProgress = (onb) => {
+    const steps = onboardingSteps.filter(s => s.onboardingId === onb.id);
+    if (!steps.length) return 0;
+    return Math.round(steps.filter(s => s.status==="concluido").length / steps.length * 100);
+  };
+
+  const getStepCount = (onb) => {
+    const steps = onboardingSteps.filter(s => s.onboardingId === onb.id);
+    return { done: steps.filter(s=>s.status==="concluido").length, total: steps.length };
+  };
+
+  const list = onboardings
+    .filter(o => filter==="todos" || o.status===filter)
+    .filter(o => filterType==="todos" || o.type===filterType)
+    .sort((a,b) => (b.startDate||"").localeCompare(a.startDate||""));
+
+  const counts = onboardings.reduce((acc,o) => { acc[o.status]=(acc[o.status]||0)+1; return acc; },{});
+  const typeCounts = onboardings.reduce((acc,o) => { acc[o.type]=(acc[o.type]||0)+1; return acc; },{});
+
+  // KPIs
+  const total = onboardings.length;
+  const ativos = onboardings.filter(o=>o.status==="em_andamento").length;
+  const concluidos = onboardings.filter(o=>o.status==="concluido").length;
+  const avgPct = total > 0 ? Math.round(onboardings.reduce((s,o)=>s+getProgress(o),0)/total) : 0;
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Onboarding de Clientes</h2>
+          <p className="text-sm" style={{ color:"#94a3b8" }}>Acompanhe abertura de CNPJ, chegada de clientes e regularizações</p>
+        </div>
+        {canManage && (
+          <button onClick={openForm} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+            style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}>
+            <Icon.Plus />Novo Onboarding
+          </button>
+        )}
+      </div>
+
+      {/* KPIs */}
+      {total > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label:"Total", value:total, color:"#2b8be8", bg:"#eff6ff" },
+            { label:"Em andamento", value:ativos, color:"#f59e0b", bg:"#fffbeb" },
+            { label:"Concluídos", value:concluidos, color:"#10b981", bg:"#f0fdf4" },
+            { label:"Progresso médio", value:avgPct+"%", color: avgPct>=70?"#10b981":avgPct>=40?"#2b8be8":"#f59e0b", bg:"#f8fafc" },
+          ].map(k => (
+            <div key={k.label} className="rounded-xl p-4 text-center" style={{ background:k.bg, border:"1px solid "+k.color+"22" }}>
+              <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
+              <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{k.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap">
+          {[["todos","Todos"],["em_andamento","Em andamento"],["concluido","Concluídos"],["pausado","Pausados"],["cancelado","Cancelados"]].map(([v,l]) => (
+            <button key={v} onClick={()=>setFilter(v)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={{ background:filter===v?"linear-gradient(135deg,#5aaff5,#2b8be8)":"#f0f4f8", color:filter===v?"#fff":"#64748b" }}>
+              {l}{v!=="todos"&&counts[v]?` (${counts[v]})`:total&&v==="todos"?` (${total})`:""}
+            </button>
+          ))}
+        </div>
+        <div className="h-6 w-px bg-slate-200 self-center hidden sm:block" />
+        <div className="flex gap-1.5 flex-wrap">
+          {[["todos","Todos tipos"],...Object.entries(ONBOARDING_TYPES).map(([k,v])=>[k,v.emoji+" "+v.label.split(" ")[0]])].map(([v,l]) => (
+            <button key={v} onClick={()=>setFilterType(v)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={{ background:filterType===v?"#1a1d23":"#f0f4f8", color:filterType===v?"#fff":"#64748b" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista */}
+      {list.length === 0 ? (
+        <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
+          <p className="text-5xl mb-4">🚀</p>
+          <p className="font-bold text-lg" style={{ color:"#1a1d23" }}>Nenhum onboarding ainda</p>
+          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Crie o primeiro processo de chegada de cliente ou abertura de CNPJ</p>
+          {canManage && <button onClick={openForm} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Criar primeiro onboarding</button>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {list.map(onb => {
+            const typeInfo = ONBOARDING_TYPES[onb.type] || ONBOARDING_TYPES.abertura_cnpj;
+            const onbStatus = ONB_STATUS[onb.status] || ONB_STATUS.em_andamento;
+            const pct = getProgress(onb);
+            const { done, total: tot } = getStepCount(onb);
+            const responsibleUser = (teamUsers||[]).find(u => u.id === onb.responsibleId);
+
+            return (
+              <div key={onb.id} className="rounded-2xl p-5 cursor-pointer group transition-all"
+                style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}
+                onClick={() => setDetailOnb(onb)}
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.12)";e.currentTarget.style.transform="translateY(-1px)"}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.06)";e.currentTarget.style.transform="translateY(0)"}}>
+
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background:typeInfo.bg }}>{typeInfo.emoji}</div>
+                    <div>
+                      <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{onb.title}</p>
+                      {onb.clientName && <p className="text-xs" style={{ color:"#94a3b8" }}>👤 {onb.clientName}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:onbStatus.bg, color:onbStatus.color }}>{onbStatus.label}</span>
+                    {isAdmin && (
+                      <button onClick={e=>{e.stopPropagation();deleteOnboarding(onb.id)}} className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all"
+                        style={{ color:"#94a3b8" }}
+                        onMouseEnter={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.color="#ef4444"}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
+                        <Icon.Trash />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Barra de progresso */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{tot} etapas</span>
+                    <span className="text-[10px] font-black" style={{ color: pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+                  </div>
+                  <div className="w-full rounded-full h-1.5" style={{ background:"#f0f4f8" }}>
+                    <div className="h-1.5 rounded-full transition-all"
+                      style={{ width:pct+"%", background: pct===100?"#10b981":pct>50?"#2b8be8":"#f59e0b" }} />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px]" style={{ color:"#94a3b8" }}>
+                  <span style={{ color:typeInfo.color, fontWeight:600 }}>{typeInfo.label}</span>
+                  <div className="flex items-center gap-3">
+                    {responsibleUser && <span>👤 {responsibleUser.name.split(" ")[0]}</span>}
+                    {onb.targetDate && <span>📅 {new Date(onb.targetDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                    {onb.startDate && <span>Iniciado {new Date(onb.startDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal detalhe */}
+      {detailOnb && (
+        <OnboardingDetail
+          onb={onboardings.find(o=>o.id===detailOnb.id)||detailOnb}
+          onClose={()=>setDetailOnb(null)}
+        />
+      )}
+
+      {/* Modal criar */}
+      {isFormOpen && (
+        <Modal title="Novo Onboarding" onClose={()=>setIsFormOpen(false)} maxWidth="max-w-lg">
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Tipo de processo *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(ONBOARDING_TYPES).map(([k,v]) => (
+                  <button key={k} type="button" onClick={()=>setOf(p=>({...p,type:k}))}
+                    className="p-3 rounded-xl text-center transition-all"
+                    style={{ background:of.type===k?v.bg:"#f8fafc", border:of.type===k?"2px solid "+v.color:"1px solid #e2e8f0", color:of.type===k?v.color:"#64748b" }}>
+                    <div className="text-2xl mb-1">{v.emoji}</div>
+                    <div className="text-[10px] font-bold leading-tight">{v.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Título *</label>
+              <input value={of.title} onChange={e=>setOf(p=>({...p,title:e.target.value}))}
+                placeholder={of.type==="abertura_cnpj"?"Ex: Abertura CNPJ - Empresa XYZ":of.type==="novo_cliente"?"Ex: Onboarding - João Silva":"Ex: Regularização - Empresa ABC"}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do cliente</label>
+                <input value={of.clientName} onChange={e=>setOf(p=>({...p,clientName:e.target.value}))}
+                  placeholder="Nome ou empresa"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Prazo alvo</label>
+                <input type="date" value={of.targetDate} onChange={e=>setOf(p=>({...p,targetDate:e.target.value}))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+              </div>
+            </div>
+            {(teamUsers||[]).length > 1 && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Responsável</label>
+                <select value={of.responsibleId} onChange={e=>setOf(p=>({...p,responsibleId:e.target.value}))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                  <option value="">Sem responsável definido</option>
+                  {(teamUsers||[]).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            )}
+            <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background:"#f0fdf4", border:"1px solid #bbf7d0" }}>
+              <input type="checkbox" checked={useTemplate} onChange={e=>setUseTemplate(e.target.checked)} className="rounded text-green-600 w-4 h-4" />
+              <div>
+                <p className="text-sm font-semibold" style={{ color:"#166534" }}>✅ Usar checklist padrão</p>
+                <p className="text-xs" style={{ color:"#4ade80" }}>Cria automaticamente as {STEP_TEMPLATES[of.type]?.length||0} etapas recomendadas para {ONBOARDING_TYPES[of.type]?.label}</p>
+              </div>
+            </label>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={()=>setIsFormOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+              <button onClick={save} disabled={!of.title.trim()} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                <Icon.Plus />Criar Onboarding
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -5460,6 +6005,7 @@ function AppContent({ onLogout }) {
       {activeTab === "tasks" && <Tasks />}
       {!isViewer && activeTab === "habits" && <Habits />}
       {!isViewer && activeTab === "clients" && <Clients />}
+      {activeTab === "onboarding" && <Onboarding />}
       {!isViewer && activeTab === "obligations" && <Obligations />}
       {!isViewer && activeTab === "reports" && <Reports />}
       {isAdmin   && activeTab === "severance" && <SeveranceSimulation />}
