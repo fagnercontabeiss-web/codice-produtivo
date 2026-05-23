@@ -28,6 +28,7 @@ const defaultState = {
   relationships: [],
   onboardings: [],
   onboardingSteps: [],
+  clientEvents: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
@@ -62,6 +63,7 @@ function AppProvider({ children }) {
         // user_profiles separado — tabela pode não existir em instâncias antigas
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
+        const clientEvRaw  = await db.select("client_events").catch(() => []);
         const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
         const currentUserId = auth.getUserId();
         const myProfile = (profilesRaw||[]).find(p => p.id === currentUserId) || null;
@@ -81,6 +83,7 @@ function AppProvider({ children }) {
           })),
           teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
+          clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
           onboardings: (onboardRaw||[]).map(o => ({ id:o.id, title:o.title, type:o.type, status:o.status, clientId:o.client_id||"", clientName:o.client_name||"", responsibleId:o.responsible_id||null, notes:o.notes||"", startDate:o.start_date||"", targetDate:o.target_date||"", completedAt:o.completed_at||"" })),
           onboardingSteps: (stepsRaw||[]).map(s => ({ id:s.id, onboardingId:s.onboarding_id, title:s.title, description:s.description||"", status:s.status, responsibleId:s.responsible_id||null, orderIndex:s.order_index||0, dueDate:s.due_date||"", completedAt:s.completed_at||"", notes:s.notes||"" })),
         });
@@ -189,6 +192,20 @@ function AppProvider({ children }) {
     await db.delete("user_profiles", id).catch(console.error);
   }, []);
 
+  // Client Events actions
+  const addClientEvent = useCallback(async ev => {
+    setState(s => ({ ...s, clientEvents:[...s.clientEvents, ev] }));
+    await db.upsert("client_events", { id:ev.id, client_id:ev.clientId, type:ev.type, title:ev.title, content:ev.content||"", date:ev.date, resolved:ev.resolved||false }).catch(console.error);
+  }, []);
+  const updateClientEvent = useCallback(async ev => {
+    setState(s => ({ ...s, clientEvents:s.clientEvents.map(x => x.id===ev.id?ev:x) }));
+    await db.upsert("client_events", { id:ev.id, client_id:ev.clientId, type:ev.type, title:ev.title, content:ev.content||"", date:ev.date, resolved:ev.resolved||false }).catch(console.error);
+  }, []);
+  const deleteClientEvent = useCallback(async id => {
+    setState(s => ({ ...s, clientEvents:s.clientEvents.filter(x => x.id!==id) }));
+    await db.delete("client_events", id).catch(console.error);
+  }, []);
+
   // Onboarding actions — DEVE ficar antes do if(loading) return
   const addOnboarding = useCallback(async o => {
     setState(s => ({ ...s, onboardings:[...s.onboardings, o] }));
@@ -225,7 +242,7 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -1101,6 +1118,7 @@ function Tasks() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [filterCtx, setFilterCtx] = useState("all");
+  const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState("");
   const [hideCompleted, setHideCompleted] = useState(true);
   const [viewMode, setViewMode] = useState("list");
@@ -1224,7 +1242,7 @@ function Tasks() {
         <div className="rounded-2xl p-5" style={{ background:"#fff8f6", border:"1px solid #fca5a5", borderLeft:"4px solid #ef4444" }}>
           <div className="flex items-center mb-3 gap-2" style={{ color:"#dc2626" }}><Icon.Alert /><h2 className="text-base font-bold">Tarefas Atrasadas ({overdue.length})</h2></div>
           <div className="space-y-2">
-            {overdue.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} />)}
+            {overdue.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} compact={compactMode} onDuplicate={t => { const nt={...t,id:uid(),completed:false}; addTask(nt); }} />)}
           </div>
         </div>
       )}
@@ -1249,6 +1267,14 @@ function Tasks() {
               <button onClick={() => setViewMode("list")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "list" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="list"?{color:"#2b8be8"}:{}}><Icon.List />Lista</button>
               <button onClick={() => setViewMode("calendar")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "calendar" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="calendar"?{color:"#2b8be8"}:{}}><Icon.Calendar />Calendário</button>
             </div>
+            {/* Modo Compacto */}
+            <button onClick={() => setCompactMode(v=>!v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={{ background: compactMode ? "linear-gradient(135deg,#1a1d26,#1e2e4a)" : "#f0f4f8", color: compactMode ? "#5aaff5" : "#64748b", border: compactMode ? "1px solid rgba(91,170,255,0.2)" : "1px solid #e2e8f0" }}
+              title="Alternar modo compacto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              {compactMode ? "Compacto" : "Compacto"}
+            </button>
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input type="checkbox" checked={hideCompleted} onChange={e => setHideCompleted(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />Ocultar concluídas
             </label>
@@ -1326,7 +1352,7 @@ function Tasks() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filtered.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} />)}
+              {filtered.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} compact={compactMode} onDuplicate={t => { const nt={...t,id:uid(),completed:false}; addTask(nt); }} />)}
             </div>
           )}
         </div>
@@ -1599,7 +1625,7 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
   );
 }
 
-function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile }) {
+function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
   const cat = categories.find(c => c.id === task.categoryId);
   const ctx = contexts.find(c => c.id === task.contextId);
   const od = isOverdue(task.dueDate, task.completed);
@@ -1609,12 +1635,13 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
   const canAssign = isAdmin || (isColab && currentProfile?.canCreateTasks);
   const [showAssign, setShowAssign] = useState(false);
   const [assignPos, setAssignPos] = useState({ top:0, left:0, dropUp:false });
+  const [showComment, setShowComment] = useState(false);
+  const [commentText, setCommentText] = useState(task.description||"");
   const assignRef = useRef(null);
+
   useEffect(() => {
     if (!showAssign) return;
-    const h = e => {
-      if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false);
-    };
+    const h = e => { if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [showAssign]);
@@ -1624,42 +1651,78 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
     if (assignRef.current) {
       const rect = assignRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      const dropUp = spaceBelow < 240;
-      setAssignPos({
-        left: rect.left,
-        top: dropUp ? rect.top - 8 : rect.bottom + 6,
-        dropUp,
-      });
+      setAssignPos({ left:rect.left, top:spaceBelow<240?rect.top-8:rect.bottom+6, dropUp:spaceBelow<240 });
     }
     setShowAssign(v => !v);
   };
 
-  // checklist expand
+  const saveComment = () => {
+    onUpdate({...task, description:commentText});
+    setShowComment(false);
+  };
+
+  // ── MODO COMPACTO ────────────────────────────────────────
+  if (compact) {
+    return (
+      <div className="group flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-150"
+        style={{
+          background: task.completed ? "rgba(248,250,252,0.7)" : od ? "rgba(254,242,242,0.8)" : "rgba(255,255,255,0.9)",
+          border: task.completed ? "1px solid rgba(226,232,240,0.6)" : od ? "1px solid rgba(254,202,202,0.7)" : "1px solid rgba(221,227,237,0.6)",
+          boxShadow: "0 1px 4px rgba(26,29,35,0.04)",
+          backdropFilter: "blur(4px)",
+        }}
+        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateX(1px)";}}
+        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateX(0)";}}>
+        {/* Checkbox */}
+        <button onClick={onToggle} className="flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
+          style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#cbd5e1", background:task.completed?"#10b981":"transparent" }}>
+          {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
+        </button>
+        {/* Barra colorida */}
+        {cat && <div className="w-1 h-4 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.7 }}/>}
+        {/* Título */}
+        <p className={"flex-1 text-xs font-medium truncate " + (task.completed?"line-through opacity-50":"")} style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>
+          {task.title}
+        </p>
+        {/* Badges mini */}
+        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+          {assignedUser && (
+            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0"
+              style={{ background:assignedUser.avatarColor||"#2b8be8" }} title={assignedUser.name}>
+              {assignedUser.name.charAt(0)}
+            </div>
+          )}
+          {task.dueDate && (
+            <span className="text-[10px] font-medium" style={{ color:od&&!task.completed?"#ef4444":"#94a3b8" }}>
+              {new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+            </span>
+          )}
+        </div>
+        {/* Quick actions compacto */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+          <button onClick={onEdit} className="p-1 rounded-md hover:bg-blue-50 transition-colors" title="Editar" style={{ color:"#94a3b8" }}
+            onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:12,height:12}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          {onDuplicate && (
+            <button onClick={()=>onDuplicate(task)} className="p-1 rounded-md hover:bg-slate-50 transition-colors" title="Duplicar" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>e.currentTarget.style.color="#64748b"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:12,height:12}}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          )}
+          <button onClick={onDelete} className="p-1 rounded-md hover:bg-red-50 transition-colors" title="Excluir" style={{ color:"#94a3b8" }}
+            onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:12,height:12}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MODO NORMAL (cards maiores) ──────────────────────────
   const [expanded, setExpanded] = useState(false);
-  // inline date edit
   const [editingDate, setEditingDate] = useState(false);
   const dateRef = useRef(null);
-  // new checklist item input
-  const [newItem, setNewItem] = useState("");
-
-  const checklist = task.checklist || [];
-  const doneItems = checklist.filter(i => i.done).length;
-
-  const toggleCheckItem = (itemId) => {
-    const updated = checklist.map(i => i.id === itemId ? { ...i, done: !i.done } : i);
-    onUpdate({ ...task, checklist: updated });
-  };
-  const addCheckItem = () => {
-    const text = newItem.trim();
-    if (!text) return;
-    onUpdate({ ...task, checklist: [...checklist, { id: uid(), text, done: false }] });
-    setNewItem("");
-  };
-  const deleteCheckItem = (itemId) => {
-    onUpdate({ ...task, checklist: checklist.filter(i => i.id !== itemId) });
-  };
-
-  // close date picker on outside click
   useEffect(() => {
     if (!editingDate) return;
     const h = e => { if (dateRef.current && !dateRef.current.contains(e.target)) setEditingDate(false); };
@@ -1668,286 +1731,199 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
   }, [editingDate]);
 
   return (
-    <div className="rounded-xl transition-all duration-150 group"
+    <div className="group rounded-2xl transition-all duration-200"
       style={{
-        background: task.completed ? "#f8fafc" : "#fff",
-        border: od ? "1px solid #fca5a5" : "1px solid #dde3ed",
-        borderLeft: od ? "3px solid #ef4444" : task.completed ? "3px solid #cbd5e1" : "3px solid #2b8be8",
-        boxShadow: task.completed ? "none" : "0 1px 3px rgba(26,29,35,0.05)",
-        opacity: task.completed ? 0.75 : 1,
-      }}>
+        background: task.completed ? "rgba(248,250,252,0.8)" : od ? "rgba(255,245,245,0.95)" : "rgba(255,255,255,0.98)",
+        border: task.completed ? "1px solid rgba(226,232,240,0.6)" : od ? "1.5px solid rgba(254,202,202,0.8)" : "1px solid rgba(221,227,237,0.7)",
+        boxShadow: od && !task.completed
+          ? "0 4px 16px rgba(239,68,68,0.06), 0 1px 4px rgba(0,0,0,0.03)"
+          : "0 4px 16px rgba(26,29,35,0.04), 0 1px 4px rgba(0,0,0,0.02)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+      }}
+      onMouseEnter={e=>{if(!od)e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateY(-1px)";}}
+      onMouseLeave={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 4px 16px rgba(239,68,68,0.06)":"0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateY(0)";}}>
 
-      {/* Main row */}
-      <div className="flex items-start gap-3 px-4 py-3.5">
+      {/* Linha de cor lateral */}
+      <div className="flex">
+        {cat && <div className="w-1 rounded-l-2xl flex-shrink-0" style={{ background:cat.color, opacity:task.completed?0.3:0.8 }}/>}
+        <div className="flex-1 p-4">
+          {/* Row principal */}
+          <div className="flex items-start gap-3">
+            {/* Checkbox */}
+            <button onClick={onToggle} className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-0.5"
+              style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
+              {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:11,height:11}}><polyline points="20 6 9 17 4 12"/></svg>}
+            </button>
 
-        {/* Checkbox */}
-        <button onClick={onToggle} className="mt-0.5 flex-shrink-0 transition-transform hover:scale-110">
-          {task.completed
-            ? <svg viewBox="0 0 24 24" fill="#10b981" stroke="none" className="w-5 h-5"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9" stroke="white" strokeWidth="2" fill="none"/></svg>
-            : <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" className="w-5 h-5 hover:stroke-blue-400"><circle cx="12" cy="12" r="10"/></svg>
-          }
-        </button>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold leading-snug" style={{ color: task.completed ? "#94a3b8" : "#1a1d23", textDecoration: task.completed ? "line-through" : "none" }}>
-            {task.title}
-          </p>
-          {task.description && <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>{task.description}</p>}
-
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {/* Contexto dropdown */}
-            <QuickDropdown
-              label={ctx?.name || "Contexto"}
-              color={ctx?.color}
-              items={contexts}
-              selectedId={task.contextId}
-              onSelect={id => onUpdate({ ...task, contextId: id })}
-              menuTitle="Contexto"
-            />
-            {/* Categoria dropdown */}
-            <QuickDropdown
-              label={cat?.name || "Categoria"}
-              color={cat?.color}
-              items={categories}
-              selectedId={task.categoryId}
-              onSelect={id => onUpdate({ ...task, categoryId: id })}
-              menuTitle="Área"
-            />
-
-            {/* ── DATA EDITÁVEL INLINE ── */}
-            <div ref={dateRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setEditingDate(v => !v)}
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
-                style={od
-                  ? { background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a580" }
-                  : task.dueDate
-                    ? { background: "#f0f4f8", color: "#374151", border: "1px solid #dde3ed" }
-                    : { background: "#f5f7fb", color: "#94a3b8", border: "1px solid #dde3ed" }
-                }
-                title="Clique para alterar a data"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                {od && "⚠ "}{task.dueDate ? fmt(task.dueDate) : "Sem data"}
-              </button>
-              {editingDate && (
-                <div className="absolute z-50 left-0 rounded-xl shadow-xl p-3"
-                  style={{ background: "#fff", border: "1px solid #dde3ed", minWidth: 200,
-                    ...(dateRef.current && window.innerHeight - dateRef.current.getBoundingClientRect().bottom < 180
-                      ? { bottom:"calc(100% + 6px)" }
-                      : { top:"calc(100% + 6px)" }) }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: "#94a3b8" }}>Reagendar para</p>
-                  <input
-                    type="date"
-                    defaultValue={task.dueDate || ""}
-                    autoFocus
-                    onChange={e => {
-                      onUpdate({ ...task, dueDate: e.target.value });
-                      setEditingDate(false);
-                    }}
-                    className="w-full border rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400"
-                    style={{ borderColor: "#dde3ed" }}
-                  />
-                  {task.dueDate && (
-                    <button
-                      type="button"
-                      onClick={() => { onUpdate({ ...task, dueDate: "" }); setEditingDate(false); }}
-                      className="mt-2 w-full text-xs py-1 rounded-lg transition-colors"
-                      style={{ color: "#94a3b8", background: "#f5f7fb" }}
-                    >Limpar data</button>
+            {/* Conteúdo */}
+            <div className="flex-1 min-w-0">
+              <p className={"text-sm font-semibold leading-snug " + (task.completed?"line-through text-slate-400":"")}
+                style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>
+                {task.title}
+              </p>
+              {task.description && !expanded && (
+                <p className="text-xs mt-1 truncate" style={{ color:"#94a3b8" }}>{task.description}</p>
+              )}
+              {/* Badges */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {cat && (
+                  <QuickDropdown label={cat.name} color={cat.color}
+                    items={categories} selectedId={task.categoryId}
+                    onSelect={v => onUpdate({...task, categoryId:v})} menuTitle="Categoria" />
+                )}
+                {ctx && (
+                  <QuickDropdown label={ctx.name} color={ctx.color||"#64748b"}
+                    items={contexts} selectedId={task.contextId}
+                    onSelect={v => onUpdate({...task, contextId:v})} menuTitle="Contexto" />
+                )}
+                {/* Data */}
+                <div ref={dateRef} className="relative">
+                  <button onClick={()=>setEditingDate(v=>!v)}
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-all"
+                    style={{ background:"rgba(226,232,240,0.6)", color:od&&!task.completed?"#dc2626":"#64748b", border:"1px solid rgba(203,213,225,0.5)" }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    {task.dueDate ? new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) : "Sem prazo"}
+                  </button>
+                  {editingDate && (
+                    <div className="absolute z-50 left-0 rounded-xl shadow-xl p-3"
+                      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)", minWidth:200, backdropFilter:"blur(8px)",
+                        ...(dateRef.current && window.innerHeight - dateRef.current.getBoundingClientRect().bottom < 180
+                          ? { bottom:"calc(100% + 6px)" } : { top:"calc(100% + 6px)" }) }}>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Alterar prazo</p>
+                      <input type="date" value={task.dueDate||""} onChange={e=>{ onUpdate({...task,dueDate:e.target.value}); setEditingDate(false); }}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" />
+                      <button onClick={()=>{ onUpdate({...task,dueDate:""}); setEditingDate(false); }}
+                        className="mt-2 w-full text-xs text-slate-400 hover:text-red-400 transition-colors">Remover prazo</button>
+                    </div>
+                  )}
+                </div>
+                {task.isRecurring && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                    style={{ background:"rgba(219,234,254,0.7)", color:"#2b8be8", border:"1px solid rgba(191,219,254,0.6)" }}>↻ Recorrente</span>
+                )}
+                {/* Responsável */}
+                {(teamUsers||[]).length > 1 && (
+                  <div ref={assignRef} className="relative">
+                    <button type="button" onClick={handleAssignOpen}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full transition-all"
+                      style={assignedUser
+                        ? { background:assignedUser.avatarColor+"18", color:assignedUser.avatarColor, border:"1px solid "+assignedUser.avatarColor+"30", cursor:canAssign?"pointer":"default" }
+                        : { background:"rgba(241,245,249,0.8)", color:"#94a3b8", border:"1px solid rgba(226,232,240,0.7)", cursor:canAssign?"pointer":"default" }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                      {assignedUser ? assignedUser.name.split(" ")[0] : "Atribuir"}
+                      {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:8,height:8,opacity:0.5}}><polyline points="6 9 12 15 18 9"/></svg>}
+                    </button>
+                    {showAssign && canAssign && createPortal(
+                      <div style={{ position:"fixed", zIndex:9999, left:assignPos.left, ...(assignPos.dropUp?{bottom:window.innerHeight-assignPos.top,top:"auto"}:{top:assignPos.top}), background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.15)", minWidth:190, overflow:"hidden", backdropFilter:"blur(8px)" }}>
+                        <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"8px 12px 4px" }}>Atribuir responsável</p>
+                        <button type="button" onClick={()=>{ onUpdate({...task,assignedTo:""}); setShowAssign(false); }}
+                          style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
+                          onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <div style={{ width:20, height:20, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }} />Sem responsável
+                        </button>
+                        {(teamUsers||[]).filter(u=>u.active!==false).map(u => (
+                          <button key={u.id} type="button" onClick={()=>{ onUpdate({...task,assignedTo:u.id}); setShowAssign(false); }}
+                            style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2b8be8")+"18":"transparent", border:"none" }}
+                            onMouseEnter={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="#f8fafc"; }} onMouseLeave={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="transparent"; }}>
+                            <div style={{ width:20, height:20, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#fff", background:u.avatarColor||"#2b8be8" }}>
+                              {u.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span style={{ color:"#374151", fontWeight:u.id===task.assignedTo?700:400, flex:1 }}>{u.name}</span>
+                            {u.id===task.assignedTo && <span style={{ color:"#10b981", fontSize:11 }}>✓</span>}
+                          </button>
+                        ))}
+                      </div>, document.body
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Descrição expandida */}
+              {expanded && (
+                <div className="mt-3">
+                  {showComment ? (
+                    <div className="space-y-2">
+                      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} rows={3} autoFocus
+                        placeholder="Adicionar descrição ou comentário..."
+                        className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
+                        style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(248,250,252,0.8)" }} />
+                      <div className="flex gap-2">
+                        <button onClick={saveComment} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+                        <button onClick={()=>setShowComment(false)} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
+                      </div>
+                    </div>
+                  ) : task.description ? (
+                    <p className="text-xs p-3 rounded-xl" style={{ color:"#374151", background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>{task.description}</p>
+                  ) : null}
+                  {task.checklist && task.checklist.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {task.checklist.map((item,i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <input type="checkbox" checked={item.done} onChange={()=>{ const cl=[...task.checklist]; cl[i]={...cl[i],done:!cl[i].done}; onUpdate({...task,checklist:cl}); }}
+                            className="rounded w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                          <span style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {task.isRecurring && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
-                style={{ background: "#eff6ff", color: "#2b8be8", border: "1px solid #bfdbfe" }}>↻ Recorrente</span>
-            )}
-
-            {/* ── RESPONSÁVEL ── */}
-            {((teamUsers||[]).length > 1) && (
-              <div ref={assignRef} className="relative">
-                <button type="button"
-                  onClick={handleAssignOpen}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
-                  style={assignedUser
-                    ? { background: assignedUser.avatarColor + "22", color: assignedUser.avatarColor, border: "1px solid " + assignedUser.avatarColor + "55", cursor: canAssign ? "pointer" : "default" }
-                    : { background: "#f5f7fb", color: "#94a3b8", border: "1px solid #dde3ed", cursor: canAssign ? "pointer" : "default" }
-                  }
-                  title={canAssign ? "Clique para atribuir responsável" : "Responsável"}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  {assignedUser ? assignedUser.name.split(" ")[0] : "Sem responsável"}
-                  {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:8,height:8,opacity:0.5}}><polyline points="6 9 12 15 18 9"/></svg>}
+            {/* Quick Actions */}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+              {/* Concluir */}
+              {!task.completed && (
+                <button onClick={onToggle} title="Concluir" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                  onMouseEnter={e=>{e.currentTarget.style.background="rgba(16,185,129,0.1)";e.currentTarget.style.color="#10b981";}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:14,height:14}}><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
-
-                {showAssign && canAssign && createPortal(
-                  <div style={{
-                    position:"fixed",
-                    zIndex:9999,
-                    left: assignPos.left,
-                    ...(assignPos.dropUp
-                      ? { bottom: window.innerHeight - assignPos.top, top:"auto" }
-                      : { top: assignPos.top }),
-                    background:"#fff",
-                    border:"1px solid #dde3ed",
-                    borderRadius:12,
-                    boxShadow:"0 8px 32px rgba(26,29,35,0.18)",
-                    minWidth:190,
-                    overflow:"hidden",
-                  }}>
-                    <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"8px 12px 4px" }}>Atribuir responsável</p>
-                    <button type="button" onClick={() => { onUpdate({...task, assignedTo:""}); setShowAssign(false); }}
-                      style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
-                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <div style={{ width:20, height:20, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }} />
-                      Sem responsável
-                    </button>
-                    {(teamUsers||[]).filter(u => u.active !== false).map(u => (
-                      <button key={u.id} type="button"
-                        onClick={() => { onUpdate({...task, assignedTo:u.id}); setShowAssign(false); }}
-                        style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background: u.id===task.assignedTo ? (u.avatarColor||"#2b8be8")+"18" : "transparent", border:"none" }}
-                        onMouseEnter={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="#f8fafc"; }}
-                        onMouseLeave={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="transparent"; }}>
-                        <div style={{ width:20, height:20, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#fff", background: u.avatarColor||"#2b8be8" }}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span style={{ color:"#374151", fontWeight: u.id===task.assignedTo ? 700 : 400, flex:1 }}>{u.name}</span>
-                        {u.id === task.assignedTo && <span style={{ color:"#10b981", fontSize:11 }}>✓</span>}
-                      </button>
-                    ))}
-                  </div>,
-                  document.body
-                )}
-              </div>
-            )}
-
-            {/* Checklist counter — clicável */}
-            {checklist.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setExpanded(v => !v)}
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
-                style={doneItems === checklist.length
-                  ? { background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }
-                  : { background: "#f5f7fb", color: "#374151", border: "1px solid #dde3ed" }
-                }
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3">
-                  <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                </svg>
-                {doneItems}/{checklist.length}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-2.5 h-2.5 opacity-50"
-                  style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+              )}
+              {/* Expandir/Comentar */}
+              <button onClick={()=>{setExpanded(v=>!v); if(!expanded)setShowComment(false);}} title="Detalhes / Comentar" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </button>
-            )}
+              {/* Comentar */}
+              {expanded && (
+                <button onClick={()=>setShowComment(v=>!v)} title="Editar descrição" className="p-1.5 rounded-lg transition-all" style={{ color:showComment?"#2b8be8":"#94a3b8", background:showComment?"rgba(43,139,232,0.1)":"transparent" }}
+                  onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                  onMouseLeave={e=>{if(!showComment){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              )}
+              {/* Duplicar */}
+              {onDuplicate && (
+                <button onClick={()=>onDuplicate(task)} title="Duplicar tarefa" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                  onMouseEnter={e=>{e.currentTarget.style.background="rgba(100,116,139,0.1)";e.currentTarget.style.color="#64748b";}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              )}
+              {/* Editar */}
+              <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                <Icon.Edit />
+              </button>
+              {/* Deletar */}
+              <button onClick={onDelete} title="Excluir" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                <Icon.Trash />
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-          <button
-            type="button"
-            onClick={() => setExpanded(v => !v)}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: "#94a3b8" }}
-            title="Checklist"
-            onMouseEnter={e => { e.currentTarget.style.background="#eff6ff"; e.currentTarget.style.color="#2b8be8"; }}
-            onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94a3b8"; }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-              <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-            </svg>
-          </button>
-          <button onClick={onEdit} className="p-1.5 rounded-lg transition-colors"
-            style={{ color: "#94a3b8" }}
-            onMouseEnter={e => { e.currentTarget.style.background="#eff6ff"; e.currentTarget.style.color="#2b8be8"; }}
-            onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94a3b8"; }}>
-            <Icon.Edit />
-          </button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg transition-colors"
-            style={{ color: "#94a3b8" }}
-            onMouseEnter={e => { e.currentTarget.style.background="#fef2f2"; e.currentTarget.style.color="#ef4444"; }}
-            onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94a3b8"; }}>
-            <Icon.Trash />
-          </button>
         </div>
       </div>
-
-      {/* ── CHECKLIST EXPANDIDO ── */}
-      {expanded && (
-        <div className="px-4 pb-4 pt-0" style={{ borderTop: "1px solid #f0f4f8" }}>
-          <div className="mt-3 space-y-1.5">
-            {checklist.length === 0 && (
-              <p className="text-xs text-center py-2" style={{ color: "#cbd5e1" }}>Nenhum item ainda. Adicione abaixo.</p>
-            )}
-            {checklist.map(item => (
-              <div key={item.id} className="flex items-center gap-2 group/item px-2 py-1.5 rounded-lg transition-colors"
-                style={{ background: item.done ? "#f8fafc" : "transparent" }}>
-                <button type="button" onClick={() => toggleCheckItem(item.id)} className="flex-shrink-0">
-                  {item.done
-                    ? <svg viewBox="0 0 24 24" fill="#10b981" stroke="none" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9" stroke="white" strokeWidth="2.5" fill="none"/></svg>
-                    : <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" className="w-4 h-4"><circle cx="12" cy="12" r="10"/></svg>
-                  }
-                </button>
-                <span className="flex-1 text-xs" style={{ color: item.done ? "#94a3b8" : "#374151", textDecoration: item.done ? "line-through" : "none" }}>
-                  {item.text}
-                </span>
-                <button type="button" onClick={() => deleteCheckItem(item.id)}
-                  className="opacity-0 group-hover/item:opacity-100 transition-opacity p-0.5 rounded"
-                  style={{ color: "#94a3b8" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
-                  onMouseLeave={e => e.currentTarget.style.color = "#94a3b8"}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            ))}
-          </div>
-          {/* Add new item */}
-          <div className="flex gap-2 mt-2">
-            <input
-              type="text"
-              value={newItem}
-              onChange={e => setNewItem(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && addCheckItem()}
-              placeholder="Novo item..."
-              className="flex-1 text-xs px-3 py-1.5 rounded-lg border focus:ring-2 focus:ring-blue-400 outline-none"
-              style={{ borderColor: "#dde3ed", color: "#374151" }}
-            />
-            <button
-              type="button"
-              onClick={addCheckItem}
-              disabled={!newItem.trim()}
-              className="px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-all disabled:opacity-40"
-              style={{ background: "linear-gradient(135deg,#5aaff5,#2b8be8)" }}
-            >+ Add</button>
-          </div>
-          {/* Progress bar */}
-          {checklist.length > 0 && (
-            <div className="mt-3">
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#e8edf5" }}>
-                <div className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round((doneItems / checklist.length) * 100)}%`, background: doneItems === checklist.length ? "#10b981" : "linear-gradient(90deg,#5aaff5,#2b8be8)" }} />
-              </div>
-              <p className="text-[10px] mt-1 text-right" style={{ color: "#94a3b8" }}>{Math.round((doneItems / checklist.length) * 100)}% concluído</p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
+
 
 // ============================================================
 // HABITS
@@ -2961,6 +2937,179 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
   );
 }
 
+
+// ============================================================
+// CLIENT TIMELINE
+// ============================================================
+function ClientTimeline({ client, onClose }) {
+  const { clientEvents, addClientEvent, updateClientEvent, deleteClientEvent, tasks, teamUsers, currentProfile } = useApp();
+  const events = (clientEvents||[]).filter(e => e.clientId === client.id).sort((a,b) => b.date.localeCompare(a.date));
+  const clientTasks = (tasks||[]).filter(t => t.clientId === client.id).sort((a,b)=>(b.dueDate||"").localeCompare(a.dueDate||""));
+  const [form, setForm] = useState({ type:"note", title:"", content:"", date:new Date().toISOString().split("T")[0] });
+  const [showAdd, setShowAdd] = useState(false);
+
+  const EVENT_TYPES = {
+    note:     { label:"Anotação",   emoji:"📝", color:"#64748b", bg:"rgba(100,116,139,0.1)" },
+    meeting:  { label:"Reunião",    emoji:"🤝", color:"#2b8be8", bg:"rgba(43,139,232,0.1)" },
+    pending:  { label:"Pendência",  emoji:"⚠️", color:"#f59e0b", bg:"rgba(245,158,11,0.1)" },
+    email:    { label:"E-mail",     emoji:"📧", color:"#8b5cf6", bg:"rgba(139,92,246,0.1)" },
+    call:     { label:"Ligação",    emoji:"📞", color:"#10b981", bg:"rgba(16,185,129,0.1)" },
+    document: { label:"Documento",  emoji:"📄", color:"#06b6d4", bg:"rgba(6,182,212,0.1)" },
+    payment:  { label:"Pagamento",  emoji:"💰", color:"#10b981", bg:"rgba(16,185,129,0.1)" },
+  };
+
+  const save = async () => {
+    if (!form.title.trim()) return;
+    await addClientEvent({ id:uid(), clientId:client.id, ...form });
+    setForm({ type:"note", title:"", content:"", date:new Date().toISOString().split("T")[0] });
+    setShowAdd(false);
+  };
+
+  const toggleResolved = async (ev) => {
+    await updateClientEvent({ ...ev, resolved: !ev.resolved });
+  };
+
+  // Merge events + tasks into one timeline
+  const allItems = [
+    ...events.map(e => ({ ...e, _kind:"event" })),
+    ...clientTasks.map(t => ({ id:t.id, _kind:"task", title:t.title, date:t.dueDate||"", completed:t.completed, dueDate:t.dueDate })),
+  ].sort((a,b) => (b.date||"").localeCompare(a.date||""));
+
+  return (
+    <Modal title="" onClose={onClose} maxWidth="max-w-xl">
+      <div style={{ maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+        {/* Header */}
+        <div className="p-5 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.6)", background:"linear-gradient(135deg,rgba(43,139,232,0.04),rgba(255,255,255,0.98))" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg font-black text-white"
+              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 4px 12px rgba(26,29,35,0.2)" }}>
+              {client.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-base font-black" style={{ color:"#1a1d23" }}>{client.name}</h2>
+              <p className="text-xs" style={{ color:"#94a3b8" }}>{allItems.length} registros · {clientTasks.filter(t=>!t.completed).length} tarefas pendentes</p>
+            </div>
+            <button onClick={()=>setShowAdd(v=>!v)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-xs font-bold"
+              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}>
+              <Icon.Plus />Registrar
+            </button>
+          </div>
+          {/* Form de novo evento */}
+          {showAdd && (
+            <div className="mt-4 p-4 rounded-2xl space-y-3" style={{ background:"rgba(248,250,252,0.9)", border:"1px solid rgba(221,227,237,0.7)" }}>
+              <div className="grid grid-cols-4 gap-2">
+                {Object.entries(EVENT_TYPES).map(([k,v]) => (
+                  <button key={k} type="button" onClick={()=>setForm(p=>({...p,type:k}))}
+                    className="p-2 rounded-xl text-center transition-all"
+                    style={{ background:form.type===k?v.bg:"transparent", border:form.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.7)", fontSize:18 }}
+                    title={v.label}>{v.emoji}
+                  </button>
+                ))}
+              </div>
+              <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))}
+                placeholder={`Título do ${EVENT_TYPES[form.type]?.label.toLowerCase()}...`}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.9)" }} />
+              <textarea value={form.content} onChange={e=>setForm(p=>({...p,content:e.target.value}))}
+                placeholder="Detalhes (opcional)..." rows={2} className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.9)" }} />
+              <div className="flex items-center gap-2">
+                <input type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}
+                  className="border rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)" }} />
+                <button onClick={save} disabled={!form.title.trim()} className="flex-1 py-1.5 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+                  style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar registro</button>
+                <button onClick={()=>setShowAdd(false)} className="px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-100 rounded-xl">✕</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Timeline */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {allItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+              <div className="text-5xl">📋</div>
+              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum registro ainda</p>
+              <p className="text-sm" style={{ color:"#94a3b8" }}>Registre reuniões, anotações, e-mails e pendências</p>
+            </div>
+          ) : (
+            <div className="relative">
+              {/* Linha vertical */}
+              <div className="absolute left-5 top-0 bottom-0 w-0.5" style={{ background:"linear-gradient(180deg,rgba(43,139,232,0.2),rgba(226,232,240,0.3))" }}/>
+              <div className="space-y-3 pl-12">
+                {allItems.map((item, idx) => {
+                  if (item._kind === "task") {
+                    return (
+                      <div key={item.id} className="relative -ml-12 pl-12">
+                        {/* Dot */}
+                        <div className="absolute left-3.5 top-3.5 w-3 h-3 rounded-full border-2 flex-shrink-0"
+                          style={{ background:item.completed?"#10b981":"rgba(245,158,11,0.3)", borderColor:item.completed?"#10b981":"#f59e0b", zIndex:1 }}/>
+                        <div className="p-3 rounded-xl transition-all"
+                          style={{ background: item.completed?"rgba(240,253,244,0.7)":"rgba(255,251,235,0.8)", border:`1px solid ${item.completed?"rgba(187,247,208,0.6)":"rgba(253,230,138,0.6)"}` }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm">{item.completed?"✅":"📌"}</span>
+                              <p className={"text-xs font-semibold truncate "+(item.completed?"line-through opacity-50":"")} style={{ color:"#1a1d23" }}>{item.title}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"rgba(245,158,11,0.15)", color:"#d97706" }}>Tarefa</span>
+                              {item.dueDate && <span className="text-[10px]" style={{ color:"#94a3b8" }}>{new Date(item.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const et = EVENT_TYPES[item.type] || EVENT_TYPES.note;
+                  return (
+                    <div key={item.id} className="relative -ml-12 pl-12 group">
+                      {/* Dot */}
+                      <div className="absolute left-3 top-3.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px]"
+                        style={{ background:item.resolved?"rgba(226,232,240,0.8)":et.bg, border:`1.5px solid ${item.resolved?"rgba(203,213,225,0.7)":et.color+"40"}`, zIndex:1 }}>
+                        {et.emoji}
+                      </div>
+                      <div className="p-3 rounded-xl transition-all"
+                        style={{ background: item.resolved?"rgba(248,250,252,0.7)":"rgba(255,255,255,0.95)", border:`1px solid ${item.resolved?"rgba(226,232,240,0.5)":et.color+"20"}`, boxShadow:item.resolved?"none":"0 2px 8px rgba(26,29,35,0.04)" }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={"text-xs font-bold "+(item.resolved?"line-through opacity-50":"")} style={{ color:item.resolved?"#94a3b8":et.color }}>{item.title}</p>
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:et.bg, color:et.color }}>{et.label}</span>
+                            </div>
+                            {item.content && <p className="text-[11px] mt-1 leading-relaxed" style={{ color:"#64748b" }}>{item.content}</p>}
+                            <p className="text-[10px] mt-1.5" style={{ color:"#94a3b8" }}>
+                              {item.date ? new Date(item.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}) : "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                            {item.type === "pending" && (
+                              <button onClick={()=>toggleResolved(item)} className="p-1 rounded-lg transition-all text-[10px] font-bold px-2"
+                                style={{ background:item.resolved?"rgba(16,185,129,0.1)":"rgba(245,158,11,0.1)", color:item.resolved?"#10b981":"#f59e0b" }}>
+                                {item.resolved?"✓ Ok":"Pendente"}
+                              </button>
+                            )}
+                            <button onClick={()=>deleteClientEvent(item.id)} className="p-1 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                              onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                              <Icon.Trash />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function Clients() {
   const { clients, addClient, updateClient, deleteClient } = useApp();
   const [isOpen, setIsOpen] = useState(false);
@@ -2973,6 +3122,7 @@ function Clients() {
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
   const [importOpen, setImportOpen] = useState(false);
   const [clientDetail, setClientDetail] = useState(null);
+  const [clientTimeline, setClientTimeline] = useState(null);
 
   const handleImport = (toAdd, toUpdate) => {
     toAdd.forEach(c => addClient(c));
@@ -3147,6 +3297,11 @@ function Clients() {
                           <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "—"}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <button onClick={() => setClientTimeline(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }} title="Timeline do cliente"
+                            onMouseEnter={e=>{e.currentTarget.style.background="#f0fdf4";e.currentTarget.style.color="#10b981";}}
+                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                          </button>
                           <button onClick={() => setClientDetail(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }} title="Ver ficha"
                             onMouseEnter={e=>{e.currentTarget.style.background="#fdf4ff";e.currentTarget.style.color="#a855f7";}}
                             onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Eye /></button>
@@ -3405,6 +3560,9 @@ function Clients() {
       {/* ITEM 5 — Ficha completa do cliente */}
       {clientDetail && (
         <ClientDetailModal client={clientDetail} onClose={() => setClientDetail(null)} onEdit={() => { open(clientDetail); setClientDetail(null); }} />
+      )}
+      {clientTimeline && (
+        <ClientTimeline client={clientTimeline} onClose={() => setClientTimeline(null)} />
       )}
     </div>
   );
