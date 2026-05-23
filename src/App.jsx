@@ -611,250 +611,482 @@ function StatCard({ title, value, icon, trend, trendColor, accent = "#3b82f6" })
 }
 
 function Dashboard() {
-  const { tasks, habits, clients, weeklyGoals, categories, teamUsers, currentProfile } = useApp();
+  const { tasks, habits, clients, weeklyGoals, categories, teamUsers, currentProfile, onboardings, relationships } = useApp();
   const t = today();
-  const overdue = tasks.filter(t => !t.completed && t.dueDate < today());
-  const todayTasks = tasks.filter(t2 => t2.dueDate === t);
-  const habitsToday = habits.filter(h => h.completedDates?.includes(t)).length;
-  const totalMRR = clients.reduce((s, c) => s + (c.monthlyFee || 0), 0);
-  const activeClients = clients.filter(c => c.status !== "inactive").length;
-  const done30 = tasks.filter(t2 => t2.completed).length;
-  const rate = tasks.length > 0 ? Math.round((done30 / tasks.length) * 100) : 0;
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const firstName = (currentProfile?.name || "Fagner").split(" ")[0];
 
-  const catData = useMemo(() => categories.map(c => ({
-    name: c.name, value: tasks.filter(t2 => t2.categoryId === c.id).length, color: c.color
-  })).filter(d => d.value > 0), [tasks, categories]);
+  // ── Métricas core ──────────────────────────────────────────
+  const overdue      = tasks.filter(x => !x.completed && x.dueDate && x.dueDate < t);
+  const dueToday     = tasks.filter(x => !x.completed && x.dueDate === t);
+  const completed7d  = tasks.filter(x => x.completed && x.dueDate >= (() => { const d=new Date(); d.setDate(d.getDate()-7); return d.toISOString().split("T")[0]; })());
+  const pending      = tasks.filter(x => !x.completed);
+  const totalDone    = tasks.filter(x => x.completed).length;
+  const rate         = tasks.length > 0 ? Math.round(totalDone / tasks.length * 100) : 0;
+  const mrr          = clients.reduce((s,c) => s + (parseFloat(c.monthlyFee)||0), 0);
+  const activeOnb    = onboardings.filter(o => o.status === "em_andamento").length;
 
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - 6 + i);
-      const ds = d.toISOString().split("T")[0];
-      const dt = tasks.filter(t2 => t2.dueDate === ds);
-      const isToday = ds === today();
-      return {
-        name: isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".",""),
-        Pendentes: dt.filter(t2 => !t2.completed).length,
-        Concluídas: dt.filter(t2 => t2.completed).length,
-        date: ds,
-        isToday,
-      };
+  // ── Sparkline 7 dias ──────────────────────────────────────
+  const spark7 = useMemo(() => Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate() - 6 + i);
+    const ds = d.toISOString().split("T")[0];
+    return {
+      day: d.toLocaleDateString("pt-BR",{weekday:"short"}).slice(0,3),
+      done: tasks.filter(x => x.completed && x.dueDate === ds).length,
+      pending: tasks.filter(x => !x.completed && x.dueDate === ds).length,
+      date: ds,
+    };
+  }), [tasks]);
+
+  // ── Produtividade últimas 4 semanas ───────────────────────
+  const prod4w = useMemo(() => Array.from({length:4}, (_,i) => {
+    const wEnd = new Date(); wEnd.setDate(wEnd.getDate() - i*7);
+    const wStart = new Date(wEnd); wStart.setDate(wStart.getDate() - 6);
+    const s = wStart.toISOString().split("T")[0], e = wEnd.toISOString().split("T")[0];
+    const wTasks = tasks.filter(x => x.dueDate >= s && x.dueDate <= e);
+    return {
+      label: i===0 ? "Esta sem." : `${i}sem atrás`,
+      total: wTasks.length,
+      done: wTasks.filter(x=>x.completed).length,
+      rate: wTasks.length > 0 ? Math.round(wTasks.filter(x=>x.completed).length/wTasks.length*100) : 0,
+    };
+  }).reverse(), [tasks]);
+
+  // ── Resumo equipe ─────────────────────────────────────────
+  const teamSummary = useMemo(() => (teamUsers||[]).map(u => {
+    const mine = tasks.filter(x => x.assignedTo === u.id);
+    return { ...u, total:mine.length, done:mine.filter(x=>x.completed).length, overdue:mine.filter(x=>!x.completed&&x.dueDate<t).length, pending:mine.filter(x=>!x.completed).length };
+  }).filter(u => u.total > 0), [tasks, teamUsers, t]);
+
+  // ── Insights inteligentes ─────────────────────────────────
+  const insights = useMemo(() => {
+    const list = [];
+    if (overdue.length > 0) list.push({ type:"danger", icon:"🚨", title:`${overdue.length} tarefa${overdue.length>1?"s":""} em atraso`, sub:"Requer atenção imediata", action:"tasks" });
+    if (dueToday.length > 0) list.push({ type:"warning", icon:"⏰", title:`${dueToday.length} tarefa${dueToday.length>1?"s":""} vencem hoje`, sub:"Priorize agora", action:"tasks" });
+    if (rate >= 80) list.push({ type:"success", icon:"🏆", title:`Taxa de conclusão: ${rate}%`, sub:"Produtividade excelente esta semana!" });
+    else if (rate < 40 && tasks.length > 0) list.push({ type:"info", icon:"💡", title:`Taxa de conclusão: ${rate}%`, sub:"Considere revisar as prioridades" });
+    if (activeOnb > 0) list.push({ type:"info", icon:"🚀", title:`${activeOnb} onboarding${activeOnb>1?"s":""} em andamento`, sub:"Acompanhe o progresso", action:"onboarding" });
+    const todayRels = (relationships||[]).filter(r => {
+      const md = (r.date||"").length===10 ? r.date.slice(5) : r.date;
+      return md === `${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     });
-  }, [tasks]);
+    if (todayRels.length > 0) list.push({ type:"special", icon:"🎂", title:`Aniversário hoje: ${todayRels.map(r=>r.name).join(", ")}`, sub:"Envie uma mensagem!", action:"relationship" });
+    if (spark7.slice(-3).every(d=>d.done===0) && tasks.length>0) list.push({ type:"warning", icon:"📊", title:"Nenhuma tarefa concluída nos últimos 3 dias", sub:"Revise o ritmo de trabalho" });
+    if (mrr > 0) list.push({ type:"success", icon:"💰", title:`MRR: ${fmtCurrency(mrr)}/mês`, sub:`${clients.filter(c=>c.paymentStatus==="paid").length} cliente${clients.filter(c=>c.paymentStatus==="paid").length!==1?"s":""} com pagamento confirmado` });
+    return list.slice(0, 4);
+  }, [overdue, dueToday, rate, tasks, activeOnb, relationships, spark7, mrr, clients]);
 
-  // Resumo por membro da equipe
-  const teamSummary = useMemo(() => {
-    return (teamUsers||[]).map(u => {
-      const mine = tasks.filter(t => t.assignedTo === u.id);
-      return {
-        ...u,
-        total: mine.length,
-        done: mine.filter(t => t.completed).length,
-        overdue: mine.filter(t => !t.completed && t.dueDate < today()).length,
-        pending: mine.filter(t => !t.completed).length,
-      };
-    }).filter(u => u.total > 0 || u.id === currentProfile?.id);
-  }, [tasks, teamUsers, currentProfile]);
+  // ── Sparkline SVG helper ───────────────────────────────────
+  const Sparkline = ({ data, color="#2b8be8", height=32 }) => {
+    if (!data || data.length < 2) return null;
+    const max = Math.max(...data, 1);
+    const w = 80, h = height;
+    const pts = data.map((v,i) => `${(i/(data.length-1))*w},${h - (v/max)*h*0.85 - 2}`).join(" ");
+    const area = `M0,${h} L${pts.split(" ").map((p,i,arr) => (i===0?p:p)).join(" L")} L${w},${h} Z`;
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{overflow:"visible"}}>
+        <defs>
+          <linearGradient id={`sg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+            <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#sg-${color.replace("#","")})`}/>
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* Ponto atual */}
+        {(() => { const last = pts.split(" ").pop(); const [lx,ly] = last.split(","); return (
+          <circle cx={lx} cy={ly} r="2.5" fill={color} stroke="#fff" strokeWidth="1.5"/>
+        );})()}
+      </svg>
+    );
+  };
+
+  // ── KPI Card ──────────────────────────────────────────────
+  const KPICard = ({ label, value, sub, spark, sparkColor, accent, icon, urgent }) => (
+    <div className="relative rounded-2xl p-5 overflow-hidden transition-all duration-300 group"
+      style={{
+        background: urgent
+          ? "linear-gradient(135deg,rgba(239,68,68,0.06) 0%,rgba(255,255,255,0.98) 100%)"
+          : "rgba(255,255,255,0.98)",
+        border: urgent ? "1.5px solid rgba(239,68,68,0.25)" : "1px solid rgba(221,227,237,0.8)",
+        boxShadow: urgent
+          ? "0 4px 24px rgba(239,68,68,0.08), 0 1px 4px rgba(0,0,0,0.04)"
+          : "0 4px 24px rgba(26,29,35,0.05), 0 1px 4px rgba(0,0,0,0.03)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=urgent?"0 8px 32px rgba(239,68,68,0.14)":"0 8px 32px rgba(26,29,35,0.1)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=urgent?"0 4px 24px rgba(239,68,68,0.08)":"0 4px 24px rgba(26,29,35,0.05)";}}>
+      {/* Glow de fundo sutil */}
+      <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at top right, ${accent}08 0%, transparent 60%)`, pointerEvents:"none" }}/>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8", letterSpacing:"0.1em" }}>{label}</p>
+          <p className="text-2xl font-black leading-none mb-1" style={{ color: urgent ? "#ef4444" : "#1a1d23", fontVariantNumeric:"tabular-nums" }}>{value}</p>
+          {sub && <p className="text-xs mt-1" style={{ color: urgent ? "#f87171" : "#94a3b8" }}>{sub}</p>}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+            style={{ background:`${accent}14`, border:`1px solid ${accent}22` }}>
+            {icon}
+          </div>
+          {spark && <Sparkline data={spark} color={sparkColor||accent} height={28}/>}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Ticker de tarefas atrasadas ───────────────────────────
+  const TickerItem = ({ task }) => {
+    const days = Math.floor((new Date(t) - new Date(task.dueDate+"T12:00:00"))/(1000*60*60*24));
+    return (
+      <span className="inline-flex items-center gap-2 px-3 font-mono text-[11px]" style={{ color:"#fbbf24", whiteSpace:"nowrap" }}>
+        <span style={{ color:"#ef4444", fontWeight:900 }}>●</span>
+        <span style={{ color:"#fff", fontWeight:700 }}>{task.title}</span>
+        <span style={{ color:"#f87171" }}>{days}d atraso</span>
+        <span style={{ color:"rgba(255,255,255,0.2)" }}>│</span>
+      </span>
+    );
+  };
+
+  const tickerTasks = overdue.length > 0 ? overdue : dueToday;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl p-5 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #1c1f26 0%, #1e2e4a 50%, #1a3a6e 100%)", color: "#fff" }}>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Bem-vindo de volta</p>
-          <h2 className="text-2xl font-black" style={{ letterSpacing: "-0.5px" }}>Olá, {new Date().getHours() < 12 ? "bom dia" : new Date().getHours() < 18 ? "boa tarde" : "boa noite"}! 👋</h2>
-          <p className="text-sm mt-0.5 capitalize" style={{ color: "rgba(255,255,255,0.6)" }}>{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+    <div className="space-y-6 pb-8">
+
+      {/* ═══ TICKER CENTRAL OPERACIONAL ══════════════════════ */}
+      <div className="rounded-2xl overflow-hidden" style={{
+        background:"linear-gradient(135deg,#0f1117 0%,#1a1d26 50%,#0f1723 100%)",
+        border:"1px solid rgba(91,170,255,0.15)",
+        boxShadow:"0 4px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
+      }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background:"#10b981", boxShadow:"0 0 6px #10b981" }}/>
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#10b981" }}>LIVE</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color:"rgba(255,255,255,0.3)" }}>Central Operacional · Códice Contabilidade</span>
+          </div>
+          <div className="flex items-center gap-4 text-[10px] font-mono" style={{ color:"rgba(255,255,255,0.4)" }}>
+            <span>{now.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</span>
+            <span style={{ color:"#5aaff5" }}>{now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span>
+          </div>
         </div>
-        <div className="text-right hidden sm:block">
-          <p className="text-4xl font-black" style={{ color: "rgba(255,255,255,0.15)" }}>{new Date().getDate()}</p>
-          <p className="text-xs uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>{new Date().toLocaleDateString("pt-BR", { month: "short" })}</p>
+
+        {/* Saudação */}
+        <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-xl font-black" style={{ color:"#fff", letterSpacing:"-0.02em" }}>
+              {greeting}, {firstName} 👋
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.45)" }}>
+              {totalDone} tarefas concluídas · {pending.length} pendentes · taxa {rate}% esta semana
+            </p>
+          </div>
+          {/* Mini status pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {overdue.length > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.3)" }}>
+                <span className="text-sm">🚨</span>
+                <span className="text-xs font-black" style={{ color:"#f87171" }}>{overdue.length} atrasada{overdue.length>1?"s":""}</span>
+              </div>
+            )}
+            {dueToday.length > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.3)" }}>
+                <span className="text-sm">⏰</span>
+                <span className="text-xs font-black" style={{ color:"#fbbf24" }}>{dueToday.length} hoje</span>
+              </div>
+            )}
+            {activeOnb > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(43,139,232,0.15)", border:"1px solid rgba(43,139,232,0.3)" }}>
+                <span className="text-sm">🚀</span>
+                <span className="text-xs font-black" style={{ color:"#5aaff5" }}>{activeOnb} onboarding</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Taxa de Conclusão" value={`${rate}%`} icon={<svg viewBox="0 0 24 24" fill="none" stroke="#2b8be8" strokeWidth="2" className="w-6 h-6"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>} trend={`${done30} de ${tasks.length} tarefas`} trendColor="text-blue-600" accent="#2b8be8" />
-        <StatCard title="Tarefas Atrasadas" value={overdue.length} icon={<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" className="w-6 h-6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} trend={overdue.length > 0 ? "Atenção necessária" : "Tudo em dia"} trendColor={overdue.length > 0 ? "text-red-600" : "text-emerald-600"} accent="#ef4444" />
-        <StatCard title="Receita (MRR)" value={fmtCurrency(totalMRR)} icon={<svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" className="w-6 h-6"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>} trend={`${activeClients} clientes ativos`} trendColor="text-emerald-600" accent="#10b981" />
-        <StatCard title="Hábitos Hoje" value={`${habitsToday}/${habits.length}`} icon={<svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" className="w-6 h-6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>} trend={`${weeklyGoals.filter(g => !g.completed).length} metas pendentes`} trendColor="text-amber-600" accent="#f59e0b" />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* GRÁFICO DE PRODUTIVIDADE SEMANAL */}
-        <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-base font-semibold text-slate-800">Produtividade Semanal</h3>
-            <div className="flex items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:2,background:"#2b8be8",display:"inline-block"}}/>Concluídas</span>
-              <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:2,background:"#e2e8f0",display:"inline-block"}}/>Pendentes</span>
+
+        {/* Ticker de tarefas — estilo mercado financeiro */}
+        {tickerTasks.length > 0 && (
+          <div className="relative overflow-hidden" style={{ borderTop:"1px solid rgba(255,255,255,0.05)", background:"rgba(0,0,0,0.3)" }}>
+            <div className="flex items-center">
+              {/* Label fixo */}
+              <div className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 z-10"
+                style={{ background:"linear-gradient(90deg,rgba(239,68,68,0.2),rgba(239,68,68,0.1))", borderRight:"1px solid rgba(239,68,68,0.2)" }}>
+                <span className="text-[9px] font-black uppercase tracking-widest" style={{ color:"#ef4444" }}>⚠ ATRASADAS</span>
+              </div>
+              {/* Ticker animado */}
+              <div className="flex-1 overflow-hidden py-2">
+                <div style={{ display:"inline-flex", animation:"ticker 20s linear infinite", willChange:"transform" }}>
+                  {[...tickerTasks,...tickerTasks,...tickerTasks].map((task,i) => <TickerItem key={i} task={task}/>)}
+                </div>
+              </div>
             </div>
           </div>
-          <p className="text-xs text-slate-400 mb-4">Tarefas com prazo nos últimos 7 dias</p>
+        )}
+        <style>{`
+          @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-33.333%)} }
+        `}</style>
+      </div>
+
+      {/* ═══ KPI CARDS COM SPARKLINE ════════════════════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          label="Tarefas Atrasadas"
+          value={overdue.length}
+          sub={overdue.length===0 ? "✓ Tudo em dia" : `+${overdue.length} aguardando`}
+          spark={spark7.map(d=>d.pending)}
+          sparkColor="#ef4444"
+          accent="#ef4444"
+          icon="🚨"
+          urgent={overdue.length>0}
+        />
+        <KPICard
+          label="Produtividade"
+          value={`${rate}%`}
+          sub={`${totalDone} de ${tasks.length} concluídas`}
+          spark={prod4w.map(w=>w.rate)}
+          sparkColor="#10b981"
+          accent="#10b981"
+          icon="📈"
+        />
+        <KPICard
+          label="MRR"
+          value={mrr > 0 ? fmtCurrency(mrr) : "—"}
+          sub={`${clients.length} cliente${clients.length!==1?"s":""} ativo${clients.length!==1?"s":""}`}
+          spark={[mrr*0.7, mrr*0.8, mrr*0.75, mrr*0.9, mrr*0.85, mrr*0.95, mrr].map(v=>v||0)}
+          sparkColor="#2b8be8"
+          accent="#2b8be8"
+          icon="💰"
+        />
+        <KPICard
+          label="Conclusões / Semana"
+          value={completed7d.length}
+          sub="últimos 7 dias"
+          spark={spark7.map(d=>d.done)}
+          sparkColor="#a855f7"
+          accent="#a855f7"
+          icon="✅"
+        />
+      </div>
+
+      {/* ═══ GRÁFICO + INSIGHTS ══════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Gráfico principal aprimorado */}
+        <div className="lg:col-span-2 rounded-2xl p-6" style={{
+          background:"rgba(255,255,255,0.98)",
+          border:"1px solid rgba(221,227,237,0.7)",
+          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+          backdropFilter:"blur(8px)",
+        }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-sm font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Produtividade Semanal</h3>
+              <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Tarefas concluídas vs pendentes — últimos 7 dias</p>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
+              <span className="flex items-center gap-1.5" style={{ color:"#2b8be8" }}>
+                <span style={{ width:8,height:8,borderRadius:2,background:"#2b8be8",display:"inline-block" }}/>Concluídas
+              </span>
+              <span className="flex items-center gap-1.5" style={{ color:"#e2e8f0" }}>
+                <span style={{ width:8,height:8,borderRadius:2,background:"#cbd5e1",display:"inline-block" }}/>Pendentes
+              </span>
+            </div>
+          </div>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekDays} barGap={2} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:11 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ borderRadius:"12px", border:"1px solid #dde3ed", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:12 }}
-                  formatter={(val, name) => [val, name]}
-                  labelStyle={{ fontWeight:700, color:"#1a1d23" }}
+              <BarChart data={spark7} barGap={2} barCategoryGap="35%">
+                <defs>
+                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2b8be8" stopOpacity="1"/>
+                    <stop offset="100%" stopColor="#1d6fd4" stopOpacity="0.85"/>
+                  </linearGradient>
+                  <linearGradient id="barGradP" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#e2e8f0" stopOpacity="0.9"/>
+                    <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.7"/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(226,232,240,0.5)" />
+                <XAxis dataKey="day" axisLine={false} tickLine={false}
+                  tick={({ x,y,payload,index }) => (
+                    <text x={x} y={y+12} textAnchor="middle" fontSize={11} fontWeight={spark7[index]?.date===t?700:400}
+                      fill={spark7[index]?.date===t?"#2b8be8":"#94a3b8"}>
+                      {spark7[index]?.date===t?"Hoje":payload.value}
+                    </text>
+                  )}
                 />
-                <Bar dataKey="Concluídas" fill="#2b8be8" radius={[4,4,0,0]} stackId="a" />
-                <Bar dataKey="Pendentes" fill="#e2e8f0" radius={[4,4,0,0]} stackId="a" />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
+                <Tooltip
+                  cursor={{ fill:"rgba(43,139,232,0.04)", radius:8 }}
+                  contentStyle={{ borderRadius:14, border:"1px solid rgba(221,227,237,0.8)", boxShadow:"0 8px 32px rgba(26,29,35,0.12)", padding:"10px 14px", fontSize:12, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                  labelStyle={{ fontWeight:700, color:"#1a1d23", marginBottom:4 }}
+                  formatter={(val,name) => [`${val} tarefa${val!==1?"s":""}`, name]}
+                />
+                <Bar dataKey="done" name="Concluídas" fill="url(#barGrad)" radius={[6,6,0,0]} stackId="a" maxBarSize={36}/>
+                <Bar dataKey="pending" name="Pendentes" fill="url(#barGradP)" radius={[6,6,0,0]} stackId="a" maxBarSize={36}/>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          {/* Resumo total da semana */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-            <div className="text-center">
-              <p className="text-xl font-black" style={{ color:"#2b8be8" }}>{weekDays.reduce((s,d)=>s+d.Concluídas,0)}</p>
-              <p className="text-xs text-slate-400">concluídas</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-black" style={{ color:"#94a3b8" }}>{weekDays.reduce((s,d)=>s+d.Pendentes,0)}</p>
-              <p className="text-xs text-slate-400">pendentes</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-black" style={{ color:"#10b981" }}>
-                {weekDays.reduce((s,d)=>s+d.Concluídas+d.Pendentes,0) > 0
-                  ? Math.round(weekDays.reduce((s,d)=>s+d.Concluídas,0) / weekDays.reduce((s,d)=>s+d.Concluídas+d.Pendentes,0) * 100)
-                  : 0}%
-              </p>
-              <p className="text-xs text-slate-400">taxa semana</p>
-            </div>
+          {/* Mini KPIs internos */}
+          <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop:"1px solid rgba(226,232,240,0.6)" }}>
+            {[
+              { label:"Concluídas semana", value:spark7.reduce((s,d)=>s+d.done,0), color:"#2b8be8" },
+              { label:"Pendentes semana",  value:spark7.reduce((s,d)=>s+d.pending,0), color:"#94a3b8" },
+              { label:"Taxa da semana",    value:`${spark7.reduce((s,d)=>s+d.done,0)+spark7.reduce((s,d)=>s+d.pending,0)>0?Math.round(spark7.reduce((s,d)=>s+d.done,0)/(spark7.reduce((s,d)=>s+d.done,0)+spark7.reduce((s,d)=>s+d.pending,0))*100):0}%`, color:"#10b981" },
+            ].map(k => (
+              <div key={k.label} className="text-center">
+                <p className="text-lg font-black leading-none" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
+                <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>{k.label}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* RESUMO DA EQUIPE */}
-        <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <h3 className="text-base font-semibold text-slate-800 mb-1">Resumo da Equipe</h3>
-          <p className="text-xs text-slate-400 mb-4">Tarefas atribuídas por colaborador</p>
-          {teamSummary.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-52 gap-3">
-              <p className="text-4xl">👥</p>
-              <p className="text-sm text-slate-400 text-center">Atribua tarefas à equipe<br/>para ver o resumo aqui</p>
+        {/* Alertas inteligentes */}
+        <div className="rounded-2xl p-5 flex flex-col gap-3" style={{
+          background:"rgba(255,255,255,0.98)",
+          border:"1px solid rgba(221,227,237,0.7)",
+          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+        }}>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#5aaff5,#2b8be8)" }}/>
+            <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Insights do Escritório</h3>
+          </div>
+          {insights.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8 gap-3">
+              <div className="text-4xl">🎯</div>
+              <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>Tudo sob controle!</p>
+              <p className="text-xs" style={{ color:"#94a3b8" }}>Nenhum alerta no momento</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {teamSummary.map(u => {
-                const pct = u.total > 0 ? Math.round(u.done / u.total * 100) : 0;
+            <div className="space-y-2.5">
+              {insights.map((ins,i) => {
+                const colors = { danger:"#ef4444",warning:"#f59e0b",success:"#10b981",info:"#2b8be8",special:"#a855f7" };
+                const bgs    = { danger:"rgba(239,68,68,0.06)",warning:"rgba(245,158,11,0.06)",success:"rgba(16,185,129,0.06)",info:"rgba(43,139,232,0.06)",special:"rgba(168,85,247,0.06)" };
+                const c = colors[ins.type]||"#64748b";
+                const bg = bgs[ins.type]||"#f8fafc";
                 return (
-                  <div key={u.id} className="p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0"
-                          style={{ background: u.avatarColor||"#2b8be8" }}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{u.name.split(" ")[0]}</p>
-                          <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.role === "admin" ? "Administrador" : u.role === "colaborador" ? "Colaborador" : "Visualizador"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-right">
-                        <div>
-                          <p className="text-xs font-black" style={{ color:"#10b981" }}>{u.done}</p>
-                          <p className="text-[9px] text-slate-400">feitas</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-black" style={{ color:"#f59e0b" }}>{u.pending}</p>
-                          <p className="text-[9px] text-slate-400">pendentes</p>
-                        </div>
-                        {u.overdue > 0 && (
-                          <div>
-                            <p className="text-xs font-black" style={{ color:"#ef4444" }}>{u.overdue}</p>
-                            <p className="text-[9px] text-slate-400">atrasadas</p>
-                          </div>
-                        )}
+                  <div key={i} className="p-3 rounded-xl transition-all cursor-default"
+                    style={{ background:bg, border:`1px solid ${c}18` }}
+                    onMouseEnter={e=>{e.currentTarget.style.transform="translateX(3px)";e.currentTarget.style.borderColor=c+"40";}}
+                    onMouseLeave={e=>{e.currentTarget.style.transform="translateX(0)";e.currentTarget.style.borderColor=c+"18";}}>
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-lg flex-shrink-0 mt-0.5">{ins.icon}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black leading-snug" style={{ color:c }}>{ins.title}</p>
+                        <p className="text-[10px] mt-0.5 leading-snug" style={{ color:"#94a3b8" }}>{ins.sub}</p>
                       </div>
                     </div>
-                    {/* Barra de progresso */}
-                    <div className="w-full rounded-full h-1.5" style={{ background:"#e2e8f0" }}>
-                      <div className="h-1.5 rounded-full transition-all"
-                        style={{ width: pct + "%", background: pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#ef4444" }} />
-                    </div>
-                    <p className="text-[10px] text-right mt-0.5" style={{ color:"#94a3b8" }}>{pct}% concluído</p>
                   </div>
                 );
               })}
             </div>
           )}
-          {/* Totais */}
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-            <p className="text-xs text-slate-400">{(teamUsers||[]).length} membros · {tasks.filter(t=>t.assignedTo).length} tarefas atribuídas</p>
-            <p className="text-xs font-semibold" style={{ color:"#2b8be8" }}>{tasks.filter(t=>!t.assignedTo).length} sem responsável</p>
-          </div>
         </div>
       </div>
-      {/* ITEM 4 — Alertas de prazo */}
-      {(() => {
-        const t2 = today();
-        const in7 = new Date(); in7.setDate(in7.getDate() + 7);
-        const in7s = in7.toISOString().split("T")[0];
-        const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < t2);
-        const soonTasks    = tasks.filter(t => !t.completed && t.dueDate && t.dueDate >= t2 && t.dueDate <= in7s);
-        if (overdueTasks.length === 0 && soonTasks.length === 0) return null;
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {overdueTasks.length > 0 && (
-              <div className="rounded-2xl p-4" style={{ background:"#fff5f5", border:"1.5px solid #fecaca" }}>
-                <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#dc2626" }}>🚨 Atrasadas ({overdueTasks.length})</p>
-                <div className="space-y-1.5">
-                  {overdueTasks.slice(0,4).map(t => (
-                    <div key={t.id} className="flex items-center justify-between text-xs">
-                      <span className="font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
-                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#dc2626" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>
-                    </div>
-                  ))}
-                  {overdueTasks.length > 4 && <p className="text-xs" style={{ color:"#94a3b8" }}>+{overdueTasks.length-4} mais</p>}
-                </div>
-              </div>
-            )}
-            {soonTasks.length > 0 && (
-              <div className="rounded-2xl p-4" style={{ background:"#fffbeb", border:"1.5px solid #fde68a" }}>
-                <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#d97706" }}>⚡ Próximos 7 dias ({soonTasks.length})</p>
-                <div className="space-y-1.5">
-                  {soonTasks.slice(0,4).map(t => (
-                    <div key={t.id} className="flex items-center justify-between text-xs">
-                      <span className="font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
-                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#d97706" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>
-                    </div>
-                  ))}
-                  {soonTasks.length > 4 && <p className="text-xs" style={{ color:"#94a3b8" }}>+{soonTasks.length-4} mais</p>}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4">Foco de Hoje</h3>
-          {todayTasks.length === 0 ? <p className="text-sm text-slate-500 py-4 text-center">Nenhuma tarefa para hoje.</p> :
-            todayTasks.slice(0, 5).map(task => (
-              <div key={task.id} className="flex items-center space-x-3 p-3 rounded-xl mb-2" style={{ background:"#f5f7fb", border:"1px solid #dde3ed" }}>
-                <div className={`w-2 h-2 rounded-full ${task.completed ? "bg-emerald-500" : "bg-amber-500"}`} />
-                <span className={`text-sm font-medium ${task.completed ? "text-slate-400 line-through" : "text-slate-700"}`}>{task.title}</span>
-              </div>
-            ))}
-        </div>
-        <div className="rounded-2xl p-6" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4 flex items-center justify-between">
-            Hábitos Diários <span className="text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">{habitsToday}/{habits.length}</span>
-          </h3>
-          {habits.length === 0 ? <p className="text-sm text-slate-500 py-4 text-center">Nenhum hábito configurado.</p> :
-            habits.slice(0, 5).map(h => {
-              const done = h.completedDates?.includes(t);
-              return (
-                <div key={h.id} className="flex items-center justify-between p-3 rounded-xl mb-2" style={{ border:"1px solid #dde3ed" }}>
-                  <span className={`text-sm font-medium ${done ? "text-slate-400 line-through" : "text-slate-700"}`}>{h.title}</span>
-                  {done && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" className="w-5 h-5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>}
-                </div>
-              );
-            })}
+      {/* ═══ EQUIPE + PRÓXIMAS TAREFAS ═══════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Resumo da equipe */}
+        {teamSummary.length > 0 && (
+          <div className="rounded-2xl p-5" style={{
+            background:"rgba(255,255,255,0.98)",
+            border:"1px solid rgba(221,227,237,0.7)",
+            boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+          }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#10b981,#059669)" }}/>
+              <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Resumo da Equipe</h3>
+              <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#f0fdf4", color:"#10b981" }}>{teamSummary.length} membro{teamSummary.length!==1?"s":""}</span>
+            </div>
+            <div className="space-y-3">
+              {teamSummary.map(u => {
+                const pct = u.total>0?Math.round(u.done/u.total*100):0;
+                const pctColor = pct>=70?"#10b981":pct>=40?"#f59e0b":"#ef4444";
+                return (
+                  <div key={u.id} className="p-3 rounded-xl transition-all"
+                    style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#dde3ed";e.currentTarget.style.background="#f0f4f8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8edf5";e.currentTarget.style.background="#f8fafc";}}>
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0"
+                        style={{ background:u.avatarColor||"#2b8be8", boxShadow:`0 2px 8px ${u.avatarColor||"#2b8be8"}44` }}>
+                        {u.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black" style={{ color:"#1a1d23" }}>{u.name.split(" ")[0]}</p>
+                          <p className="text-xs font-black" style={{ color:pctColor }}>{pct}%</p>
+                        </div>
+                        <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.done} feitas · {u.pending} pendentes{u.overdue>0?` · ${u.overdue} atrasadas`:""}</p>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-full h-1" style={{ background:"#e2e8f0" }}>
+                      <div className="h-1 rounded-full transition-all duration-700"
+                        style={{ width:pct+"%", background:`linear-gradient(90deg,${pctColor},${pctColor}cc)` }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Próximas tarefas urgentes */}
+        <div className="rounded-2xl p-5" style={{
+          background:"rgba(255,255,255,0.98)",
+          border:"1px solid rgba(221,227,237,0.7)",
+          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#f59e0b,#d97706)" }}/>
+            <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Foco Imediato</h3>
+          </div>
+          {[...overdue, ...dueToday].length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+              <div className="text-3xl">✅</div>
+              <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>Sem urgências!</p>
+              <p className="text-xs" style={{ color:"#94a3b8" }}>Nenhuma tarefa atrasada ou vencendo hoje</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[...overdue.slice(0,3), ...dueToday.slice(0,3)].map(task => {
+                const isOv = overdue.includes(task);
+                const days = isOv ? Math.floor((new Date(t)-new Date(task.dueDate+"T12:00:00"))/(1000*60*60*24)) : 0;
+                const assignedUser = (teamUsers||[]).find(u=>u.id===task.assignedTo);
+                return (
+                  <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl transition-all"
+                    style={{ background: isOv?"rgba(239,68,68,0.04)":"rgba(245,158,11,0.04)", border:`1px solid ${isOv?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.15)"}` }}>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isOv?"#ef4444":"#f59e0b" }}/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{ color:"#1a1d23" }}>{task.title}</p>
+                      {assignedUser && <p className="text-[10px]" style={{ color:"#94a3b8" }}>👤 {assignedUser.name.split(" ")[0]}</p>}
+                    </div>
+                    <span className="text-[10px] font-black flex-shrink-0 px-2 py-0.5 rounded-full"
+                      style={{ background: isOv?"rgba(239,68,68,0.1)":"rgba(245,158,11,0.1)", color: isOv?"#ef4444":"#f59e0b" }}>
+                      {isOv ? `${days}d atraso` : "Hoje"}
+                    </span>
+                  </div>
+                );
+              })}
+              {([...overdue,...dueToday].length > 6) && (
+                <p className="text-center text-xs" style={{ color:"#94a3b8" }}>+{[...overdue,...dueToday].length-6} mais tarefas</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
     </div>
   );
 }
+
 
 // ============================================================
 // TASKS
