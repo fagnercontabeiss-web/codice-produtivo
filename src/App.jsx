@@ -45,7 +45,7 @@ function AppProvider({ children }) {
   const habitFromDb = r => ({ id:r.id, title:r.name, freq:r.frequency, freqDays:r.freq_days||[], completedDates:r.completed_dates||[], categoryId:r.category_id||"" });
   const habitToDb   = h => ({ id:h.id, name:h.title, frequency:h.freq, freq_days:h.freqDays||[], completed_dates:h.completedDates||[], category_id:h.categoryId||null });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
-  const clientToDb   = c => ({ id:c.id, name:c.name, document:c.document, type:c.type, monthly_fee:c.monthlyFee, payment_status:c.paymentStatus, payment_method:c.paymentMethod, notes:c.notes, due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active" });
+  const clientToDb   = c => ({ id:c.id, name:c.name, document:c.document||"", type:c.type||"pj", monthly_fee:parseFloat(c.monthlyFee)||0, payment_status:c.paymentStatus||"pending", payment_method:c.paymentMethod||"pix", notes:c.notes||"", due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active" });
   const goalFromDb = r => ({ id:r.id, title:r.title, completed:r.completed, createdAt:r.created_at });
   const goalToDb   = g => ({ id:g.id, title:g.title, completed:g.completed });
 
