@@ -821,7 +821,7 @@ function Dashboard() {
               </div>
               {/* Ticker animado */}
               <div className="flex-1 overflow-hidden py-2">
-                <div style={{ display:"inline-flex", animation:"ticker 20s linear infinite", willChange:"transform" }}>
+                <div style={{ display:"inline-flex", animation:"ticker 50s linear infinite", willChange:"transform" }}>
                   {[...tickerTasks,...tickerTasks,...tickerTasks].map((task,i) => <TickerItem key={i} task={task}/>)}
                 </div>
               </div>
