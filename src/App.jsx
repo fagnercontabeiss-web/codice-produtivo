@@ -484,6 +484,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       label: "Análise",
       items: [
         { id: "reports",  label: "Relatórios",    icon: Icon.Reports },
+        { id: "workload", label: "Workload",       icon: Icon.Tasks },
         { id: "settings", label: "Configurações", icon: Icon.Settings },
         { id: "team",     label: "Equipe",         icon: Icon.Clients },
       ]
@@ -4092,122 +4093,411 @@ function Obligations() {
 // REPORTS
 // ============================================================
 function Reports() {
-  const { tasks, categories, contexts } = useApp();
-  const now = new Date();
-  const [startDate, setStartDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
-  const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
+  const { tasks, categories, contexts, clients, teamUsers, currentProfile, habits } = useApp();
+  const [period, setPeriod] = useState(30);
   const [aiFeedback, setAiFeedback] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [activeTab, setActiveTabR] = useState("overview"); // overview | burnout | team | export
 
-  const filtered = tasks.filter(t => t.dueDate >= startDate && t.dueDate <= endDate);
-  const total = filtered.length;
-  const completed = filtered.filter(t => t.completed).length;
-  const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const t = today();
+  const periodStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate()-period); return d.toISOString().split("T")[0]; }, [period]);
 
-  const catStats = categories.map(c => ({ ...c, total: filtered.filter(t => t.categoryId === c.id).length, done: filtered.filter(t => t.categoryId === c.id && t.completed).length })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-  const catChartData = catStats.map(c => ({ name: c.name, value: c.total, color: c.color }));
-  const ctxStats = contexts.map(c => ({ ...c, total: filtered.filter(t => t.contextId === c.id).length })).sort((a, b) => b.total - a.total);
+  const filtered = tasks.filter(x => x.dueDate >= periodStart && x.dueDate <= t || (x.completed && x.dueDate >= periodStart));
+  const done = filtered.filter(x => x.completed).length;
+  const pending = filtered.filter(x => !x.completed).length;
+  const overdue = tasks.filter(x => !x.completed && x.dueDate < t).length;
+  const rate = filtered.length > 0 ? Math.round(done/filtered.length*100) : 0;
 
-  const generateFeedback = async () => {
-    setLoading(true); setAiFeedback(null);
+  // ── Dados por semana para tendência ───────────────────────
+  const weeks = useMemo(() => Array.from({length:Math.ceil(period/7)}, (_,i) => {
+    const wEnd = new Date(); wEnd.setDate(wEnd.getDate() - i*7);
+    const wStart = new Date(wEnd); wStart.setDate(wStart.getDate()-6);
+    const s = wStart.toISOString().split("T")[0], e = wEnd.toISOString().split("T")[0];
+    const wt = tasks.filter(x => x.dueDate >= s && x.dueDate <= e);
+    return { label:`Sem ${Math.ceil(period/7)-i}`, done:wt.filter(x=>x.completed).length, total:wt.length, rate:wt.length>0?Math.round(wt.filter(x=>x.completed).length/wt.length*100):0 };
+  }).reverse(), [tasks, period]);
+
+  // ── Análise de burnout ────────────────────────────────────
+  const burnoutAnalysis = useMemo(() => {
+    const avgPerWeek = weeks.reduce((s,w)=>s+w.total,0) / Math.max(weeks.length,1);
+    const lastWeek = weeks[weeks.length-1]?.total || 0;
+    const overloadFactor = avgPerWeek > 0 ? lastWeek/avgPerWeek : 1;
+    const completionTrend = weeks.length >= 3 ? weeks.slice(-3).map(w=>w.rate) : [rate];
+    const trendDown = completionTrend.length >= 2 && completionTrend[completionTrend.length-1] < completionTrend[0] - 15;
+
+    let risk = "baixo";
+    let riskColor = "#10b981";
+    let riskBg = "rgba(16,185,129,0.08)";
+    let signals = [];
+
+    if (overloadFactor > 1.5) { signals.push(`Carga ${Math.round((overloadFactor-1)*100)}% acima da média`); }
+    if (overdue > 5) { signals.push(`${overdue} tarefas acumuladas em atraso`); }
+    if (trendDown) { signals.push("Taxa de conclusão caindo nas últimas 3 semanas"); }
+    if (rate < 40 && filtered.length > 5) { signals.push(`Produtividade baixa (${rate}%)`); }
+    if (pending > avgPerWeek * 2) { signals.push(`${pending} tarefas pendentes acumuladas`); }
+
+    if (signals.length >= 3) { risk="alto"; riskColor="#ef4444"; riskBg="rgba(239,68,68,0.08)"; }
+    else if (signals.length >= 1) { risk="médio"; riskColor="#f59e0b"; riskBg="rgba(245,158,11,0.08)"; }
+
+    const suggestions = risk === "alto" ? [
+      "Redistribuir tarefas para outros membros da equipe",
+      "Priorizar somente as 3 tarefas mais críticas do dia",
+      "Revisar prazos e negociar extensões onde possível",
+      "Considerar um sprint de organização antes de novas demandas",
+    ] : risk === "médio" ? [
+      "Revisar e eliminar tarefas de baixa prioridade",
+      "Definir blocos de foco sem interrupções",
+      "Checar se há tarefas que podem ser delegadas",
+    ] : [
+      "Ritmo saudável — mantenha a consistência!",
+      "Boa oportunidade para antecipar demandas futuras",
+    ];
+
+    return { risk, riskColor, riskBg, signals, suggestions, overloadFactor, avgPerWeek };
+  }, [weeks, overdue, rate, filtered, pending]);
+
+  // ── Análise por categoria ────────────────────────────────
+  const catStats = useMemo(() => categories.map(c => {
+    const ct = filtered.filter(x=>x.categoryId===c.id);
+    return { ...c, total:ct.length, done:ct.filter(x=>x.completed).length, rate:ct.length>0?Math.round(ct.filter(x=>x.completed).length/ct.length*100):0 };
+  }).filter(c=>c.total>0).sort((a,b)=>b.total-a.total), [filtered, categories]);
+
+  // ── Previsão de conclusão ────────────────────────────────
+  const forecast = useMemo(() => {
+    const avgDonePerDay = done / Math.max(period, 1);
+    if (avgDonePerDay <= 0 || pending <= 0) return null;
+    const daysNeeded = Math.ceil(pending / avgDonePerDay);
+    return { daysNeeded, eta: new Date(Date.now() + daysNeeded*24*60*60*1000).toLocaleDateString("pt-BR",{day:"2-digit",month:"long"}) };
+  }, [done, period, pending]);
+
+  const generateAI = async () => {
+    setAiLoading(true); setAiFeedback(null);
     try {
-      const fb = await callClaude("Atue como consultor de produtividade para escritório de contabilidade. Analise: Total de tarefas: " + total + ", Concluidas: " + completed + " (" + rate + "%), Categoria mais focada: " + (catStats[0]?.name||"N/A") + " (" + (catStats[0]?.total||0) + " tarefas), Contexto mais focado: " + (ctxStats[0]?.name||"N/A") + ". Forneca feedback construtivo em Markdown com: 1) Resumo do desempenho, 2) Pontos fortes, 3) Oportunidades de melhoria.");
-      setAiFeedback(fb);
-    } catch { setAiFeedback("Erro ao gerar analise."); } finally { setLoading(false); }
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514", max_tokens:1000,
+          messages:[{ role:"user", content:
+            `Você é um consultor de produtividade para escritório de contabilidade. Analise:
+- Período: ${period} dias | Tarefas: ${filtered.length} | Concluídas: ${done} (${rate}%) | Atrasadas: ${overdue}
+- Risco de burnout: ${burnoutAnalysis.risk} | Sinais: ${burnoutAnalysis.signals.join("; ")||"nenhum"}
+- Categorias mais pesadas: ${catStats.slice(0,3).map(c=>`${c.name}(${c.total})`).join(", ")}
+- Média semanal: ${burnoutAnalysis.avgPerWeek.toFixed(1)} tarefas | Previsão conclusão pendentes: ${forecast?.eta||"N/A"}
+
+Responda em JSON puro (sem markdown):
+{"resumo":"2 frases diretas","pontos_fortes":["x","y"],"alertas":["x","y"],"acoes_imediatas":["x","y","z"],"previsao":"1 frase sobre tendência"}` }]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || "";
+      const clean = text.replace(/```json|```/g,"").trim();
+      setAiFeedback(JSON.parse(clean));
+    } catch(e) { setAiFeedback({ resumo:"Erro ao gerar análise.", pontos_fortes:[], alertas:[], acoes_imediatas:[], previsao:"" }); }
+    finally { setAiLoading(false); }
   };
 
-  // ITEM 10: Exportar relatório gerencial em PDF
   const exportPDF = () => {
-    const catRows = catStats.map(c => "<tr><td style='padding:6px 8px;border-bottom:1px solid #e8edf5'>" + c.name + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5'>" + c.total + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5'>" + c.done + "</td><td style='padding:6px 8px;text-align:right;border-bottom:1px solid #e8edf5;font-weight:700;color:#2b8be8'>" + (c.total>0?Math.round(c.done/c.total*100):0) + "%</td></tr>").join("");
-    const taskRows = filtered.slice(0,30).map(t => "<tr><td style='padding:5px 8px;border-bottom:1px solid #f0f4f8;font-size:12px'>" + t.title + "</td><td style='padding:5px 8px;text-align:center;border-bottom:1px solid #f0f4f8;font-size:12px'>" + (t.dueDate||"—") + "</td><td style='padding:5px 8px;text-align:center;border-bottom:1px solid #f0f4f8;font-size:12px;font-weight:700;color:" + (t.completed?"#10b981":"#f59e0b") + "'>" + (t.completed?"Concluída":"Pendente") + "</td></tr>").join("");
-    const html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'/><title>Relatório Gerencial — Códice</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;background:#fff;padding:30px 40px}h1{font-size:22px;font-weight:900;color:#1a1d23}h2{font-size:13px;font-weight:700;color:#374151}h3{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:12px}.kpi{display:inline-flex;flex-direction:column;padding:14px 20px;border:1px solid #dde3ed;border-radius:10px;min-width:130px;margin:0 8px 8px 0}.kpi-v{font-size:24px;font-weight:900}.kpi-l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;padding:8px;text-align:left;border-bottom:2px solid #1a1d23}@media print{body{padding:15px 20px}}</style></head><body>"
-      + "<div style='text-align:center;padding-bottom:20px;border-bottom:2px solid #1a1d23;margin-bottom:24px'><h1>Códice Contabilidade</h1><h2 style='margin-top:4px'>Relatório Gerencial de Produtividade</h2><p style='font-size:12px;color:#94a3b8;margin-top:4px'>Período: " + startDate.split("-").reverse().join("/") + " a " + endDate.split("-").reverse().join("/") + " · Gerado em " + new Date().toLocaleDateString("pt-BR") + "</p></div>"
-      + "<div style='margin-bottom:24px'><h3>Resumo Executivo</h3><div>"
-        + "<div class='kpi'><div class='kpi-l'>Total Tarefas</div><div class='kpi-v' style='color:#2b8be8'>" + total + "</div></div>"
-        + "<div class='kpi'><div class='kpi-l'>Concluídas</div><div class='kpi-v' style='color:#10b981'>" + completed + "</div></div>"
-        + "<div class='kpi'><div class='kpi-l'>Pendentes</div><div class='kpi-v' style='color:#f59e0b'>" + (total-completed) + "</div></div>"
-        + "<div class='kpi'><div class='kpi-l'>Taxa de Conclusão</div><div class='kpi-v' style='color:" + (rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444") + "'>" + rate + "%</div></div>"
-      + "</div></div>"
-      + "<div style='margin-bottom:24px'><h3>Desempenho por Categoria</h3><table><thead><tr><th>Categoria</th><th style='text-align:right'>Total</th><th style='text-align:right'>Concluídas</th><th style='text-align:right'>Taxa</th></tr></thead><tbody>" + catRows + "</tbody></table></div>"
-      + "<div style='margin-bottom:24px'><h3>Tarefas do Período" + (filtered.length>30?" (primeiras 30)":"") + "</h3><table><thead><tr><th>Título</th><th style='text-align:center'>Prazo</th><th style='text-align:center'>Status</th></tr></thead><tbody>" + taskRows + "</tbody></table></div>"
-      + "<div style='padding-top:24px;border-top:1px solid #dde3ed;font-size:11px;color:#94a3b8;text-align:center'>Códice Contabilidade · Relatório gerado automaticamente pelo Códice Produtivo</div>"
-      + "</body></html>";
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Relatório — Códice</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;padding:32px;background:#fff}
+    h1{font-size:20px;font-weight:900;color:#1a1d23}h2{font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px}
+    .kpi{display:inline-flex;flex-direction:column;padding:12px 18px;border:1px solid #e2e8f0;border-radius:10px;min-width:120px;margin:0 8px 8px 0}
+    .kv{font-size:22px;font-weight:900}.kl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;padding:8px;text-align:left;border-bottom:2px solid #1a1d23}
+    td{font-size:11px;padding:7px 8px;border-bottom:1px solid #f0f4f8}
+    .risk-${burnoutAnalysis.risk}{color:${burnoutAnalysis.riskColor};font-weight:700}
+    </style></head><body>
+    <div style="text-align:center;border-bottom:2px solid #1a1d23;padding-bottom:16px;margin-bottom:24px">
+      <h1>Códice Contabilidade</h1><p style="font-size:12px;color:#94a3b8;margin-top:4px">Relatório de Produtividade — Últimos ${period} dias — ${new Date().toLocaleDateString("pt-BR")}</p>
+    </div>
+    <h2>Resumo executivo</h2>
+    <div style="margin-bottom:20px">
+      <div class="kpi"><div class="kl">Tarefas</div><div class="kv" style="color:#2b8be8">${filtered.length}</div></div>
+      <div class="kpi"><div class="kl">Concluídas</div><div class="kv" style="color:#10b981">${done}</div></div>
+      <div class="kpi"><div class="kl">Taxa</div><div class="kv" style="color:${rate>=70?'#10b981':rate>=40?'#f59e0b':'#ef4444'}">${rate}%</div></div>
+      <div class="kpi"><div class="kl">Atrasadas</div><div class="kv" style="color:#ef4444">${overdue}</div></div>
+      <div class="kpi"><div class="kl">Risco Burnout</div><div class="kv class-risk-${burnoutAnalysis.risk}" style="color:${burnoutAnalysis.riskColor}">${burnoutAnalysis.risk.toUpperCase()}</div></div>
+    </div>
+    <h2>Por categoria</h2>
+    <table><thead><tr><th>Categoria</th><th>Total</th><th>Concluídas</th><th>Taxa</th></tr></thead><tbody>
+    ${catStats.map(c=>`<tr><td>${c.name}</td><td>${c.total}</td><td>${c.done}</td><td style="font-weight:700;color:${c.rate>=70?'#10b981':'#f59e0b'}">${c.rate}%</td></tr>`).join("")}
+    </tbody></table>
+    ${burnoutAnalysis.signals.length > 0 ? `<h2 style="margin-top:20px;color:${burnoutAnalysis.riskColor}">⚠ Alertas de burnout</h2><ul style="padding-left:16px">${burnoutAnalysis.signals.map(s=>`<li style="font-size:12px;margin-bottom:4px">${s}</li>`).join("")}</ul>` : ""}
+    <div style="padding-top:20px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;margin-top:24px">Códice Contabilidade · Relatório gerado pelo Códice Produtivo</div>
+    </body></html>`;
     const w = window.open("","_blank","width=900,height=700");
     w.document.write(html); w.document.close();
     w.onload = () => { w.focus(); w.print(); };
   };
 
+  const TABS = [["overview","📊 Visão Geral"],["burnout","🔥 Burnout & Previsão"],["team","👥 Equipe"]];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div><h2 className="text-2xl font-bold text-slate-900">Relatório de Produtividade</h2><p className="text-slate-500 mt-1 text-sm">Análise de foco e desempenho</p></div>
-        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-          <Icon.Calendar />
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border-none text-sm focus:ring-0 text-slate-700 bg-transparent" />
-          <span className="text-slate-400 text-sm">até</span>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border-none text-sm focus:ring-0 text-slate-700 bg-transparent" />
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Relatórios & Análise Inteligente</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Insights automáticos com detecção de sobrecarga e previsões</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={period} onChange={e=>setPeriod(Number(e.target.value))}
+            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            <option value={7}>7 dias</option>
+            <option value={14}>14 dias</option>
+            <option value={30}>30 dias</option>
+            <option value={90}>90 dias</option>
+          </select>
+          <button onClick={exportPDF} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            style={{ background:"rgba(248,250,252,0.9)", color:"#374151", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <Icon.Download />PDF
+          </button>
+          <button onClick={generateAI} disabled={aiLoading} className="flex items-center gap-1.5 px-4 py-1.5 text-white rounded-xl text-xs font-bold disabled:opacity-60"
+            style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}>
+            {aiLoading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Análise IA</>}
+          </button>
         </div>
       </div>
 
-      {total === 0 ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}><Icon.Reports /><p className="text-slate-500 mt-3">Adicione tarefas neste período para gerar o relatório.</p></div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}><p className="text-xs text-slate-500 mb-2">Taxa de Conclusão Global</p><p className="text-3xl font-bold text-slate-900">{rate}%</p><p className="text-xs text-slate-500 mt-1">{completed} de {total} tarefas</p></div>
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}><p className="text-xs text-slate-500 mb-2">Maior Foco (Categoria)</p><p className="text-lg font-bold text-slate-900 truncate">{catStats[0]?.name || "-"}</p><p className="text-xs text-slate-500 mt-1">{catStats[0]?.total || 0} tarefas</p></div>
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}><p className="text-xs text-slate-500 mb-2">Maior Foco (Contexto)</p><p className="text-lg font-bold text-slate-900 truncate">{ctxStats[0]?.name || "-"}</p><p className="text-xs text-slate-500 mt-1">{ctxStats[0]?.total || 0} tarefas</p></div>
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-2xl" style={{ background:"rgba(241,245,249,0.7)", width:"fit-content" }}>
+        {TABS.map(([id,label]) => (
+          <button key={id} onClick={()=>setActiveTabR(id)}
+            className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+            style={{ background:activeTab===id?"rgba(255,255,255,0.98)":"transparent", color:activeTab===id?"#1a1d23":"#94a3b8",
+              boxShadow:activeTab===id?"0 2px 8px rgba(26,29,35,0.08)":"none" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: VISÃO GERAL ── */}
+      {activeTab === "overview" && (
+        <div className="space-y-5">
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label:"Total no período", value:filtered.length, color:"#2b8be8", bg:"rgba(43,139,232,0.06)" },
+              { label:"Concluídas", value:done, color:"#10b981", bg:"rgba(16,185,129,0.06)" },
+              { label:"Taxa de conclusão", value:`${rate}%`, color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444", bg:rate>=70?"rgba(16,185,129,0.06)":"rgba(245,158,11,0.06)" },
+              { label:"Em atraso agora", value:overdue, color:overdue>0?"#ef4444":"#10b981", bg:overdue>0?"rgba(239,68,68,0.06)":"rgba(16,185,129,0.06)", sub:overdue===0?"✓ Tudo em dia":undefined },
+            ].map(k => (
+              <div key={k.label} className="rounded-2xl p-4 transition-all"
+                style={{ background:`rgba(255,255,255,0.98)`, border:`1px solid rgba(221,227,237,0.7)`, boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+                <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>{k.label}</div>
+                <div className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</div>
+                {k.sub && <div className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>{k.sub}</div>}
+              </div>
+            ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-              <h3 className="text-sm font-semibold text-slate-800 mb-4">Distribuição por Categoria</h3>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={catChartData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value">
-                      {catChartData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: "8px", border: "none" }} />
-                    <Legend verticalAlign="bottom" height={32} iconType="circle" />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Gráfico tendência semanal */}
+          <div className="rounded-2xl p-6" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}>
+            <h3 className="text-sm font-black mb-1" style={{ color:"#1a1d23" }}>Tendência Semanal</h3>
+            <p className="text-xs mb-4" style={{ color:"#94a3b8" }}>Evolução da taxa de conclusão</p>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeks} barGap={2} barCategoryGap="35%">
+                  <defs>
+                    <linearGradient id="rg1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2b8be8" stopOpacity="1"/>
+                      <stop offset="100%" stopColor="#1d6fd4" stopOpacity="0.8"/>
+                    </linearGradient>
+                    <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#e2e8f0" stopOpacity="0.9"/>
+                      <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.6"/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(226,232,240,0.4)"/>
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:10 }}/>
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
+                  <Tooltip contentStyle={{ borderRadius:12, border:"1px solid rgba(221,227,237,0.8)", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:11, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                    formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700, color:"#1a1d23" }}/>
+                  <Bar dataKey="done" name="Concluídas" fill="url(#rg1)" radius={[5,5,0,0]} maxBarSize={32}/>
+                  <Bar dataKey="total" name="Total" fill="url(#rg2)" radius={[5,5,0,0]} maxBarSize={32}/>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-              <h3 className="text-sm font-semibold text-slate-800 mb-4">Desempenho por Categoria</h3>
+          </div>
+
+          {/* Por categoria */}
+          {catStats.length > 0 && (
+            <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+              <h3 className="text-sm font-black mb-4" style={{ color:"#1a1d23" }}>Desempenho por Categoria</h3>
               <div className="space-y-3">
                 {catStats.map(c => (
                   <div key={c.id}>
-                    <div className="flex items-center justify-between text-xs mb-1"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: c.color }} /><span className="font-medium text-slate-700">{c.name}</span></div><span className="text-slate-500">{c.done}/{c.total} ({c.total > 0 ? Math.round(c.done / c.total * 100) : 0}%)</span></div>
-                    <div className="w-full bg-slate-100 rounded-full h-1.5"><div className="h-1.5 rounded-full transition-all" style={{ width: `${c.total > 0 ? Math.round(c.done / c.total * 100) : 0}%`, background: c.color }} /></div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background:c.color }}/>
+                        <span className="text-xs font-semibold" style={{ color:"#374151" }}>{c.name}</span>
+                        <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.done}/{c.total}</span>
+                      </div>
+                      <span className="text-xs font-black" style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#f59e0b":"#ef4444" }}>{c.rate}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.6)" }}>
+                      <div className="h-1.5 rounded-full transition-all duration-700" style={{ width:c.rate+"%", background:`linear-gradient(90deg,${c.color},${c.color}cc)` }}/>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-              <h3 className="text-base font-semibold text-indigo-900 flex items-center gap-2"><Icon.Sparkles />Análise Inteligente com IA</h3>
-              <div className="flex gap-2">
-                <button onClick={exportPDF} disabled={total===0} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"#f0f4f8", color:"#374151" }}>
-                  <Icon.Download />PDF
-                </button>
-                <button onClick={generateFeedback} disabled={loading} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
-                  {loading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Gerar Análise</>}
-                </button>
+          {/* Análise IA */}
+          {aiFeedback && (
+            <div className="rounded-2xl p-5 space-y-4" style={{ background:"linear-gradient(135deg,rgba(43,139,232,0.04),rgba(255,255,255,0.98))", border:"1px solid rgba(43,139,232,0.15)", boxShadow:"0 4px 16px rgba(43,139,232,0.08)" }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center text-sm" style={{ background:"rgba(43,139,232,0.1)" }}>✨</div>
+                <h3 className="text-sm font-black" style={{ color:"#2b8be8" }}>Análise Inteligente</h3>
+              </div>
+              <p className="text-sm" style={{ color:"#374151" }}>{aiFeedback.resumo}</p>
+              {aiFeedback.pontos_fortes?.length > 0 && (
+                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#10b981" }}>✓ Pontos Fortes</p>
+                  <div className="space-y-1">{aiFeedback.pontos_fortes.map((p,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span style={{ color:"#10b981", flexShrink:0 }}>•</span>{p}</div>)}</div></div>
+              )}
+              {aiFeedback.alertas?.length > 0 && (
+                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#f59e0b" }}>⚠ Atenção</p>
+                  <div className="space-y-1">{aiFeedback.alertas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span style={{ color:"#f59e0b", flexShrink:0 }}>•</span>{a}</div>)}</div></div>
+              )}
+              {aiFeedback.acoes_imediatas?.length > 0 && (
+                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#2b8be8" }}>🎯 Ações Imediatas</p>
+                  <div className="space-y-1">{aiFeedback.acoes_imediatas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span className="font-bold" style={{ color:"#2b8be8", flexShrink:0 }}>{i+1}.</span>{a}</div>)}</div></div>
+              )}
+              {aiFeedback.previsao && <p className="text-xs italic p-3 rounded-xl" style={{ background:"rgba(43,139,232,0.06)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.12)" }}>📈 {aiFeedback.previsao}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: BURNOUT & PREVISÃO ── */}
+      {activeTab === "burnout" && (
+        <div className="space-y-5">
+          {/* Medidor de risco */}
+          <div className="rounded-2xl p-6" style={{ background:`rgba(255,255,255,0.98)`, border:`1.5px solid ${burnoutAnalysis.riskColor}30`, boxShadow:`0 4px 24px ${burnoutAnalysis.riskColor}0a`, backdropFilter:"blur(8px)" }}>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"#94a3b8" }}>Risco de Sobrecarga / Burnout</p>
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl font-black uppercase" style={{ color:burnoutAnalysis.riskColor }}>{burnoutAnalysis.risk}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background:"rgba(226,232,240,0.5)" }}>
+                      <div className="h-2 rounded-full transition-all"
+                        style={{ width:burnoutAnalysis.risk==="baixo"?"25%":burnoutAnalysis.risk==="médio"?"60%":"90%", background:`linear-gradient(90deg,#10b981,${burnoutAnalysis.riskColor})` }}/>
+                    </div>
+                    <p className="text-[10px]" style={{ color:"#94a3b8" }}>
+                      {burnoutAnalysis.risk==="baixo"?"Tudo equilibrado":burnoutAnalysis.risk==="médio"?"Atenção recomendada":"Intervenção necessária"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"#94a3b8" }}>Média semanal</p>
+                <p className="text-2xl font-black" style={{ color:"#1a1d23" }}>{burnoutAnalysis.avgPerWeek.toFixed(1)}</p>
+                <p className="text-[10px]" style={{ color:"#94a3b8" }}>tarefas/semana</p>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-5 border border-indigo-100 shadow-sm text-sm text-slate-700">
-              {aiFeedback ? <div dangerouslySetInnerHTML={{ __html: aiFeedback.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/#{1,3} (.*)/g, "<h4 class='font-bold mt-3 mb-1'>$1</h4>").replace(/\n/g, "<br/>") }} /> : loading ? <div className="text-indigo-500 flex items-center gap-2"><Icon.Loader />Processando...</div> : <div className="text-center py-6 text-slate-500"><p>Clique para gerar uma análise personalizada do seu desempenho.</p></div>}
+            {burnoutAnalysis.signals.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:burnoutAnalysis.riskColor }}>Sinais detectados</p>
+                {burnoutAnalysis.signals.map((s,i) => (
+                  <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:burnoutAnalysis.riskBg, border:`1px solid ${burnoutAnalysis.riskColor}20` }}>
+                    <span style={{ color:burnoutAnalysis.riskColor }}>⚡</span>
+                    <span className="text-xs" style={{ color:"#374151" }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sugestões */}
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+            <p className="text-sm font-black mb-3" style={{ color:"#1a1d23" }}>💡 Sugestões de Ação</p>
+            <div className="space-y-2">
+              {burnoutAnalysis.suggestions.map((s,i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-xl transition-all"
+                  style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=burnoutAnalysis.riskColor+"40";e.currentTarget.style.transform="translateX(3px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(226,232,240,0.6)";e.currentTarget.style.transform="translateX(0)";}}>
+                  <span className="font-black text-sm flex-shrink-0" style={{ color:burnoutAnalysis.riskColor }}>{i+1}</span>
+                  <span className="text-xs" style={{ color:"#374151" }}>{s}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </>
+
+          {/* Previsão */}
+          {forecast && (
+            <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(168,85,247,0.06),rgba(255,255,255,0.98))", border:"1px solid rgba(168,85,247,0.15)", boxShadow:"0 4px 16px rgba(168,85,247,0.06)" }}>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#a855f7" }}>📅 Previsão de Conclusão</p>
+              <p className="text-sm" style={{ color:"#374151" }}>
+                No ritmo atual, as <strong>{pending} tarefas pendentes</strong> serão concluídas em aproximadamente{" "}
+                <strong style={{ color:"#a855f7" }}>{forecast.daysNeeded} dias</strong> — estimativa para <strong>{forecast.eta}</strong>.
+              </p>
+              <p className="text-xs mt-2" style={{ color:"#94a3b8" }}>Baseado na média de {(done/period).toFixed(1)} tarefas/dia no período selecionado.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: EQUIPE ── */}
+      {activeTab === "team" && (
+        <div className="space-y-4">
+          {(teamUsers||[]).length <= 1 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+              <p className="text-3xl mb-3">👥</p>
+              <p className="font-bold" style={{ color:"#1a1d23" }}>Sem equipe para analisar</p>
+              <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Adicione colaboradores na aba Equipe</p>
+            </div>
+          ) : (
+            (teamUsers||[]).map(u => {
+              const uTasks = tasks.filter(x => x.assignedTo === u.id);
+              const uDone = uTasks.filter(x=>x.completed).length;
+              const uOverdue = uTasks.filter(x=>!x.completed&&x.dueDate<t).length;
+              const uRate = uTasks.length>0?Math.round(uDone/uTasks.length*100):0;
+              const uWeeks = Array.from({length:4},(_,i)=>{
+                const we=new Date(); we.setDate(we.getDate()-i*7);
+                const ws=new Date(we); ws.setDate(ws.getDate()-6);
+                const s2=ws.toISOString().split("T")[0],e2=we.toISOString().split("T")[0];
+                const wt=uTasks.filter(x=>x.dueDate>=s2&&x.dueDate<=e2);
+                return wt.filter(x=>x.completed).length;
+              }).reverse();
+              const riskU = uOverdue > 3 || uRate < 30 ? "alto" : uOverdue > 1 || uRate < 50 ? "médio" : "baixo";
+              const riskCU = { alto:"#ef4444", médio:"#f59e0b", baixo:"#10b981" }[riskU];
+              return (
+                <div key={u.id} className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white" style={{ background:u.avatarColor||"#2b8be8", boxShadow:`0 3px 10px ${u.avatarColor||"#2b8be8"}44` }}>{u.name.charAt(0)}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{u.name}</p>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:riskCU+"15", color:riskCU }}>Burnout: {riskU}</span>
+                      </div>
+                      <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.role}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      {[{l:"Tarefas",v:uTasks.length,c:"#2b8be8"},{l:"Concluídas",v:uDone,c:"#10b981"},{l:"Atrasadas",v:uOverdue,c:uOverdue>0?"#ef4444":"#10b981"}].map(k=>(
+                        <div key={k.l}><p className="text-lg font-black" style={{ color:k.c }}>{k.v}</p><p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.l}</p></div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full mb-1" style={{ background:"rgba(226,232,240,0.5)" }}>
+                    <div className="h-1.5 rounded-full" style={{ width:uRate+"%", background:`linear-gradient(90deg,${u.avatarColor||"#2b8be8"},${u.avatarColor||"#2b8be8"}cc)` }}/>
+                  </div>
+                  <p className="text-[10px]" style={{ color:"#94a3b8" }}>{uRate}% de conclusão</p>
+                </div>
+              );
+            })
+          )}
+        </div>
       )}
     </div>
   );
 }
+
 
 // ============================================================
 // SEVERANCE SIMULATION
@@ -4992,82 +5282,200 @@ function SeveranceSimulation() {
 // SETTINGS
 // ============================================================
 function SettingsPage() {
-  const { categories, addCategory, updateCategory, deleteCategory, contexts, addContext, updateContext, deleteContext, settings, updateSettings } = useApp();
-  const [appCfg, setAppCfg] = useState(settings);
-  const [isCatOpen, setIsCatOpen] = useState(false); const [editCat, setEditCat] = useState(null);
-  const [isCtxOpen, setIsCtxOpen] = useState(false); const [editCtx, setEditCtx] = useState(null);
-  const [saved, setSaved] = useState(false);
-  useEffect(() => { setAppCfg(settings); }, [settings]);
+  const { settings, updateSettings, categories, contexts, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, currentProfile } = useApp();
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
 
-  const [catF, setCatF] = useState({ name:"", color:"#6366f1" });
-  const [ctxF, setCtxF] = useState({ name:"", color:"#10b981" });
-  const openCat = (c) => { setEditCat(c||null); setCatF(c ? {name:c.name,color:c.color} : {name:"",color:"#6366f1"}); setIsCatOpen(true); };
-  const openCtx = (c) => { setEditCtx(c||null); setCtxF(c ? {name:c.name,color:c.color} : {name:"",color:"#10b981"}); setIsCtxOpen(true); };
-  const saveCat = () => { if(!catF.name.trim()) return; const d={id:editCat?.id||uid(),name:catF.name,color:catF.color}; editCat?updateCategory(d):addCategory(d); setIsCatOpen(false); setEditCat(null); };
-  const saveCtx = () => { if(!ctxF.name.trim()) return; const d={id:editCtx?.id||uid(),name:ctxF.name,color:ctxF.color}; editCtx?updateContext(d):addContext(d); setIsCtxOpen(false); setEditCtx(null); };
+  const [theme, setTheme] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cp_theme") || "{}"); } catch { return {}; }
+  });
+
+  const applyTheme = (key, value) => {
+    const next = { ...theme, [key]: value };
+    setTheme(next);
+    localStorage.setItem("cp_theme", JSON.stringify(next));
+    // Apply CSS variables
+    const root = document.documentElement;
+    if (key === "accent") root.style.setProperty("--accent", value);
+    if (key === "darkMode") document.body.setAttribute("data-theme", value ? "dark" : "light");
+    if (key === "fontSize") root.style.setProperty("--font-size-base", value+"px");
+    if (key === "radius") root.style.setProperty("--radius", value+"px");
+    if (key === "density") root.style.setProperty("--density", value);
+  };
+
+  const ACCENTS = [
+    { label:"Azul (padrão)", color:"#2b8be8" }, { label:"Verde", color:"#10b981" },
+    { label:"Roxo", color:"#8b5cf6" }, { label:"Rosa", color:"#ec4899" },
+    { label:"Laranja", color:"#f97316" }, { label:"Ciano", color:"#06b6d4" },
+    { label:"Âmbar", color:"#f59e0b" }, { label:"Índigo", color:"#6366f1" },
+  ];
+
+  const FONTS = [
+    { label:"Sistema (padrão)", value:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
+    { label:"Inter", value:"'Inter',sans-serif" },
+    { label:"DM Sans", value:"'DM Sans',sans-serif" },
+    { label:"Roboto", value:"'Roboto',sans-serif" },
+  ];
+
+  const Section = ({ title, children }) => (
+    <div className="rounded-2xl overflow-hidden" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+      <div className="px-5 py-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.5)" }}>
+        <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{title}</p>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+
+  const Row = ({ label, sub, children }) => (
+    <div className="flex items-center justify-between py-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
+      <div><p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{label}</p>{sub&&<p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{sub}</p>}</div>
+      <div className="flex-shrink-0">{children}</div>
+    </div>
+  );
+
+  const [catForm, setCatForm] = useState({ id:"",name:"",color:"#2b8be8" });
+  const [ctxForm, setCtxForm] = useState({ id:"",name:"",color:"#64748b" });
+  const [editCat, setEditCat] = useState(null);
+  const [editCtx, setEditCtx] = useState(null);
+
+  const saveCat = async () => {
+    if (!catForm.name.trim()) return;
+    if (editCat) { await updateCategory({ ...editCat, ...catForm }); setEditCat(null); }
+    else { await addCategory({ id:uid(), ...catForm }); }
+    setCatForm({ id:"",name:"",color:"#2b8be8" });
+  };
+
+  const saveCtx = async () => {
+    if (!ctxForm.name.trim()) return;
+    if (editCtx) { await updateContext({ ...editCtx, ...ctxForm }); setEditCtx(null); }
+    else { await addContext({ id:uid(), ...ctxForm }); }
+    setCtxForm({ id:"",name:"",color:"#64748b" });
+  };
 
   return (
-    <div className="space-y-7 max-w-4xl mx-auto">
-      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-        <div className="p-5 flex items-center gap-2" style={{ borderBottom:"1px solid #dde3ed" }}><Icon.Settings /><h2 className="text-base font-bold" style={{ color:"#1a1d23" }}>Personalização do Sistema</h2></div>
-        <div className="p-5 space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase border-b border-slate-100 pb-2">Aparência</h4>
-              <div><label className="block text-xs font-medium text-slate-700 mb-1">Nome do Sistema</label><input required value={appCfg.appName} onChange={e => setAppCfg({ ...appCfg, appName: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
-              <div><label className="block text-xs font-medium text-slate-700 mb-1">URL da Logo (Opcional)</label><input type="url" value={appCfg.logoUrl || ""} onChange={e => setAppCfg({ ...appCfg, logoUrl: e.target.value })} placeholder="https://..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase border-b border-slate-100 pb-2">Credenciais de Acesso</h4>
-              <div><label className="block text-xs font-medium text-slate-700 mb-1">Login</label><input required value={appCfg.loginEmail || ""} onChange={e => setAppCfg({ ...appCfg, loginEmail: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
-              <div><label className="block text-xs font-medium text-slate-700 mb-1">Senha</label><input type="password" required value={appCfg.loginPassword || ""} onChange={e => setAppCfg({ ...appCfg, loginPassword: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
-            </div>
-          </div>
-          <div className="flex justify-end pt-2 border-t border-slate-100">
-            <button type="button" onClick={() => { updateSettings(appCfg); setSaved(true); setTimeout(() => setSaved(false), 2000); }} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium"><Icon.Save />{saved ? "Salvo!" : "Salvar"}</button>
-          </div>
-        </div>
+    <div className="space-y-5 max-w-2xl">
+      <div>
+        <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Configurações</h2>
+        <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o app ao seu gosto</p>
       </div>
 
-      {[{ title: "Categorias de Tarefas", items: categories, onAdd: () => openCat(null), onEdit: c => openCat(c), onDelete: deleteCategory, addLabel: "Nova Categoria", color: "indigo" },
-        { title: "Contextos (Para quem é)", items: contexts, onAdd: () => openCtx(null), onEdit: c => openCtx(c), onDelete: deleteContext, addLabel: "Novo Contexto", color: "emerald" }].map(s => (
-        <div key={s.title} className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <div className="p-5 flex items-center justify-between" style={{ borderBottom:"1px solid #dde3ed" }}>
-            <h2 className="text-base font-bold" style={{ color:"#1a1d23" }}>{s.title}</h2>
-            <button onClick={s.onAdd} className={`flex items-center gap-1.5 px-3 py-2 bg-${s.color}-600 text-white rounded-lg hover:bg-${s.color}-700 text-sm font-medium`}><Icon.Plus />{s.addLabel}</button>
+      {/* APARÊNCIA */}
+      <Section title="🎨 Aparência & Tema">
+        {/* Cor de destaque */}
+        <div className="pb-4 mb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
+          <p className="text-sm font-semibold mb-3" style={{ color:"#1a1d23" }}>Cor de destaque</p>
+          <div className="flex gap-2 flex-wrap">
+            {ACCENTS.map(a => (
+              <button key={a.color} onClick={()=>applyTheme("accent",a.color)} title={a.label}
+                className="w-8 h-8 rounded-xl transition-all"
+                style={{ background:a.color, border: theme.accent===a.color ? "3px solid #1a1d23" : "2px solid transparent", transform:theme.accent===a.color?"scale(1.15)":"scale(1)", boxShadow:`0 2px 8px ${a.color}44` }}/>
+            ))}
           </div>
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {s.items.map(item => (
-              <div key={item.id} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full" style={{ background: item.color }} /><span className="font-medium text-sm text-slate-800">{item.name}</span></div>
-                <div className="flex gap-1">
-                  <button onClick={() => s.onEdit(item)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Icon.Edit /></button>
-                  <button onClick={() => s.onDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"><Icon.Trash /></button>
+        </div>
+
+        {/* Dark mode */}
+        <Row label="Modo escuro" sub="Alterna entre tema claro e escuro">
+          <button onClick={()=>applyTheme("darkMode",!theme.darkMode)}
+            className="relative w-11 h-6 rounded-full transition-all"
+            style={{ background:theme.darkMode?"linear-gradient(135deg,#1c1f26,#2b8be8)":"rgba(226,232,240,0.8)" }}>
+            <div className="absolute top-0.5 w-5 h-5 rounded-full transition-all shadow-sm"
+              style={{ left:theme.darkMode?"calc(100% - 22px)":"2px", background:"#fff" }}/>
+          </button>
+        </Row>
+
+        {/* Densidade */}
+        <Row label="Densidade da interface" sub="Controla o espaçamento entre elementos">
+          <div className="flex gap-1.5">
+            {[["compact","Compacta"],["normal","Normal"],["relaxed","Espaçosa"]].map(([v,l]) => (
+              <button key={v} onClick={()=>applyTheme("density",v)}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{ background:theme.density===v||(!theme.density&&v==="normal")?"linear-gradient(135deg,#1a1d26,#1e2e4a)":"rgba(241,245,249,0.7)", color:theme.density===v||(!theme.density&&v==="normal")?"#5aaff5":"#64748b" }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </Row>
+
+        {/* Tipografia */}
+        <Row label="Tipografia" sub="Fonte usada na interface">
+          <select value={theme.font||FONTS[0].value} onChange={e=>applyTheme("font",e.target.value)}
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151", fontFamily:theme.font }}>
+            {FONTS.map(f => <option key={f.value} value={f.value} style={{ fontFamily:f.value }}>{f.label}</option>)}
+          </select>
+        </Row>
+
+        {/* Arredondamento */}
+        <Row label="Arredondamento" sub="Raio dos cantos dos elementos">
+          <div className="flex items-center gap-3">
+            <input type="range" min={0} max={24} step={2} value={theme.radius||16} onChange={e=>applyTheme("radius",Number(e.target.value))}
+              className="w-24 accent-blue-500" />
+            <span className="text-xs font-mono w-8" style={{ color:"#94a3b8" }}>{theme.radius||16}px</span>
+          </div>
+        </Row>
+      </Section>
+
+      {/* APP */}
+      <Section title="⚙️ Aplicativo">
+        <Row label="Nome do app" sub="Aparece na barra lateral">
+          <input value={settings.appName||"Códice Produtivo"} onChange={e=>updateSettings({...settings,appName:e.target.value})}
+            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-40"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }} />
+        </Row>
+      </Section>
+
+      {/* CATEGORIAS */}
+      {isAdmin && (
+        <Section title="🏷 Categorias de Tarefas">
+          <div className="space-y-2 mb-4">
+            {categories.map(c => (
+              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group"
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}>
+                <div className="w-3 h-3 rounded-full" style={{ background:c.color }}/>
+                <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={()=>{setEditCat(c);setCatForm({name:c.name,color:c.color});}} className="p-1 rounded-lg hover:bg-blue-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
+                  <button onClick={()=>deleteCategory(c.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      ))}
+          <div className="flex gap-2">
+            <input type="color" value={catForm.color} onChange={e=>setCatForm(p=>({...p,color:e.target.value}))} className="w-9 h-9 rounded-xl border-0 cursor-pointer p-0.5" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
+            <input value={catForm.name} onChange={e=>setCatForm(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&saveCat()} placeholder={editCat?"Editar categoria...":"Nova categoria..."} className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
+            <button onClick={saveCat} disabled={!catForm.name.trim()} className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{editCat?"Salvar":"Adicionar"}</button>
+            {editCat && <button onClick={()=>{setEditCat(null);setCatForm({name:"",color:"#2b8be8"});}} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>}
+          </div>
+        </Section>
+      )}
 
-      {isCatOpen && <Modal title={editCat ? "Editar Categoria" : "Nova Categoria"} onClose={() => { setIsCatOpen(false); setEditCat(null); }}>
-        <div className="p-5 space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome</label><input value={catF.name} onChange={e=>setCatF(p=>({...p,name:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Cor</label><div className="flex items-center gap-3"><input type="color" value={catF.color} onChange={e=>setCatF(p=>({...p,color:e.target.value}))} className="w-12 h-12 p-1 border border-slate-300 rounded-lg cursor-pointer" /><span className="text-sm text-slate-500">Escolha a cor</span></div></div>
-          <div className="flex justify-end gap-3"><button type="button" onClick={() => { setIsCatOpen(false); setEditCat(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveCat} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button></div>
-        </div>
-      </Modal>}
-
-      {isCtxOpen && <Modal title={editCtx ? "Editar Contexto" : "Novo Contexto"} onClose={() => { setIsCtxOpen(false); setEditCtx(null); }}>
-        <div className="p-5 space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome</label><input value={ctxF.name} onChange={e=>setCtxF(p=>({...p,name:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Cor</label><div className="flex items-center gap-3"><input type="color" value={ctxF.color} onChange={e=>setCtxF(p=>({...p,color:e.target.value}))} className="w-12 h-12 p-1 border border-slate-300 rounded-lg cursor-pointer" /><span className="text-sm text-slate-500">Escolha a cor</span></div></div>
-          <div className="flex justify-end gap-3"><button type="button" onClick={() => { setIsCtxOpen(false); setEditCtx(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveCtx} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm">Salvar</button></div>
-        </div>
-      </Modal>}
+      {/* CONTEXTOS */}
+      {isAdmin && (
+        <Section title="📍 Contextos">
+          <div className="space-y-2 mb-4">
+            {contexts.map(c => (
+              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group"
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}>
+                <div className="w-3 h-3 rounded-full" style={{ background:c.color||"#64748b" }}/>
+                <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={()=>{setEditCtx(c);setCtxForm({name:c.name,color:c.color||"#64748b"});}} className="p-1 rounded-lg hover:bg-blue-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
+                  <button onClick={()=>deleteContext(c.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input type="color" value={ctxForm.color} onChange={e=>setCtxForm(p=>({...p,color:e.target.value}))} className="w-9 h-9 rounded-xl border-0 cursor-pointer p-0.5"/>
+            <input value={ctxForm.name} onChange={e=>setCtxForm(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&saveCtx()} placeholder={editCtx?"Editar contexto...":"Novo contexto..."} className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
+            <button onClick={saveCtx} disabled={!ctxForm.name.trim()} className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{editCtx?"Salvar":"Adicionar"}</button>
+            {editCtx && <button onClick={()=>{setEditCtx(null);setCtxForm({name:"",color:"#64748b"});}} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }
+
 
 // ============================================================
 
@@ -6310,6 +6718,231 @@ function Onboarding() {
   );
 }
 
+
+// ============================================================
+// WORKLOAD — Gestão de carga do time
+// ============================================================
+function Workload() {
+  const { tasks, teamUsers, currentProfile } = useApp();
+  const t = today();
+  const [period, setPeriod] = useState(7);
+
+  const periodStart = useMemo(() => {
+    const d = new Date(); d.setDate(d.getDate()-period); return d.toISOString().split("T")[0];
+  }, [period]);
+
+  // Dados globais
+  const periodTasks = tasks.filter(x => x.dueDate >= periodStart && x.dueDate <= t);
+  const allActive  = tasks.filter(x => !x.completed && x.dueDate >= t);
+  const allOverdue = tasks.filter(x => !x.completed && x.dueDate < t);
+  const allDone    = tasks.filter(x => x.completed && x.dueDate >= periodStart);
+
+  // Por membro
+  const memberStats = useMemo(() => (teamUsers||[]).map(u => {
+    const assigned = tasks.filter(x => x.assignedTo === u.id);
+    const active   = assigned.filter(x => !x.completed && x.dueDate >= t);
+    const overdue  = assigned.filter(x => !x.completed && x.dueDate < t);
+    const done     = assigned.filter(x => x.completed && x.dueDate >= periodStart);
+    const total    = assigned.filter(x => x.dueDate >= periodStart);
+    const rate     = total.length > 0 ? Math.round(done.length/total.length*100) : 0;
+    const load     = active.length + overdue.length * 1.5; // peso maior para atrasadas
+    const maxLoad  = 10;
+    const loadPct  = Math.min(Math.round(load/maxLoad*100), 100);
+    const loadLevel = load <= 3 ? "leve" : load <= 7 ? "normal" : load <= 12 ? "pesada" : "crítica";
+    const loadColors = { leve:"#10b981", normal:"#2b8be8", pesada:"#f59e0b", crítica:"#ef4444" };
+
+    // Dias da semana
+    const daily = Array.from({length:7}, (_,i) => {
+      const d = new Date(); d.setDate(d.getDate()-6+i);
+      const ds = d.toISOString().split("T")[0];
+      const dt = assigned.filter(x => x.dueDate === ds);
+      return { day:d.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".",""), done:dt.filter(x=>x.completed).length, pending:dt.filter(x=>!x.completed).length, date:ds };
+    });
+
+    return { ...u, assigned, active, overdue, done, total, rate, load, loadPct, loadLevel, loadColor:loadColors[loadLevel], daily };
+  }), [tasks, teamUsers, t, periodStart]);
+
+  // Redistribuição sugerida (tarefas atrasadas sem responsável ou com sobrecarga)
+  const redistSuggestions = useMemo(() => {
+    const overloaded = memberStats.filter(m => m.loadLevel === "crítica" || m.loadLevel === "pesada");
+    const underloaded = memberStats.filter(m => m.loadLevel === "leve" && m.active.length < 3);
+    if (overloaded.length === 0 || underloaded.length === 0) return [];
+    return overloaded.slice(0,2).map(m => ({
+      from: m,
+      to: underloaded[0],
+      tasks: m.overdue.slice(0,2),
+    })).filter(s => s.tasks.length > 0);
+  }, [memberStats]);
+
+  const totalLoad = memberStats.reduce((s,m)=>s+m.load,0);
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Workload do Time</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Carga de trabalho, produtividade e distribuição de tarefas</p>
+        </div>
+        <select value={period} onChange={e=>setPeriod(Number(e.target.value))}
+          className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value={7}>Últimos 7 dias</option>
+          <option value={14}>Últimos 14 dias</option>
+          <option value={30}>Últimos 30 dias</option>
+        </select>
+      </div>
+
+      {/* KPIs globais */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label:"Ativas no time", value:allActive.length, color:"#2b8be8", icon:"📋" },
+          { label:"Atrasadas", value:allOverdue.length, color:allOverdue.length>0?"#ef4444":"#10b981", icon:"⚠️" },
+          { label:"Concluídas (período)", value:allDone.length, color:"#10b981", icon:"✅" },
+          { label:"Carga total", value:totalLoad.toFixed(0), color:totalLoad>20?"#ef4444":totalLoad>10?"#f59e0b":"#10b981", icon:"⚡", sub:"pontos de carga" },
+        ].map(k => (
+          <div key={k.label} className="rounded-2xl p-4 transition-all"
+            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>{k.label}</p>
+                <p className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
+                {k.sub && <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>{k.sub}</p>}
+              </div>
+              <span className="text-xl">{k.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Cards de membros */}
+      {memberStats.length === 0 ? (
+        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+          <p className="text-4xl mb-3">👥</p>
+          <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhuma tarefa atribuída ainda</p>
+          <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Atribua responsáveis nas tarefas para ver o workload</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {memberStats.map(m => (
+            <div key={m.id} className="rounded-2xl p-5 transition-all"
+              style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${m.loadColor}22`, boxShadow:"0 4px 16px rgba(26,29,35,0.05)", backdropFilter:"blur(8px)" }}
+              onMouseEnter={e=>{e.currentTarget.style.boxShadow=`0 8px 28px ${m.loadColor}12`;e.currentTarget.style.transform="translateY(-1px)";}}
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.05)";e.currentTarget.style.transform="translateY(0)";}}>
+
+              {/* Header membro */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white flex-shrink-0"
+                  style={{ background:m.avatarColor||"#2b8be8", boxShadow:`0 3px 10px ${m.avatarColor||"#2b8be8"}44` }}>
+                  {m.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{m.name.split(" ")[0]}</p>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                      style={{ background:m.loadColor+"18", color:m.loadColor, border:`1px solid ${m.loadColor}30` }}>
+                      Carga {m.loadLevel}
+                    </span>
+                  </div>
+                  <p className="text-[10px]" style={{ color:"#94a3b8" }}>{m.role} · {m.assigned.length} tarefas totais</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xl font-black" style={{ color:m.loadColor, fontVariantNumeric:"tabular-nums" }}>{m.rate}%</p>
+                  <p className="text-[9px]" style={{ color:"#94a3b8" }}>conclusão</p>
+                </div>
+              </div>
+
+              {/* Barra de carga */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold" style={{ color:"#94a3b8" }}>Nível de carga</span>
+                  <span className="text-[10px] font-black" style={{ color:m.loadColor }}>{m.loadPct}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                  <div className="h-2 rounded-full transition-all duration-700"
+                    style={{ width:m.loadPct+"%", background:`linear-gradient(90deg,${m.loadColor},${m.loadColor}cc)`,
+                      boxShadow:m.loadLevel==="crítica"?`0 0 8px ${m.loadColor}66`:"none" }}/>
+                </div>
+              </div>
+
+              {/* Estatísticas inline */}
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[
+                  { l:"Ativas", v:m.active.length, c:"#2b8be8" },
+                  { l:"Atrasadas", v:m.overdue.length, c:m.overdue.length>0?"#ef4444":"#10b981" },
+                  { l:"Concluídas", v:m.done.length, c:"#10b981" },
+                  { l:"No período", v:m.total.length, c:"#64748b" },
+                ].map(s => (
+                  <div key={s.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    <p className="text-base font-black" style={{ color:s.c }}>{s.v}</p>
+                    <p className="text-[9px]" style={{ color:"#94a3b8" }}>{s.l}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mini gráfico diário */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Distribuição semanal</p>
+                <div className="h-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={m.daily} barGap={1} barCategoryGap="25%">
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:9 }}/>
+                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(221,227,237,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(26,29,35,0.1)" }}
+                        formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700 }}/>
+                      <Bar dataKey="done" name="Concluídas" stackId="a" fill={m.avatarColor||"#2b8be8"} radius={[3,3,0,0]} maxBarSize={20}/>
+                      <Bar dataKey="pending" name="Pendentes" stackId="a" fill="rgba(226,232,240,0.8)" radius={[3,3,0,0]} maxBarSize={20}/>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Tarefas atrasadas */}
+              {m.overdue.length > 0 && (
+                <div className="mt-3 p-3 rounded-xl" style={{ background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)" }}>
+                  <p className="text-[10px] font-black mb-1.5" style={{ color:"#ef4444" }}>⚠ Tarefas atrasadas</p>
+                  {m.overdue.slice(0,3).map(task => (
+                    <div key={task.id} className="flex items-center justify-between text-xs mb-1">
+                      <span className="truncate" style={{ color:"#374151" }}>{task.title}</span>
+                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#ef4444" }}>
+                        {Math.floor((new Date(t)-new Date(task.dueDate+"T12:00:00"))/(1000*60*60*24))}d
+                      </span>
+                    </div>
+                  ))}
+                  {m.overdue.length > 3 && <p className="text-[10px]" style={{ color:"#94a3b8" }}>+{m.overdue.length-3} mais</p>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sugestões de redistribuição */}
+      {redistSuggestions.length > 0 && (
+        <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(245,158,11,0.06),rgba(255,255,255,0.98))", border:"1px solid rgba(245,158,11,0.2)", boxShadow:"0 4px 16px rgba(245,158,11,0.06)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">⚖️</span>
+            <h3 className="text-sm font-black" style={{ color:"#92400e" }}>Sugestões de Redistribuição</h3>
+          </div>
+          {redistSuggestions.map((s,i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl mb-2" style={{ background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.15)" }}>
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0" style={{ background:s.from.avatarColor||"#ef4444" }}>{s.from.name.charAt(0)}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold" style={{ color:"#374151" }}>
+                  <span style={{ color:s.from.loadColor }}>{s.from.name.split(" ")[0]}</span> → <span style={{ color:"#10b981" }}>{s.to.name.split(" ")[0]}</span>
+                </p>
+                <p className="text-[10px]" style={{ color:"#94a3b8" }}>{s.tasks.map(t=>t.title).join(", ")}</p>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(245,158,11,0.15)", color:"#d97706" }}>Sugerido</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -6358,6 +6991,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "severance" && <SeveranceSimulation />}
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
+      {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
   );
