@@ -78,8 +78,15 @@ function AppProvider({ children }) {
           teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
         });
-        if (cats.length === 0) await db.upsert("categories", defaultCategories);
-        if (ctxs.length === 0) await db.upsert("contexts", defaultContexts);
+        // Só criar categorias/contextos padrão se for admin e não tiver nenhum ainda
+        // Colaboradores/Visualizadores usam as categorias que o Supabase retorna
+        const isAdminUser = myProfile?.role === "admin" || !myProfile;
+        if (cats.length === 0 && isAdminUser) {
+          await db.upsert("categories", defaultCategories).catch(() => {});
+        }
+        if (ctxs.length === 0 && isAdminUser) {
+          await db.upsert("contexts", defaultContexts).catch(() => {});
+        }
       } catch (e) {
         console.error("Supabase load error:", e);
         setDbError(true);
