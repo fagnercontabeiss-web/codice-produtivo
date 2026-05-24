@@ -1310,9 +1310,38 @@ function Tasks() {
         </div>
 
         {viewMode === "list" && (
-          <div className="px-4 py-3 flex flex-wrap gap-3" style={{ borderBottom:"1px solid #dde3ed", background:"#f5f7fb" }}>
-            <input placeholder="🔍 Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 w-48" />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400">
+          <div className="px-4 py-3 flex flex-wrap gap-2 items-center" style={{ borderBottom:"1px solid rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }}>
+            {/* ── Botões HOJE e TODAS ── */}
+            <button
+              onClick={() => { setFilterStatus("pending"); setStartDate(today()); setEndDate(today()); }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
+              style={{
+                background: filterStatus==="pending" && startDate===today() && endDate===today() ? "linear-gradient(135deg,#f97316,#ea580c)" : "rgba(249,115,22,0.09)",
+                color: filterStatus==="pending" && startDate===today() && endDate===today() ? "#fff" : "#f97316",
+                border: "1.5px solid rgba(249,115,22,0.25)",
+                boxShadow: filterStatus==="pending" && startDate===today() && endDate===today() ? "0 2px 8px rgba(249,115,22,0.3)" : "none",
+              }}>
+              ☀️ Hoje
+            </button>
+            <button
+              onClick={() => {
+                setFilterStatus("pending");
+                setStartDate(today());
+                const far = new Date(); far.setFullYear(far.getFullYear()+2);
+                setEndDate(far.toISOString().split("T")[0]);
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
+              style={{
+                background: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "rgba(43,139,232,0.09)",
+                color: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "#fff" : "#2b8be8",
+                border: "1.5px solid rgba(43,139,232,0.25)",
+                boxShadow: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "0 2px 8px rgba(43,139,232,0.25)" : "none",
+              }}>
+              📋 Todas
+            </button>
+            <div className="w-px h-5 self-center" style={{ background:"rgba(203,213,225,0.6)" }}/>
+            <input placeholder="🔍 Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-40" style={{ background:"rgba(255,255,255,0.9)" }}/>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-slate-200 rounded-xl px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" style={{ background:"rgba(255,255,255,0.9)" }}>
               <option value="all">Todos</option><option value="pending">Pendentes</option><option value="completed">Concluídos</option>
             </select>
             <select value={filterCat} onChange={e => setFilterCat(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400">
@@ -2137,9 +2166,11 @@ function Habits() {
   };
 
   const toggle = async (h) => {
-    const dates = h.completedDates||[];
+    // Buscar o hábito mais recente do estado para evitar dados desatualizados
+    const current = (habits||[]).find(x => x.id === h.id) || h;
+    const dates = current.completedDates||[];
     const newDates = dates.includes(t) ? dates.filter(d=>d!==t) : [...dates, t];
-    await updateHabit({ ...h, completedDates:newDates });
+    await updateHabit({ ...current, completedDates:newDates });
   };
 
   const COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#64748b","#1a1d23"];
