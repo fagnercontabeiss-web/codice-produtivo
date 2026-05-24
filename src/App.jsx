@@ -131,7 +131,15 @@ function AppProvider({ children }) {
   }, []);
 
   const addHabit = useCallback(async h => { setState(s => ({ ...s, habits:[...s.habits,h] })); await db.upsert("habits", habitToDb(h)).catch(console.error); }, []);
-  const updateHabit = useCallback(async h => { setState(s => ({ ...s, habits:s.habits.map(x => x.id===h.id?h:x) })); await db.upsert("habits", habitToDb(h)).catch(console.error); }, []);
+  const updateHabit = useCallback(async h => {
+    // Atualizar estado imediatamente (síncrono) antes do banco
+    setState(s => ({ ...s, habits: s.habits.map(x => x.id === h.id ? h : x) }));
+    // Salvar no banco em paralelo
+    db.upsert("habits", habitToDb(h)).catch(e => {
+      console.error("Erro ao salvar hábito:", e);
+      // Não reverter — o estado local está correto
+    });
+  }, []);
   const deleteHabit = useCallback(async id => { setState(s => ({ ...s, habits:s.habits.filter(h => h.id!==id) })); await db.delete("habits", id).catch(console.error); }, []);
   const toggleHabitCompletion = useCallback(async (id, date) => {
     let updated;
@@ -2166,11 +2174,15 @@ function Habits() {
   };
 
   const toggle = async (h) => {
-    // Buscar o hábito mais recente do estado para evitar dados desatualizados
+    // Buscar sempre o hábito mais recente do estado global
     const current = (habits||[]).find(x => x.id === h.id) || h;
-    const dates = current.completedDates||[];
-    const newDates = dates.includes(t) ? dates.filter(d=>d!==t) : [...dates, t];
-    await updateHabit({ ...current, completedDates:newDates });
+    const dates = [...(current.completedDates||[])];
+    const newDates = dates.includes(t)
+      ? dates.filter(d => d !== t)
+      : [...dates, t];
+    // Atualizar estado local imediatamente para feedback visual instantâneo
+    const updated = { ...current, completedDates: newDates };
+    await updateHabit(updated);
   };
 
   const COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#64748b","#1a1d23"];
@@ -2219,7 +2231,9 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
   };
 
   // ── Componente HabitCard ──────────────────────────────────
-  const HabitCard = ({ h }) => {
+  const HabitCard = ({ h: hProp }) => {
+    // Sempre buscar o hábito mais recente do estado para evitar stale closure
+    const h = (habits||[]).find(x => x.id === hProp.id) || hProp;
     const streak = getStreak(h);
     const best = getBestStreak(h);
     const consistency = getConsistency(h);
