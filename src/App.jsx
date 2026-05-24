@@ -2044,6 +2044,206 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
   );
 }
 
+// ── HabitCard standalone (fora do Habits para evitar recriação) ──────────
+function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
+  const { habits } = useApp();
+  const h = (habits||[]).find(x => x.id === habitId);
+  if (!h) return null;
+
+  const t = today();
+
+  const getStreak = () => {
+    const dates = [...(h.completedDates||[])].sort();
+    if (!dates.length) return 0;
+    let streak = 0;
+    let check = new Date(); check.setHours(0,0,0,0);
+    for (let i = 0; i < 400; i++) {
+      const ds = check.toISOString().split("T")[0];
+      if (dates.includes(ds)) { streak++; check.setDate(check.getDate()-1); }
+      else { if (ds === t && streak === 0) { check.setDate(check.getDate()-1); continue; } break; }
+    }
+    return streak;
+  };
+
+  const getBestStreak = () => {
+    const dates = [...(h.completedDates||[])].sort();
+    if (!dates.length) return 0;
+    let best = 0, cur = 1;
+    for (let i=1; i<dates.length; i++) {
+      const d1 = new Date(dates[i-1]+"T12:00:00"), d2 = new Date(dates[i]+"T12:00:00");
+      if ((d2-d1)/(1000*60*60*24) === 1) { cur++; best = Math.max(best,cur); } else cur = 1;
+    }
+    return Math.max(best, cur);
+  };
+
+  const getConsistency = () => {
+    const dates = h.completedDates||[];
+    if (!dates.length) return 0;
+    const d30 = new Date(); d30.setDate(d30.getDate()-30);
+    const d30s = d30.toISOString().split("T")[0];
+    let expected = 0;
+    for (let i=0; i<30; i++) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const dow = d.getDay();
+      const ds = d.toISOString().split("T")[0];
+      if (ds <= t) {
+        if (h.freq === "weekly" && h.freqDays?.length) { if (h.freqDays.includes(dow)) expected++; }
+        else expected++;
+      }
+    }
+    if (expected === 0) return 0;
+    return Math.round(dates.filter(d => d >= d30s).length / expected * 100);
+  };
+
+  const streak = getStreak();
+  const best = getBestStreak();
+  const consistency = getConsistency();
+  const done = (h.completedDates||[]).includes(t);
+  const diffColors = { 1:"#10b981", 2:"#f59e0b", 3:"#ef4444" };
+
+  const last7 = Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-6+i);
+    const ds = d.toISOString().split("T")[0];
+    return { date:ds, done:(h.completedDates||[]).includes(ds), isToday:ds===t, day:d.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") };
+  });
+
+  const heatmap = Array.from({length:84}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-(83-i));
+    const ds = d.toISOString().split("T")[0];
+    return { date:ds, done:(h.completedDates||[]).includes(ds) };
+  });
+
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-2xl overflow-hidden transition-all duration-300 group"
+      style={{
+        background: done ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.95)",
+        border: done ? `1.5px solid ${h.color||"#2b8be8"}30` : "1px solid rgba(221,227,237,0.7)",
+        boxShadow: done ? `0 4px 24px ${h.color||"#2b8be8"}12` : "0 4px 16px rgba(26,29,35,0.04)",
+        backdropFilter: "blur(8px)",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2b8be8"}18`:"0 8px 28px rgba(26,29,35,0.08)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2b8be8"}12`:"0 4px 16px rgba(26,29,35,0.04)";}}>
+
+      {/* Barra de progresso streak */}
+      <div className="h-0.5" style={{ background:`linear-gradient(90deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}66)`, width:`${Math.min(streak/Math.max(h.targetStreak||21,1)*100,100)}%`, transition:"width 0.6s ease" }}/>
+
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          {/* Botão check — chama onToggle com o id */}
+          <button
+            onClick={() => onToggle(h.id)}
+            className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-200"
+            style={{
+              background: done ? `linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)` : `${h.color||"#2b8be8"}12`,
+              border: done ? "none" : `1.5px solid ${h.color||"#2b8be8"}30`,
+              boxShadow: done ? `0 4px 12px ${h.color||"#2b8be8"}40` : "none",
+              transform: done ? "scale(1.08)" : "scale(1)",
+            }}>
+            {done
+              ? <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" style={{width:20,height:20}}><polyline points="20 6 9 17 4 12"/></svg>
+              : <span>{h.emoji||"⭐"}</span>}
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{h.title}</p>
+              {h.isFavorite && <span style={{ color:"#f59e0b" }}>★</span>}
+              {h.identity && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background:`${h.color||"#2b8be8"}15`, color:h.color||"#2b8be8", border:`1px solid ${h.color||"#2b8be8"}25` }}>
+                  {h.identity}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-xs flex-wrap">
+              {streak > 0 && <span className="flex items-center gap-1 font-bold" style={{ color:streak>=7?"#f59e0b":"#94a3b8" }}>🔥 {streak} {streak===1?"dia":"dias"}</span>}
+              <span className="flex items-center gap-1" style={{ color:"#94a3b8" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                {consistency}%
+              </span>
+              {best > 0 && <span style={{ color:"#94a3b8" }}>🏆 {best}</span>}
+              {h.freq === "weekly" && h.freqDays && h.freqDays.length < 7 ? (
+                <span className="flex items-center gap-0.5 text-[10px]" style={{ color:"#94a3b8" }}>
+                  {["D","S","T","Q","Q","S","S"].map((d,i) => (
+                    <span key={i} className="w-3.5 h-3.5 rounded-sm flex items-center justify-center font-bold"
+                      style={{ background:h.freqDays.includes(i)?(h.color||"#2b8be8")+"22":"transparent", color:h.freqDays.includes(i)?(h.color||"#2b8be8"):"#d1d5db", fontSize:8 }}>
+                      {d}
+                    </span>
+                  ))}
+                </span>
+              ) : <span className="text-[10px] font-medium" style={{ color:"#94a3b8" }}>📅 Diário</span>}
+              <span style={{ color:diffColors[h.difficulty||2], fontSize:9, fontWeight:700, textTransform:"uppercase" }}>
+                {h.difficulty===1?"Fácil":h.difficulty===3?"Difícil":"Médio"}
+              </span>
+            </div>
+            {/* Mini dots 7 dias */}
+            <div className="flex items-center gap-1 mt-2">
+              {last7.map((d,i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <div className="w-5 h-5 rounded-md transition-all"
+                    style={{
+                      background: d.done ? (d.isToday?`linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)`:h.color||"#2b8be8") : d.isToday ? `${h.color||"#2b8be8"}18` : "rgba(226,232,240,0.5)",
+                      border: d.isToday ? `1.5px solid ${h.color||"#2b8be8"}60` : "none",
+                    }}/>
+                  <span className="text-[8px]" style={{ color:d.isToday?"#1a1d23":"#cbd5e1", fontWeight:d.isToday?700:400 }}>{d.day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick actions */}
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+            <button onClick={()=>setExpanded(v=>!v)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><polyline points={expanded?"18 15 12 9 6 15":"6 9 12 15 18 9"}/></svg>
+            </button>
+            <button onClick={()=>onEdit(h)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <Icon.Edit />
+            </button>
+            <button onClick={()=>onDelete(h.id)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <Icon.Trash />
+            </button>
+          </div>
+        </div>
+
+        {/* Expandido: heatmap */}
+        {expanded && (
+          <div className="mt-4 pt-4" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
+            {h.description && <p className="text-xs mb-3" style={{ color:"#64748b" }}>{h.description}</p>}
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Mapa de calor — 12 semanas</p>
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {Array.from({length:12}, (_,w) => (
+                <div key={w} className="flex flex-col gap-1">
+                  {Array.from({length:7}, (_,d) => {
+                    const cell = heatmap[w*7+d];
+                    return cell ? (
+                      <div key={d} className="w-3 h-3 rounded-sm"
+                        style={{ background:cell.done?h.color||"#2b8be8":"rgba(226,232,240,0.5)", opacity:cell.done?1:0.6 }}
+                        title={cell.date}/>
+                    ) : null;
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-3 text-[10px]" style={{ color:"#94a3b8" }}>
+              <span>{(h.completedDates||[]).length} execuções totais</span>
+              <span>Alvo: {h.targetStreak||21} dias</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function Habits() {
   const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, categories, currentProfile } = useApp();
   const [view, setView] = useState("dashboard"); // dashboard | list | identity | insights
@@ -2173,16 +2373,14 @@ function Habits() {
     setIsFormOpen(false); setEditingHabit(null);
   };
 
-  const toggle = async (h) => {
-    // Buscar sempre o hábito mais recente do estado global
-    const current = (habits||[]).find(x => x.id === h.id) || h;
+  // toggle recebe apenas o id para evitar stale data
+  const toggle = async (idOrObj) => {
+    const id = typeof idOrObj === "string" ? idOrObj : idOrObj?.id;
+    const current = (habits||[]).find(x => x.id === id);
+    if (!current) return;
     const dates = [...(current.completedDates||[])];
-    const newDates = dates.includes(t)
-      ? dates.filter(d => d !== t)
-      : [...dates, t];
-    // Atualizar estado local imediatamente para feedback visual instantâneo
-    const updated = { ...current, completedDates: newDates };
-    await updateHabit(updated);
+    const newDates = dates.includes(t) ? dates.filter(d => d !== t) : [...dates, t];
+    await updateHabit({ ...current, completedDates: newDates });
   };
 
   const COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#64748b","#1a1d23"];
@@ -2231,159 +2429,6 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
   };
 
   // ── Componente HabitCard ──────────────────────────────────
-  const HabitCard = ({ h: hProp }) => {
-    // Sempre buscar o hábito mais recente do estado para evitar stale closure
-    const h = (habits||[]).find(x => x.id === hProp.id) || hProp;
-    const streak = getStreak(h);
-    const best = getBestStreak(h);
-    const consistency = getConsistency(h);
-    const done = isCompletedToday(h);
-    const last7 = getLast7(h);
-    const heatmap = getHeatmap(h);
-    const [expanded, setExpanded] = useState(false);
-    const diffColors = { 1:"#10b981", 2:"#f59e0b", 3:"#ef4444" };
-
-    return (
-      <div className="rounded-2xl overflow-hidden transition-all duration-300 group"
-        style={{
-          background: done ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.95)",
-          border: done ? `1.5px solid ${h.color||"#2b8be8"}30` : "1px solid rgba(221,227,237,0.7)",
-          boxShadow: done ? `0 4px 24px ${h.color||"#2b8be8"}12` : "0 4px 16px rgba(26,29,35,0.04)",
-          backdropFilter: "blur(8px)",
-        }}
-        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2b8be8"}18`:"0 8px 28px rgba(26,29,35,0.08)";}}
-        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2b8be8"}12`:"0 4px 16px rgba(26,29,35,0.04)";}}>
-
-        {/* Barra de progresso do streak no topo */}
-        <div className="h-0.5" style={{ background:`linear-gradient(90deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}66)`, width:`${Math.min(streak/Math.max(h.targetStreak||21,1)*100,100)}%`, transition:"width 0.6s ease" }}/>
-
-        <div className="p-5">
-          {/* Linha principal */}
-          <div className="flex items-start gap-4">
-            {/* Botão completar */}
-            <button onClick={()=>toggle(h)}
-              className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 relative overflow-hidden"
-              style={{
-                background: done ? `linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)` : `${h.color||"#2b8be8"}12`,
-                border: done ? "none" : `1.5px solid ${h.color||"#2b8be8"}30`,
-                boxShadow: done ? `0 4px 12px ${h.color||"#2b8be8"}40` : "none",
-                transform: done ? "scale(1.05)" : "scale(1)",
-              }}>
-              {done ? <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" style={{width:20,height:20}}><polyline points="20 6 9 17 4 12"/></svg> : <span>{h.emoji||"⭐"}</span>}
-            </button>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <p className="text-sm font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>{h.title}</p>
-                {h.isFavorite && <span style={{ color:"#f59e0b" }}>★</span>}
-                {h.identity && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:`${h.color||"#2b8be8"}15`, color:h.color||"#2b8be8", border:`1px solid ${h.color||"#2b8be8"}25` }}>
-                    {h.identity}
-                  </span>
-                )}
-              </div>
-
-              {/* Streak + stats inline */}
-              <div className="flex items-center gap-3 text-xs flex-wrap">
-                {streak > 0 && (
-                  <span className="flex items-center gap-1 font-bold" style={{ color:streak>=7?"#f59e0b":"#94a3b8" }}>
-                    🔥 {streak} {streak===1?"dia":"dias"}
-                  </span>
-                )}
-                <span className="flex items-center gap-1" style={{ color:"#94a3b8" }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                  {consistency}%
-                </span>
-                {best > 0 && <span style={{ color:"#94a3b8" }}>🏆 {best}</span>}
-                {/* Frequência */}
-                {h.freq === "weekly" && h.freqDays && h.freqDays.length < 7 ? (
-                  <span className="flex items-center gap-0.5 text-[10px]" style={{ color:"#94a3b8" }}>
-                    {["D","S","T","Q","Q","S","S"].map((d,i) => (
-                      <span key={i} className="w-3.5 h-3.5 rounded-sm flex items-center justify-center font-bold"
-                        style={{ background:h.freqDays.includes(i)?(h.color||"#2b8be8")+"22":"transparent", color:h.freqDays.includes(i)?(h.color||"#2b8be8"):"#d1d5db", fontSize:8 }}>
-                        {d}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-medium" style={{ color:"#94a3b8" }}>📅 Diário</span>
-                )}
-                <span style={{ color: diffColors[h.difficulty||2]||"#94a3b8", fontSize:9, fontWeight:700, textTransform:"uppercase" }}>
-                  {h.difficulty===1?"Fácil":h.difficulty===3?"Difícil":"Médio"}
-                </span>
-              </div>
-
-              {/* Mini dots últimos 7 dias */}
-              <div className="flex items-center gap-1 mt-2">
-                {last7.map((d,i) => (
-                  <div key={i} className="flex flex-col items-center gap-0.5">
-                    <div className="w-5 h-5 rounded-md transition-all"
-                      style={{
-                        background: d.done ? (d.isToday?`linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)`:h.color||"#2b8be8") : d.isToday ? `${h.color||"#2b8be8"}18` : "rgba(226,232,240,0.5)",
-                        border: d.isToday ? `1.5px solid ${h.color||"#2b8be8"}60` : "none",
-                        boxShadow: d.done && d.isToday ? `0 2px 6px ${h.color||"#2b8be8"}40` : "none",
-                      }}/>
-                    <span className="text-[8px]" style={{ color:d.isToday?"#1a1d23":"#cbd5e1", fontWeight:d.isToday?700:400 }}>{d.day}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick actions */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-              <button onClick={()=>setExpanded(v=>!v)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><polyline points={expanded?"18 15 12 9 6 15":"6 9 12 15 18 9"}/></svg>
-              </button>
-              <button onClick={()=>openForm(h)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
-                <Icon.Edit />
-              </button>
-              <button onClick={()=>deleteHabit(h.id)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
-                <Icon.Trash />
-              </button>
-            </div>
-          </div>
-
-          {/* Expandido: heatmap */}
-          {expanded && (
-            <div className="mt-4 pt-4" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
-              {h.description && <p className="text-xs mb-3" style={{ color:"#64748b" }}>{h.description}</p>}
-              <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Mapa de calor — 12 semanas</p>
-              <div className="flex gap-1 overflow-x-auto pb-1">
-                {Array.from({length:12}, (_,w) => (
-                  <div key={w} className="flex flex-col gap-1">
-                    {Array.from({length:7}, (_,d) => {
-                      const idx = w*7+d;
-                      const cell = heatmap[idx];
-                      return cell ? (
-                        <div key={d} className="w-3 h-3 rounded-sm transition-all"
-                          style={{
-                            background: cell.done ? h.color||"#2b8be8" : "rgba(226,232,240,0.5)",
-                            opacity: cell.done ? 1 : 0.6,
-                            boxShadow: cell.done ? `0 1px 3px ${h.color||"#2b8be8"}40` : "none",
-                          }}
-                          title={cell.date}/>
-                      ) : null;
-                    })}
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between mt-3 text-[10px]" style={{ color:"#94a3b8" }}>
-                <span>{(h.completedDates||[]).length} execuções totais</span>
-                <span>Alvo: {h.targetStreak||21} dias de streak</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // ── Frase motivacional ────────────────────────────────────
   const PHRASES = [
@@ -2475,7 +2520,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleHabits.sort((a,b)=>(isCompletedToday(a)?1:0)-(isCompletedToday(b)?1:0)).map(h => <HabitCard key={h.id} h={h}/>)}
+              {visibleHabits.sort((a,b)=>(isCompletedToday(a)?1:0)-(isCompletedToday(b)?1:0)).map(h => <HabitCard key={h.id} habitId={h.id} onToggle={id => toggle({id})} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
             </div>
           )}
         </div>
@@ -2506,7 +2551,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             </div>
           ) : (
             <div className="space-y-3">
-              {visibleHabits.map(h => <HabitCard key={h.id} h={h}/>)}
+              {visibleHabits.map(h => <HabitCard key={h.id} habitId={h.id} onToggle={id => toggle({id})} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
             </div>
           )}
         </div>
