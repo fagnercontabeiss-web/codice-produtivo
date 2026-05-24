@@ -29,6 +29,7 @@ const defaultState = {
   onboardings: [],
   onboardingSteps: [],
   clientEvents: [],
+  severanceSimulations: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
@@ -38,13 +39,34 @@ const defaultState = {
 // CONTEXT
 // ============================================================
 const AppContext = createContext(null);
+// Helper: calcula próxima data de recorrência
+function getNextRecurrenceDate(dateStr, type) {
+  if (!dateStr || !type) return null;
+  const d = new Date(dateStr + "T12:00:00");
+  switch(type) {
+    case "daily":    d.setDate(d.getDate() + 1); break;
+    case "weekdays": {
+      d.setDate(d.getDate() + 1);
+      while ([0,6].includes(d.getDay())) d.setDate(d.getDate() + 1);
+      break;
+    }
+    case "weekly":   d.setDate(d.getDate() + 7); break;
+    case "biweekly": d.setDate(d.getDate() + 14); break;
+    case "monthly":  d.setMonth(d.getMonth() + 1); break;
+    case "yearly":   d.setFullYear(d.getFullYear() + 1); break;
+    default: return null;
+  }
+  return d.toISOString().split("T")[0];
+}
+
+
 function AppProvider({ children }) {
   const [state, setState] = useState(defaultState);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
-  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all" });
-  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all" });
+  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all" });
+  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all" });
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2b8be8", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2b8be8", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
@@ -63,6 +85,7 @@ function AppProvider({ children }) {
         // user_profiles separado — tabela pode não existir em instâncias antigas
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
+        const severanceRaw = await db.select("severance_simulations").catch(() => []);
         const clientEvRaw  = await db.select("client_events").catch(() => []);
         const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
         const currentUserId = auth.getUserId();
@@ -84,6 +107,7 @@ function AppProvider({ children }) {
           teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
           clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
+          severanceSimulations: (severanceRaw||[]).map(s => ({ id:s.id, date:s.created_at, employeeName:s.employee_name, clientName:s.client_name||"", clientId:s.client_id||null, reason:s.reason, dismissalDate:s.dismissal_date, netAmount:parseFloat(s.net_amount)||0, reportData:s.report_data, verbas:s.verbas, formData:s.form_data })),
           onboardings: (onboardRaw||[]).map(o => ({ id:o.id, title:o.title, type:o.type, status:o.status, clientId:o.client_id||"", clientName:o.client_name||"", responsibleId:o.responsible_id||null, notes:o.notes||"", startDate:o.start_date||"", targetDate:o.target_date||"", completedAt:o.completed_at||"" })),
           onboardingSteps: (stepsRaw||[]).map(s => ({ id:s.id, onboardingId:s.onboarding_id, title:s.title, description:s.description||"", status:s.status, responsibleId:s.responsible_id||null, orderIndex:s.order_index||0, dueDate:s.due_date||"", completedAt:s.completed_at||"", notes:s.notes||"" })),
         });
@@ -115,17 +139,28 @@ function AppProvider({ children }) {
   const deleteTask = useCallback(async id => { setState(s => ({ ...s, tasks:s.tasks.filter(t => t.id!==id) })); await db.delete("tasks", id).catch(console.error); }, []);
   const toggleTaskCompletion = useCallback(async id => {
     let updated;
-    setState(s => { const tasks = s.tasks.map(t => t.id===id ? {...t,completed:!t.completed} : t); updated = tasks.find(t => t.id===id); return {...s,tasks}; });
+    setState(s => {
+      const tasks = s.tasks.map(t => t.id===id ? {...t, completed:!t.completed} : t);
+      updated = tasks.find(t => t.id===id);
+      return {...s, tasks};
+    });
     setTimeout(() => {
       if (!updated) return;
       db.upsert("tasks", taskToDb(updated)).catch(console.error);
-      // ITEM 8: Se completou e é recorrente, criar próxima ocorrência
-      if (updated.completed && updated.isRecurring && updated.dueDate) {
-        const next = new Date(updated.dueDate + "T12:00:00");
-        next.setDate(next.getDate() + 7); // próxima semana por padrão
-        const nextTask = { ...updated, id: uid(), completed: false, dueDate: next.toISOString().split("T")[0] };
-        setState(s => ({ ...s, tasks: [...s.tasks, nextTask] }));
-        db.upsert("tasks", taskToDb(nextTask)).catch(console.error);
+      // Se completou e é recorrente, criar próxima ocorrência automaticamente
+      if (updated.completed && updated.isRecurring && updated.recurrenceType && updated.dueDate) {
+        const nextDate = getNextRecurrenceDate(updated.dueDate, updated.recurrenceType);
+        if (nextDate && (!updated.recurrenceEndDate || nextDate <= updated.recurrenceEndDate)) {
+          setState(s => {
+            const alreadyExists = s.tasks.some(t =>
+              t.title === updated.title && t.dueDate === nextDate && !t.completed
+            );
+            if (alreadyExists) return s;
+            const next = { ...updated, id: uid(), completed: false, dueDate: nextDate };
+            db.upsert("tasks", taskToDb(next)).catch(console.error);
+            return { ...s, tasks: [...s.tasks, next] };
+          });
+        }
       }
     }, 0);
   }, []);
@@ -1174,7 +1209,7 @@ function Tasks() {
   for (let i = 0; i < firstDay; i++) calDays.push(null);
   for (let i = 1; i <= daysInMonth; i++) calDays.push(i);
 
-  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
+  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
   const [multiText, setMultiText] = useState("");
   const canEditTask = (task) => {
     if (!currentProfile || currentProfile.role === "admin") return true;
@@ -1228,7 +1263,7 @@ function Tasks() {
       if (task.assignedTo && task.assignedTo !== currentProfile.id) return;
     }
     setEditing(task || null);
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, assignedTo:"", visibility:"all" });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
@@ -1438,7 +1473,50 @@ function Tasks() {
                 </select>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" checked={tf.isRecurring} onChange={e=>setTf(p=>({...p,isRecurring:e.target.checked}))} className="rounded text-indigo-600" />Tarefa Recorrente</label>
+            {/* ── RECORRÊNCIA ── */}
+            <div className="rounded-2xl overflow-hidden" style={{ border:"1px solid rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.5)" }}>
+              <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
+                <button type="button" onClick={()=>setTf(p=>({...p,isRecurring:!p.isRecurring,recurrenceType:!p.isRecurring?"weekly":null}))}
+                  className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                  style={{ background:tf.isRecurring?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(226,232,240,0.8)" }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+                    style={{ left:tf.isRecurring?"calc(100% - 18px)":"2px" }}/>
+                </button>
+                <span className="text-sm font-semibold" style={{ color:"#374151" }}>↻ Tarefa Recorrente</span>
+              </label>
+              {tf.isRecurring && (
+                <div className="px-4 pb-4 space-y-3 pt-0">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Frequência</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        ["daily","📅 Diário"],["weekdays","💼 Dias úteis"],["weekly","📆 Semanal"],
+                        ["biweekly","🗓 Quinzenal"],["monthly","📅 Mensal"],["yearly","🎯 Anual"],
+                      ].map(([v,l]) => (
+                        <button key={v} type="button" onClick={()=>setTf(p=>({...p,recurrenceType:v}))}
+                          className="py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all"
+                          style={{
+                            background:tf.recurrenceType===v?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(255,255,255,0.8)",
+                            color:tf.recurrenceType===v?"#fff":"#64748b",
+                            border:tf.recurrenceType===v?"none":"1px solid rgba(226,232,240,0.7)"
+                          }}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Repetir até (opcional)</label>
+                    <input type="date" value={tf.recurrenceEndDate||""} onChange={e=>setTf(p=>({...p,recurrenceEndDate:e.target.value||null}))}
+                      className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
+                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.9)" }}/>
+                  </div>
+                  <p className="text-[10px]" style={{ color:"#94a3b8" }}>
+                    ✓ Ao concluir, a próxima ocorrência é criada automaticamente
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Responsável e visibilidade — só admin vê */}
             {currentProfile?.role === "admin" && teamUsers.length > 1 && (
@@ -5203,9 +5281,13 @@ function SeveranceSimulation() {
   const [formData, setFormData]     = useState(null);
   const [erroCalc, setErroCalc]     = useState("");
 
+  // Sincronizar saved com o banco ao montar
+  const { severanceSimulations } = useApp ? useApp() : { severanceSimulations: [] };
   useEffect(() => {
-    localStorage.setItem("severanceSimulations", JSON.stringify(saved));
-  }, [saved]);
+    if (severanceSimulations && severanceSimulations.length > 0 && saved.length === 0) {
+      setSaved(severanceSimulations);
+    }
+  }, [severanceSimulations]);
 
   const [f, setF] = useState({
     clientId: "", name: "", cpf: "", cargo: "",
@@ -5350,17 +5432,32 @@ function SeveranceSimulation() {
     win.onload = () => { win.focus(); win.print(); };
   };
 
-  const saveSimulation = () => {
+  const saveSimulation = async () => {
     const entry = {
-      id: uid(), date: new Date().toISOString(),
-      clientId: formData.clientId,
+      id: uid(),
+      date: new Date().toISOString(),
+      clientId: formData.clientId||null,
       employeeName: reportData.employeeInfo.name,
       cargo: reportData.employeeInfo.cargo,
       reason: reportData.employeeInfo.reason,
       dismissalDate: reportData.employeeInfo.dismissalDate,
-      netAmount: totalLiq, reportData, verbas, formData
+      netAmount: totalLiq,
+      reportData, verbas, formData
     };
     setSaved(p => [entry, ...p]);
+    // Salvar no banco
+    await db.upsert("severance_simulations", {
+      id: entry.id,
+      employee_name: entry.employeeName,
+      client_name: formData.clientName||"",
+      client_id: entry.clientId,
+      reason: entry.reason,
+      dismissal_date: entry.dismissalDate,
+      net_amount: entry.netAmount,
+      report_data: entry.reportData,
+      verbas: entry.verbas,
+      form_data: entry.formData,
+    }).catch(console.error);
     setView("list");
   };
 
@@ -5437,7 +5534,7 @@ function SeveranceSimulation() {
                             onMouseEnter={e=>e.currentTarget.style.background="#eff6ff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <Icon.Eye />
                           </button>
-                          <button onClick={() => setSaved(p => p.filter(x => x.id !== s.id))}
+                          <button onClick={() => { setSaved(p => p.filter(x => x.id !== s.id)); db.delete("severance_simulations", s.id).catch(console.error); }}
                             className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
                             onMouseEnter={e=>{ e.currentTarget.style.color="#ef4444"; e.currentTarget.style.background="#fff5f5"; }} onMouseLeave={e=>{ e.currentTarget.style.color="#94a3b8"; e.currentTarget.style.background="transparent"; }}>
                             <Icon.Trash />
