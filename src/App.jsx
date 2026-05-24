@@ -2178,16 +2178,29 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
                 {h.difficulty===1?"Fácil":h.difficulty===3?"Difícil":"Médio"}
               </span>
             </div>
-            {/* Mini dots 7 dias */}
+            {/* Mini dots 7 dias — clicáveis para marcar dias anteriores */}
             <div className="flex items-center gap-1 mt-2">
               {last7.map((d,i) => (
                 <div key={i} className="flex flex-col items-center gap-0.5">
-                  <div className="w-5 h-5 rounded-md transition-all"
+                  <button
+                    type="button"
+                    title={d.done ? `Desmarcar ${d.date}` : `Marcar ${d.date}`}
+                    onClick={() => onToggle(h.id, d.date)}
+                    className="w-5 h-5 rounded-md transition-all"
                     style={{
-                      background: d.done ? (d.isToday?`linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)`:h.color||"#2b8be8") : d.isToday ? `${h.color||"#2b8be8"}18` : "rgba(226,232,240,0.5)",
-                      border: d.isToday ? `1.5px solid ${h.color||"#2b8be8"}60` : "none",
-                    }}/>
-                  <span className="text-[8px]" style={{ color:d.isToday?"#1a1d23":"#cbd5e1", fontWeight:d.isToday?700:400 }}>{d.day}</span>
+                      background: d.done
+                        ? (d.isToday ? `linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)` : h.color||"#2b8be8")
+                        : d.isToday ? `${h.color||"#2b8be8"}18` : "rgba(226,232,240,0.5)",
+                      border: d.isToday ? `1.5px solid ${h.color||"#2b8be8"}60` : "1px solid transparent",
+                      cursor: "pointer",
+                      boxShadow: d.done ? `0 1px 4px ${h.color||"#2b8be8"}40` : "none",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform="scale(1.2)"; e.currentTarget.style.borderColor=h.color||"#2b8be8"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.borderColor=d.isToday?`${h.color||"#2b8be8"}60`:"transparent"; }}
+                  />
+                  <span className="text-[8px]" style={{ color:d.isToday?"#1a1d23":"#cbd5e1", fontWeight:d.isToday?700:400 }}>
+                    {d.day}
+                  </span>
                 </div>
               ))}
             </div>
@@ -2373,13 +2386,15 @@ function Habits() {
     setIsFormOpen(false); setEditingHabit(null);
   };
 
-  // toggle recebe apenas o id para evitar stale data
-  const toggle = async (idOrObj) => {
-    const id = typeof idOrObj === "string" ? idOrObj : idOrObj?.id;
+  // toggle aceita id + data opcional (para marcar dias passados)
+  const toggle = async (id, date) => {
+    const targetDate = date || t;
     const current = (habits||[]).find(x => x.id === id);
     if (!current) return;
     const dates = [...(current.completedDates||[])];
-    const newDates = dates.includes(t) ? dates.filter(d => d !== t) : [...dates, t];
+    const newDates = dates.includes(targetDate)
+      ? dates.filter(d => d !== targetDate)
+      : [...dates, targetDate].sort();
     await updateHabit({ ...current, completedDates: newDates });
   };
 
@@ -2520,7 +2535,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleHabits.sort((a,b)=>(isCompletedToday(a)?1:0)-(isCompletedToday(b)?1:0)).map(h => <HabitCard key={h.id} habitId={h.id} onToggle={id => toggle({id})} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
+              {visibleHabits.sort((a,b)=>(isCompletedToday(a)?1:0)-(isCompletedToday(b)?1:0)).map(h => <HabitCard key={h.id} habitId={h.id} onToggle={(id, date) => toggle(id, date)} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
             </div>
           )}
         </div>
@@ -2551,7 +2566,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             </div>
           ) : (
             <div className="space-y-3">
-              {visibleHabits.map(h => <HabitCard key={h.id} habitId={h.id} onToggle={id => toggle({id})} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
+              {visibleHabits.map(h => <HabitCard key={h.id} habitId={h.id} onToggle={(id, date) => toggle(id, date)} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
             </div>
           )}
         </div>
