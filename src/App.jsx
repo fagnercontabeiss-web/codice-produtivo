@@ -2056,8 +2056,23 @@ function Habits() {
     if (!dates.length) return 0;
     const d30 = new Date(); d30.setDate(d30.getDate()-30);
     const d30s = d30.toISOString().split("T")[0];
+    // Calcular dias esperados nos últimos 30 dias
+    let expectedDays = 0;
+    for (let i=0; i<30; i++) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const dow = d.getDay(); // 0=Dom, 1=Seg...
+      const ds = d.toISOString().split("T")[0];
+      if (ds <= today()) {
+        if (h.freq === "weekly" && h.freqDays?.length) {
+          if (h.freqDays.includes(dow)) expectedDays++;
+        } else {
+          expectedDays++; // diário
+        }
+      }
+    }
+    if (expectedDays === 0) return 0;
     const last30 = dates.filter(d => d >= d30s);
-    return Math.round(last30.length / 30 * 100);
+    return Math.round(last30.length / expectedDays * 100);
   };
 
   const getLast7 = h => {
@@ -2236,6 +2251,19 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                   {consistency}%
                 </span>
                 {best > 0 && <span style={{ color:"#94a3b8" }}>🏆 {best}</span>}
+                {/* Frequência */}
+                {h.freq === "weekly" && h.freqDays && h.freqDays.length < 7 ? (
+                  <span className="flex items-center gap-0.5 text-[10px]" style={{ color:"#94a3b8" }}>
+                    {["D","S","T","Q","Q","S","S"].map((d,i) => (
+                      <span key={i} className="w-3.5 h-3.5 rounded-sm flex items-center justify-center font-bold"
+                        style={{ background:h.freqDays.includes(i)?(h.color||"#2b8be8")+"22":"transparent", color:h.freqDays.includes(i)?(h.color||"#2b8be8"):"#d1d5db", fontSize:8 }}>
+                        {d}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium" style={{ color:"#94a3b8" }}>📅 Diário</span>
+                )}
                 <span style={{ color: diffColors[h.difficulty||2]||"#94a3b8", fontSize:9, fontWeight:700, textTransform:"uppercase" }}>
                   {h.difficulty===1?"Fácil":h.difficulty===3?"Difícil":"Médio"}
                 </span>
@@ -2635,6 +2663,44 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Frequência */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Frequência</label>
+              <div className="flex gap-2 mb-3">
+                {[["daily","Todos os dias"],["weekly","Dias específicos"]].map(([v,l]) => (
+                  <button key={v} type="button" onClick={()=>setHf(p=>({...p,freq:v,freqDays:v==="daily"?[1,2,3,4,5,6,7]:p.freqDays?.length?p.freqDays:[1,2,3,4,5]}))}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
+                    style={{ background:hf.freq===v?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#5aaff5":"#64748b", border:hf.freq===v?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.6)" }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {hf.freq === "weekly" && (
+                <div>
+                  <p className="text-[10px] mb-2" style={{ color:"#94a3b8" }}>Selecione os dias da semana:</p>
+                  <div className="flex gap-1.5">
+                    {[["Dom",0],["Seg",1],["Ter",2],["Qua",3],["Qui",4],["Sex",5],["Sáb",6]].map(([label,val]) => {
+                      const sel = (hf.freqDays||[]).includes(val);
+                      return (
+                        <button key={val} type="button"
+                          onClick={()=>setHf(p=>({ ...p, freqDays: sel ? (p.freqDays||[]).filter(d=>d!==val) : [...(p.freqDays||[]),val].sort() }))}
+                          className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+                          style={{ background:sel?(hf.color||"#2b8be8"):"rgba(248,250,252,0.7)", color:sel?"#fff":"#94a3b8", border:sel?"none":"1px solid rgba(226,232,240,0.6)", boxShadow:sel?`0 2px 8px ${hf.color||"#2b8be8"}40`:"none" }}>
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(hf.freqDays||[]).length === 0 && (
+                    <p className="text-[10px] mt-1.5" style={{ color:"#ef4444" }}>Selecione pelo menos um dia</p>
+                  )}
+                  <p className="text-[10px] mt-1.5" style={{ color:"#94a3b8" }}>
+                    {(hf.freqDays||[]).length} dia{(hf.freqDays||[]).length!==1?"s":""} por semana selecionado{(hf.freqDays||[]).length!==1?"s":""}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Horário */}
