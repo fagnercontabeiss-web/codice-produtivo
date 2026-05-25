@@ -146,7 +146,15 @@ function AppProvider({ children }) {
   useEffect(() => { if (dbError) localStorage.setItem("contaTaskState", JSON.stringify(state)); }, [state, dbError]);
 
   const addTask = useCallback(async t => { setState(s => ({ ...s, tasks:[...s.tasks,t] })); await db.upsert("tasks", taskToDb(t)).catch(console.error); }, []);
-  const updateTask = useCallback(async t => { setState(s => ({ ...s, tasks:s.tasks.map(x => x.id===t.id?t:x) })); await db.upsert("tasks", taskToDb(t)).catch(console.error); }, []);
+  const updateTask = useCallback(async t => {
+    // Merge com estado atual para nunca sobrescrever com dados stale
+    setState(s => {
+      const current = s.tasks.find(x => x.id === t.id) || {};
+      const merged = { ...current, ...t };
+      db.upsert("tasks", taskToDb(merged)).catch(console.error);
+      return { ...s, tasks: s.tasks.map(x => x.id === t.id ? merged : x) };
+    });
+  }, []);
   const deleteTask = useCallback(async id => { setState(s => ({ ...s, tasks:s.tasks.filter(t => t.id!==id) })); await db.delete("tasks", id).catch(console.error); }, []);
   const toggleTaskCompletion = useCallback(async id => {
     let updated;
@@ -194,7 +202,14 @@ function AppProvider({ children }) {
   }, []);
 
   const addClient = useCallback(async c => { setState(s => ({ ...s, clients:[...s.clients,c] })); await db.upsert("clients", clientToDb(c)).catch(console.error); }, []);
-  const updateClient = useCallback(async c => { setState(s => ({ ...s, clients:s.clients.map(x => x.id===c.id?c:x) })); await db.upsert("clients", clientToDb(c)).catch(console.error); }, []);
+  const updateClient = useCallback(async c => {
+    setState(s => {
+      const current = s.clients.find(x => x.id === c.id) || {};
+      const merged = { ...current, ...c };
+      db.upsert("clients", clientToDb(merged)).catch(console.error);
+      return { ...s, clients: s.clients.map(x => x.id === c.id ? merged : x) };
+    });
+  }, []);
   const deleteClient = useCallback(async id => { setState(s => ({ ...s, clients:s.clients.filter(c => c.id!==id) })); await db.delete("clients", id).catch(console.error); }, []);
 
   const addWeeklyGoal = useCallback(async g => { setState(s => ({ ...s, weeklyGoals:[...s.weeklyGoals,g] })); await db.upsert("weekly_goals", goalToDb(g)).catch(console.error); }, []);
@@ -1791,7 +1806,10 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
   );
 }
 
-function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
+function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
+  // Sempre usar o task mais recente do estado global para evitar stale closure
+  const { tasks } = useApp();
+  const task = tasks.find(t => t.id === taskProp.id) || taskProp;
   const cat = categories.find(c => c.id === task.categoryId);
   const ctx = contexts.find(c => c.id === task.contextId);
   const od = isOverdue(task.dueDate, task.completed);
