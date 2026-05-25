@@ -28,6 +28,7 @@ const defaultState = {
   relationships: [],
   onboardings: [],
   onboardingSteps: [],
+  projects: [],
   clientEvents: [],
   severanceSimulations: [],
   teamUsers: [], // perfis da equipe
@@ -85,6 +86,7 @@ function AppProvider({ children }) {
         // user_profiles separado — tabela pode não existir em instâncias antigas
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
+        const projectsRaw  = await db.select("projects").catch(() => []);
         const severanceRaw = await db.select("severance_simulations").catch(() => []);
         const clientEvRaw  = await db.select("client_events").catch(() => []);
         const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
@@ -108,6 +110,15 @@ function AppProvider({ children }) {
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
           clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
           severanceSimulations: (severanceRaw||[]).map(s => ({ id:s.id, date:s.created_at, employeeName:s.employee_name, clientName:s.client_name||"", clientId:s.client_id||null, reason:s.reason, dismissalDate:s.dismissal_date, netAmount:parseFloat(s.net_amount)||0, reportData:s.report_data, verbas:s.verbas, formData:s.form_data })),
+          projects: (projectsRaw||[]).map(p => ({
+            id:p.id, title:p.title, description:p.description||"", status:p.status||"todo",
+            priority:p.priority||"medium", category:p.category||"", clientId:p.client_id||"",
+            clientName:p.client_name||"", responsibleId:p.responsible_id||null,
+            teamIds:p.team_ids||[], dueDate:p.due_date||"", startDate:p.start_date||"",
+            completedAt:p.completed_at||"", checklist:p.checklist||[], tags:p.tags||[],
+            notes:p.notes||"", color:p.color||"#2b8be8", orderIndex:p.order_index||0,
+            createdAt:p.created_at||new Date().toISOString()
+          })),
           onboardings: (onboardRaw||[]).map(o => ({ id:o.id, title:o.title, type:o.type, status:o.status, clientId:o.client_id||"", clientName:o.client_name||"", responsibleId:o.responsible_id||null, notes:o.notes||"", startDate:o.start_date||"", targetDate:o.target_date||"", completedAt:o.completed_at||"" })),
           onboardingSteps: (stepsRaw||[]).map(s => ({ id:s.id, onboardingId:s.onboarding_id, title:s.title, description:s.description||"", status:s.status, responsibleId:s.responsible_id||null, orderIndex:s.order_index||0, dueDate:s.due_date||"", completedAt:s.completed_at||"", notes:s.notes||"" })),
         });
@@ -235,6 +246,20 @@ function AppProvider({ children }) {
     await db.delete("user_profiles", id).catch(console.error);
   }, []);
 
+  // Project actions
+  const addProject = useCallback(async p => {
+    setState(s => ({ ...s, projects:[...s.projects, p] }));
+    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2b8be8", order_index:p.orderIndex||0 }).catch(console.error);
+  }, []);
+  const updateProject = useCallback(async p => {
+    setState(s => ({ ...s, projects:s.projects.map(x => x.id===p.id?p:x) }));
+    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, completed_at:p.completedAt||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2b8be8", order_index:p.orderIndex||0 }).catch(console.error);
+  }, []);
+  const deleteProject = useCallback(async id => {
+    setState(s => ({ ...s, projects:s.projects.filter(p => p.id!==id) }));
+    await db.delete("projects", id).catch(console.error);
+  }, []);
+
   // Client Events actions
   const addClientEvent = useCallback(async ev => {
     setState(s => ({ ...s, clientEvents:[...s.clientEvents, ev] }));
@@ -285,7 +310,7 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -526,6 +551,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
     {
       label: "Análise",
       items: [
+        { id: "projects", label: "Projetos",       icon: Icon.Tasks },
         { id: "reports",  label: "Relatórios",    icon: Icon.Reports },
         { id: "workload", label: "Workload",       icon: Icon.Tasks },
         { id: "settings", label: "Configurações", icon: Icon.Settings },
@@ -7574,6 +7600,607 @@ function Workload() {
   );
 }
 
+
+// ============================================================
+// PROJETOS — Kanban moderno
+// ============================================================
+
+const PRIORITY_CONFIG = {
+  low:    { label:"Baixa",   color:"#94a3b8", bg:"rgba(148,163,184,0.1)", dot:"#94a3b8", icon:"↓" },
+  medium: { label:"Média",   color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  dot:"#f59e0b", icon:"→" },
+  high:   { label:"Alta",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316", icon:"↑" },
+  urgent: { label:"Urgente", color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444", icon:"⚡" },
+};
+
+const CATEGORY_OPTIONS = ["Fiscal","Contábil","Departamento Pessoal","Administrativo","Jurídico","Tecnologia","Marketing","Financeiro","Outros"];
+
+const COLUMN_CONFIG = {
+  todo:  { label:"Não Iniciado", color:"#94a3b8", bg:"rgba(148,163,184,0.06)", icon:"○" },
+  doing: { label:"Em Execução",  color:"#2b8be8", bg:"rgba(43,139,232,0.06)",  icon:"◑" },
+  done:  { label:"Concluído",    color:"#10b981", bg:"rgba(16,185,129,0.06)",  icon:"●" },
+};
+
+const PROJECT_COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#1a1d23","#64748b"];
+
+function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
+  const { clients, teamUsers } = useApp();
+  const [expanded, setExpanded] = useState(false);
+  const t = today();
+
+  const checklist = project.checklist||[];
+  const done = checklist.filter(c=>c.done).length;
+  const pct = checklist.length > 0 ? Math.round(done/checklist.length*100) : 0;
+  const pc = PRIORITY_CONFIG[project.priority] || PRIORITY_CONFIG.medium;
+  const responsible = (teamUsers||[]).find(u => u.id === project.responsibleId);
+  const isOverdue = project.dueDate && project.dueDate < t && project.status !== "done";
+  const isDueToday = project.dueDate === t;
+  const daysLeft = project.dueDate ? Math.ceil((new Date(project.dueDate+"T12:00:00")-new Date())/(1000*60*60*24)) : null;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden transition-all duration-300 group cursor-pointer"
+      style={{
+        background:"rgba(255,255,255,0.98)",
+        border: isOverdue ? "1.5px solid rgba(239,68,68,0.3)" : "1px solid rgba(221,227,237,0.7)",
+        boxShadow: isOverdue ? "0 4px 20px rgba(239,68,68,0.08)" : "0 4px 16px rgba(26,29,35,0.04)",
+        backdropFilter:"blur(8px)",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=isOverdue?"0 8px 28px rgba(239,68,68,0.12)":"0 8px 28px rgba(26,29,35,0.1)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=isOverdue?"0 4px 20px rgba(239,68,68,0.08)":"0 4px 16px rgba(26,29,35,0.04)";}}>
+
+      {/* Barra de cor topo */}
+      <div className="h-1" style={{ background:`linear-gradient(90deg,${project.color||"#2b8be8"},${project.color||"#2b8be8"}88)` }}/>
+
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                style={{ background:pc.bg, color:pc.color }}>
+                {pc.icon} {pc.label}
+              </span>
+              {project.category && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                  style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>
+                  {project.category}
+                </span>
+              )}
+            </div>
+            <h3 className="text-sm font-black leading-snug" style={{ color:"#1a1d23" }}>{project.title}</h3>
+            {project.clientName && (
+              <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>👤 {project.clientName}</p>
+            )}
+          </div>
+          {/* Quick actions */}
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+            <button onClick={e=>{e.stopPropagation();setExpanded(v=>!v)}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><polyline points={expanded?"18 15 12 9 6 15":"6 9 12 15 18 9"}/></svg>
+            </button>
+            <button onClick={e=>{e.stopPropagation();onEdit(project)}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <Icon.Edit />
+            </button>
+            <button onClick={e=>{e.stopPropagation();onDelete(project.id)}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+              <Icon.Trash />
+            </button>
+          </div>
+        </div>
+
+        {/* Progresso */}
+        {checklist.length > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{checklist.length} tarefas</span>
+              <span className="text-[10px] font-black" style={{ color:pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+              <div className="h-1.5 rounded-full transition-all duration-500"
+                style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?`linear-gradient(90deg,${project.color||"#2b8be8"},${project.color||"#2b8be8"}cc)`:project.color||"#2b8be8" }}/>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {responsible && (
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
+                style={{ background:responsible.avatarColor||"#2b8be8", boxShadow:`0 1px 4px ${responsible.avatarColor||"#2b8be8"}44` }}
+                title={responsible.name}>
+                {responsible.name.charAt(0)}
+              </div>
+            )}
+            {project.dueDate && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: isOverdue ? "rgba(239,68,68,0.1)" : isDueToday ? "rgba(245,158,11,0.1)" : "rgba(226,232,240,0.4)",
+                  color: isOverdue ? "#ef4444" : isDueToday ? "#f59e0b" : "#94a3b8"
+                }}>
+                {isOverdue ? `${Math.abs(daysLeft)}d atraso` : isDueToday ? "Hoje" : daysLeft !== null ? `${daysLeft}d` : ""}
+                {" "}{new Date(project.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+              </span>
+            )}
+          </div>
+          {/* Mover entre colunas */}
+          <div className="flex gap-1">
+            {project.status !== "todo" && (
+              <button onClick={e=>{e.stopPropagation();onMove(project, project.status==="doing"?"todo":"doing")}}
+                className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
+                style={{ background:"rgba(226,232,240,0.4)", color:"#64748b" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(226,232,240,0.4)";e.currentTarget.style.color="#64748b";}}>
+                ← {project.status==="doing"?"Não iniciado":"Em execução"}
+              </button>
+            )}
+            {project.status !== "done" && (
+              <button onClick={e=>{e.stopPropagation();onMove(project, project.status==="todo"?"doing":"done")}}
+                className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
+                style={{ background:"rgba(226,232,240,0.4)", color:"#64748b" }}
+                onMouseEnter={e=>{e.currentTarget.style.background=project.status==="doing"?"rgba(16,185,129,0.1)":"rgba(43,139,232,0.1)";e.currentTarget.style.color=project.status==="doing"?"#10b981":"#2b8be8";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(226,232,240,0.4)";e.currentTarget.style.color="#64748b";}}>
+                {project.status==="todo"?"Em execução →":"Concluído →"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Expanded: checklist + notas */}
+        {expanded && (
+          <div className="mt-3 pt-3" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
+            {project.description && (
+              <p className="text-xs mb-3 leading-relaxed" style={{ color:"#64748b" }}>{project.description}</p>
+            )}
+            {checklist.length > 0 && (
+              <div className="space-y-1.5 mb-2">
+                {checklist.map((item,i) => (
+                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg transition-all"
+                    style={{ background:"rgba(248,250,252,0.7)" }}>
+                    <input type="checkbox" checked={item.done}
+                      onChange={e=>{e.stopPropagation(); onUpdateChecklist(project, i, e.target.checked);}}
+                      className="w-3.5 h-3.5 rounded flex-shrink-0" style={{ accentColor:project.color||"#2b8be8" }}/>
+                    <span className="text-xs" style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {project.notes && (
+              <p className="text-[10px] p-2 rounded-lg" style={{ background:"rgba(248,250,252,0.7)", color:"#64748b", fontStyle:"italic" }}>
+                📝 {project.notes}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProjectForm({ project, onSave, onClose }) {
+  const { clients, teamUsers } = useApp();
+  const emptyPF = { title:"", description:"", priority:"medium", category:"", clientId:"", clientName:"", responsibleId:"", teamIds:[], dueDate:"", startDate:"", checklist:[], tags:[], notes:"", color:"#2b8be8", status:"todo" };
+  const [pf, setPf] = useState(project ? {
+    title:project.title||"", description:project.description||"", priority:project.priority||"medium",
+    category:project.category||"", clientId:project.clientId||"", clientName:project.clientName||"",
+    responsibleId:project.responsibleId||"", teamIds:project.teamIds||[], dueDate:project.dueDate||"",
+    startDate:project.startDate||"", checklist:[...( project.checklist||[])], tags:[...(project.tags||[])],
+    notes:project.notes||"", color:project.color||"#2b8be8", status:project.status||"todo"
+  } : emptyPF);
+  const [newItem, setNewItem] = useState("");
+  const [newTag, setNewTag] = useState("");
+
+  const addChecklistItem = () => {
+    if (!newItem.trim()) return;
+    setPf(p=>({...p, checklist:[...p.checklist,{text:newItem.trim(),done:false}]}));
+    setNewItem("");
+  };
+
+  const addTag = () => {
+    if (!newTag.trim() || pf.tags.includes(newTag.trim())) return;
+    setPf(p=>({...p, tags:[...p.tags, newTag.trim()]}));
+    setNewTag("");
+  };
+
+  const handleClientSelect = v => {
+    const c = (clients||[]).find(x=>x.id===v);
+    setPf(p=>({...p, clientId:v, clientName:c?.name||""}));
+  };
+
+  return (
+    <Modal title={project?"Editar Projeto":"Novo Projeto"} onClose={onClose} maxWidth="max-w-2xl">
+      <div className="p-6 space-y-5 overflow-y-auto" style={{ maxHeight:"80vh" }}>
+        {/* Cor + Título */}
+        <div className="flex gap-3 items-start">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Cor</label>
+            <div className="flex gap-1.5 flex-wrap" style={{ maxWidth:120 }}>
+              {PROJECT_COLORS.map(c=>(
+                <button key={c} type="button" onClick={()=>setPf(p=>({...p,color:c}))}
+                  className="w-6 h-6 rounded-lg transition-all"
+                  style={{ background:c, border:pf.color===c?"2.5px solid #1a1d23":"2px solid transparent", transform:pf.color===c?"scale(1.2)":"scale(1)" }}/>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Nome do projeto *</label>
+            <input value={pf.title} onChange={e=>setPf(p=>({...p,title:e.target.value}))} placeholder="Ex: Abertura CNPJ — Empresa XYZ"
+              className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+          </div>
+        </div>
+
+        {/* Descrição */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Descrição</label>
+          <textarea value={pf.description} onChange={e=>setPf(p=>({...p,description:e.target.value}))}
+            placeholder="O que envolve este projeto..." rows={2} className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Grid: Prioridade + Categoria + Status */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Prioridade</label>
+            <div className="space-y-1">
+              {Object.entries(PRIORITY_CONFIG).map(([k,v]) => (
+                <button key={k} type="button" onClick={()=>setPf(p=>({...p,priority:k}))}
+                  className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                  style={{ background:pf.priority===k?v.bg:"rgba(248,250,252,0.7)", color:pf.priority===k?v.color:"#94a3b8", border:pf.priority===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.6)" }}>
+                  <span style={{ color:v.color }}>{v.icon}</span> {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Categoria</label>
+            <select value={pf.category} onChange={e=>setPf(p=>({...p,category:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              <option value="">Sem categoria</option>
+              {CATEGORY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5 mt-3" style={{ color:"#94a3b8" }}>Status</label>
+            <select value={pf.status} onChange={e=>setPf(p=>({...p,status:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              <option value="todo">Não Iniciado</option>
+              <option value="doing">Em Execução</option>
+              <option value="done">Concluído</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Início</label>
+            <input type="date" value={pf.startDate} onChange={e=>setPf(p=>({...p,startDate:e.target.value}))}
+              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5 mt-3" style={{ color:"#94a3b8" }}>Prazo</label>
+            <input type="date" value={pf.dueDate} onChange={e=>setPf(p=>({...p,dueDate:e.target.value}))}
+              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+          </div>
+        </div>
+
+        {/* Cliente + Responsável */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Cliente</label>
+            <select value={pf.clientId} onChange={e=>handleClientSelect(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              <option value="">Sem cliente</option>
+              {(clients||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
+            <select value={pf.responsibleId} onChange={e=>setPf(p=>({...p,responsibleId:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              <option value="">Sem responsável</option>
+              {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Checklist */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Checklist</label>
+          <div className="space-y-1.5 mb-2">
+            {pf.checklist.map((item,i)=>(
+              <div key={i} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                <input type="checkbox" checked={item.done} onChange={e=>setPf(p=>{ const cl=[...p.checklist]; cl[i]={...cl[i],done:e.target.checked}; return {...p,checklist:cl}; })} className="w-3.5 h-3.5 rounded" style={{ accentColor:pf.color }}/>
+                <span className="flex-1 text-xs" style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                <button type="button" onClick={()=>setPf(p=>({...p,checklist:p.checklist.filter((_,j)=>j!==i)}))}
+                  className="p-0.5 rounded text-slate-300 hover:text-red-400 transition-colors">×</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addChecklistItem()} placeholder="Adicionar item..."
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={addChecklistItem} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+ Item</button>
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Tags</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {pf.tags.map((tag,i)=>(
+              <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.2)" }}>
+                {tag}
+                <button type="button" onClick={()=>setPf(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTag()} placeholder="Nova tag..."
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={addTag} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+ Tag</button>
+          </div>
+        </div>
+
+        {/* Observações */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Observações</label>
+          <textarea value={pf.notes} onChange={e=>setPf(p=>({...p,notes:e.target.value}))} placeholder="Notas internas..." rows={2}
+            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+          <button onClick={()=>onSave(pf)} disabled={!pf.title.trim()}
+            className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+            <Icon.Plus />{project?"Salvar":"Criar Projeto"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Projects() {
+  const { projects, addProject, updateProject, deleteProject, clients, teamUsers, currentProfile, tasks } = useApp();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterResponsible, setFilterResponsible] = useState("all");
+  const t = today();
+
+  // KPIs
+  const active = projects.filter(p=>p.status!=="done").length;
+  const done = projects.filter(p=>p.status==="done").length;
+  const overdue = projects.filter(p=>p.dueDate && p.dueDate < t && p.status!=="done").length;
+  const dueThisWeek = projects.filter(p=>{
+    if (!p.dueDate || p.status==="done") return false;
+    const d = new Date(p.dueDate+"T12:00:00");
+    const now = new Date();
+    const week = new Date(now); week.setDate(week.getDate()+7);
+    return d >= now && d <= week;
+  }).length;
+  const avgProgress = projects.length > 0 ? Math.round(projects.reduce((s,p)=>{
+    const cl=p.checklist||[]; return s+(cl.length>0?Math.round(cl.filter(c=>c.done).length/cl.length*100):0);
+  },0)/projects.length) : 0;
+
+  // Filtros
+  const filtered = projects.filter(p => {
+    if (search && !p.title.toLowerCase().includes(search.toLowerCase()) && !p.clientName?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterPriority !== "all" && p.priority !== filterPriority) return false;
+    if (filterCategory !== "all" && p.category !== filterCategory) return false;
+    if (filterResponsible !== "all" && p.responsibleId !== filterResponsible) return false;
+    return true;
+  });
+
+  const byStatus = status => filtered.filter(p=>p.status===status).sort((a,b)=>{
+    const po = { urgent:0,high:1,medium:2,low:3 };
+    return (po[a.priority]||2)-(po[b.priority]||2);
+  });
+
+  const handleSave = async pf => {
+    if (editingProject) {
+      await updateProject({ ...editingProject, ...pf, completedAt: pf.status==="done" && editingProject.status!=="done" ? new Date().toISOString() : editingProject.completedAt||"" });
+    } else {
+      await addProject({ id:uid(), ...pf, createdAt:new Date().toISOString(), completedAt:"", orderIndex:0 });
+    }
+    setFormOpen(false); setEditingProject(null);
+  };
+
+  const handleMove = async (project, newStatus) => {
+    await updateProject({ ...project, status:newStatus, completedAt: newStatus==="done" ? new Date().toISOString() : "" });
+  };
+
+  const handleUpdateChecklist = async (project, idx, checked) => {
+    const cl = [...project.checklist];
+    cl[idx] = { ...cl[idx], done:checked };
+    await updateProject({ ...project, checklist:cl });
+  };
+
+  // Insights
+  const insights = useMemo(() => {
+    const list = [];
+    if (overdue > 0) list.push({ icon:"🚨", text:`${overdue} projeto${overdue>1?"s":""} em atraso — atenção imediata necessária`, color:"#ef4444" });
+    if (dueThisWeek > 0) list.push({ icon:"⏰", text:`${dueThisWeek} projeto${dueThisWeek>1?"s":""} vencem esta semana`, color:"#f59e0b" });
+    const urgentCount = projects.filter(p=>p.priority==="urgent"&&p.status!=="done").length;
+    if (urgentCount > 0) list.push({ icon:"⚡", text:`${urgentCount} projeto${urgentCount>1?"s":""} com prioridade urgente em aberto`, color:"#ef4444" });
+    const catCounts = {};
+    projects.filter(p=>p.status==="done"&&p.category).forEach(p=>catCounts[p.category]=(catCounts[p.category]||0)+1);
+    const topCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0];
+    if (topCat) list.push({ icon:"🏆", text:`Projetos de "${topCat[0]}" têm maior taxa de conclusão`, color:"#10b981" });
+    if (list.length === 0 && projects.length > 0) list.push({ icon:"✅", text:"Tudo sob controle! Nenhum alerta no momento.", color:"#10b981" });
+    return list.slice(0,3);
+  }, [projects, overdue, dueThisWeek]);
+
+  const categories = [...new Set(projects.map(p=>p.category).filter(Boolean))];
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Projetos</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Gestão operacional e estratégica do escritório</p>
+        </div>
+        <button onClick={()=>{setEditingProject(null);setFormOpen(true);}}
+          className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+          <Icon.Plus />Novo Projeto
+        </button>
+      </div>
+
+      {/* KPIs */}
+      {projects.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label:"Ativos", value:active, color:"#2b8be8", icon:"📋" },
+            { label:"Concluídos", value:done, color:"#10b981", icon:"✅" },
+            { label:"Atrasados", value:overdue, color:overdue>0?"#ef4444":"#10b981", icon:"⚠️" },
+            { label:"Vencem na semana", value:dueThisWeek, color:"#f59e0b", icon:"📅" },
+            { label:"Progresso médio", value:`${avgProgress}%`, color:avgProgress>=70?"#10b981":avgProgress>=40?"#2b8be8":"#f59e0b", icon:"📈" },
+          ].map(k=>(
+            <div key={k.label} className="rounded-2xl p-4 transition-all"
+              style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>{k.label}</p>
+                  <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
+                </div>
+                <span className="text-xl">{k.icon}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Insights */}
+      {insights.length > 0 && projects.length > 0 && (
+        <div className="flex gap-3 flex-wrap">
+          {insights.map((ins,i)=>(
+            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1"
+              style={{ background:`${ins.color}08`, border:`1px solid ${ins.color}20`, minWidth:200 }}>
+              <span className="text-base flex-shrink-0">{ins.icon}</span>
+              <p className="text-xs" style={{ color:"#374151" }}>{ins.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="relative flex-1" style={{ minWidth:180, maxWidth:260 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{width:14,height:14,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar projetos..."
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+        <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todas prioridades</option>
+          {Object.entries(PRIORITY_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+        {categories.length > 0 && (
+          <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)}
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            <option value="all">Todas categorias</option>
+            {categories.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        {(teamUsers||[]).length > 1 && (
+          <select value={filterResponsible} onChange={e=>setFilterResponsible(e.target.value)}
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            <option value="all">Todos responsáveis</option>
+            {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name.split(" ")[0]}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* ── KANBAN ── */}
+      {projects.length === 0 ? (
+        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+          <p className="text-5xl mb-4">🚀</p>
+          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>Nenhum projeto ainda</p>
+          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Crie o primeiro projeto estratégico do escritório</p>
+          <button onClick={()=>{setEditingProject(null);setFormOpen(true);}} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold"
+            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>Criar primeiro projeto</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {["todo","doing","done"].map(status => {
+            const col = COLUMN_CONFIG[status];
+            const colProjects = byStatus(status);
+            return (
+              <div key={status} className="rounded-2xl overflow-hidden"
+                style={{ background:col.bg, border:"1px solid rgba(221,227,237,0.5)" }}>
+                {/* Header da coluna */}
+                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(221,227,237,0.4)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-base" style={{ color:col.color }}>{col.icon}</span>
+                    <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>{col.label}</h3>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background:`${col.color}18`, color:col.color }}>
+                      {colProjects.length}
+                    </span>
+                  </div>
+                  <button onClick={()=>{setEditingProject(null); setFormOpen(true);}} className="p-1 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                    <Icon.Plus />
+                  </button>
+                </div>
+                {/* Cards */}
+                <div className="p-3 space-y-3 min-h-32">
+                  {colProjects.map(p => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      onEdit={proj=>{setEditingProject(proj);setFormOpen(true);}}
+                      onDelete={deleteProject}
+                      onMove={handleMove}
+                      onUpdateChecklist={handleUpdateChecklist}
+                    />
+                  ))}
+                  {colProjects.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-xl"
+                      style={{ border:"1.5px dashed rgba(221,227,237,0.6)" }}>
+                      <p className="text-[10px] font-medium" style={{ color:"#cbd5e1" }}>Nenhum projeto aqui</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal */}
+      {formOpen && (
+        <ProjectForm
+          project={editingProject}
+          onSave={handleSave}
+          onClose={()=>{setFormOpen(false);setEditingProject(null);}}
+        />
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -7622,6 +8249,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "severance" && <SeveranceSimulation />}
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
+      {activeTab === "projects" && <Projects />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
