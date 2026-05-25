@@ -1895,19 +1895,25 @@ function TaskItem({ task, onToggle, onEdit, onDelete, onUpdate, categories, cont
               {task.title}
             </p>
 
-            {/* Categoria */}
-            {cat && (
-              <QuickDropdown label={cat.name} color={cat.color}
-                items={categories} selectedId={task.categoryId}
-                onSelect={v => onUpdate({...task, categoryId:v})} menuTitle="Categoria" />
-            )}
+            {/* Categoria — sempre visível para poder alterar */}
+            <QuickDropdown
+              label={cat?.name || "Categoria"}
+              color={cat?.color || "#94a3b8"}
+              items={categories}
+              selectedId={task.categoryId}
+              onSelect={v => onUpdate({...task, categoryId: v})}
+              menuTitle="Categoria"
+            />
 
-            {/* Contexto */}
-            {ctx && (
-              <QuickDropdown label={ctx.name} color={ctx.color||"#64748b"}
-                items={contexts} selectedId={task.contextId}
-                onSelect={v => onUpdate({...task, contextId:v})} menuTitle="Contexto" />
-            )}
+            {/* Contexto — sempre visível para poder alterar */}
+            <QuickDropdown
+              label={ctx?.name || "Contexto"}
+              color={ctx?.color || "#94a3b8"}
+              items={contexts}
+              selectedId={task.contextId}
+              onSelect={v => onUpdate({...task, contextId: v})}
+              menuTitle="Contexto"
+            />
 
             {/* Data */}
             <div ref={dateRef} className="relative flex-shrink-0">
@@ -5966,55 +5972,94 @@ function SettingsPage() {
   const { settings, updateSettings, categories, contexts, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, currentProfile } = useApp();
   const isAdmin = !currentProfile || currentProfile.role === "admin";
 
+  // Carregar tema salvo
   const [theme, setTheme] = useState(() => {
     try { return JSON.parse(localStorage.getItem("cp_theme") || "{}"); } catch { return {}; }
   });
+
+  // Aplicar tema ao montar
+  useEffect(() => {
+    applyThemeToDOM(theme);
+  }, []);
+
+  const applyThemeToDOM = (t) => {
+    const root = document.documentElement;
+    if (t.accent) {
+      root.style.setProperty("--accent", t.accent);
+      root.style.setProperty("--accent-light", t.accent + "18");
+      // Atualizar todos os elementos com cor de destaque
+      document.querySelectorAll("[data-accent]").forEach(el => {
+        el.style.background = t.accent;
+      });
+    }
+    if (t.font) {
+      root.style.setProperty("--font-family", t.font);
+      document.body.style.fontFamily = t.font;
+    }
+    if (t.radius !== undefined) {
+      root.style.setProperty("--radius", t.radius + "px");
+    }
+    if (t.darkMode) {
+      document.documentElement.setAttribute("data-theme", "dark");
+      document.body.style.background = "#0f1117";
+      document.body.style.color = "#e2e8f0";
+      // Aplicar dark mode ao app wrapper
+      const appRoot = document.getElementById("root");
+      if (appRoot) appRoot.style.background = "#0f1117";
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      document.body.style.background = "";
+      document.body.style.color = "";
+      const appRoot = document.getElementById("root");
+      if (appRoot) appRoot.style.background = "";
+    }
+    if (t.density) {
+      root.style.setProperty("--density-factor", t.density === "compact" ? "0.75" : t.density === "relaxed" ? "1.25" : "1");
+    }
+  };
 
   const applyTheme = (key, value) => {
     const next = { ...theme, [key]: value };
     setTheme(next);
     localStorage.setItem("cp_theme", JSON.stringify(next));
-    // Apply CSS variables
-    const root = document.documentElement;
-    if (key === "accent") root.style.setProperty("--accent", value);
-    if (key === "darkMode") document.body.setAttribute("data-theme", value ? "dark" : "light");
-    if (key === "fontSize") root.style.setProperty("--font-size-base", value+"px");
-    if (key === "radius") root.style.setProperty("--radius", value+"px");
-    if (key === "density") root.style.setProperty("--density", value);
+    applyThemeToDOM(next);
+  };
+
+  const resetTheme = () => {
+    const reset = {};
+    setTheme(reset);
+    localStorage.setItem("cp_theme", JSON.stringify(reset));
+    document.documentElement.removeAttribute("style");
+    document.body.removeAttribute("style");
+    document.documentElement.removeAttribute("data-theme");
+    const appRoot = document.getElementById("root");
+    if (appRoot) appRoot.style.background = "";
   };
 
   const ACCENTS = [
-    { label:"Azul (padrão)", color:"#2b8be8" }, { label:"Verde", color:"#10b981" },
-    { label:"Roxo", color:"#8b5cf6" }, { label:"Rosa", color:"#ec4899" },
-    { label:"Laranja", color:"#f97316" }, { label:"Ciano", color:"#06b6d4" },
-    { label:"Âmbar", color:"#f59e0b" }, { label:"Índigo", color:"#6366f1" },
+    { label:"Azul (padrão)", color:"#2b8be8" },
+    { label:"Índigo",        color:"#6366f1" },
+    { label:"Roxo",          color:"#8b5cf6" },
+    { label:"Rosa",          color:"#ec4899" },
+    { label:"Vermelho",      color:"#ef4444" },
+    { label:"Laranja",       color:"#f97316" },
+    { label:"Âmbar",         color:"#f59e0b" },
+    { label:"Verde",         color:"#10b981" },
+    { label:"Ciano",         color:"#06b6d4" },
+    { label:"Cinza",         color:"#64748b" },
   ];
 
   const FONTS = [
-    { label:"Sistema (padrão)", value:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
-    { label:"Inter", value:"'Inter',sans-serif" },
-    { label:"DM Sans", value:"'DM Sans',sans-serif" },
-    { label:"Roboto", value:"'Roboto',sans-serif" },
+    { label:"Sistema (padrão)", value:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" },
+    { label:"Inter",            value:"'Inter',sans-serif" },
+    { label:"DM Sans",          value:"'DM Sans',sans-serif" },
+    { label:"Roboto",           value:"'Roboto',sans-serif" },
+    { label:"Poppins",          value:"'Poppins',sans-serif" },
+    { label:"Nunito",           value:"'Nunito',sans-serif" },
   ];
 
-  const Section = ({ title, children }) => (
-    <div className="rounded-2xl overflow-hidden" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
-      <div className="px-5 py-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.5)" }}>
-        <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{title}</p>
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
-  );
-
-  const Row = ({ label, sub, children }) => (
-    <div className="flex items-center justify-between py-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
-      <div><p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{label}</p>{sub&&<p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{sub}</p>}</div>
-      <div className="flex-shrink-0">{children}</div>
-    </div>
-  );
-
-  const [catForm, setCatForm] = useState({ id:"",name:"",color:"#2b8be8" });
-  const [ctxForm, setCtxForm] = useState({ id:"",name:"",color:"#64748b" });
+  const [catForm, setCatForm] = useState({ name:"", color:"#2b8be8" });
+  const [ctxForm, setCtxForm] = useState({ name:"", color:"#64748b" });
   const [editCat, setEditCat] = useState(null);
   const [editCtx, setEditCtx] = useState(null);
 
@@ -6022,140 +6067,272 @@ function SettingsPage() {
     if (!catForm.name.trim()) return;
     if (editCat) { await updateCategory({ ...editCat, ...catForm }); setEditCat(null); }
     else { await addCategory({ id:uid(), ...catForm }); }
-    setCatForm({ id:"",name:"",color:"#2b8be8" });
+    setCatForm({ name:"", color:"#2b8be8" });
   };
 
   const saveCtx = async () => {
     if (!ctxForm.name.trim()) return;
     if (editCtx) { await updateContext({ ...editCtx, ...ctxForm }); setEditCtx(null); }
     else { await addContext({ id:uid(), ...ctxForm }); }
-    setCtxForm({ id:"",name:"",color:"#64748b" });
+    setCtxForm({ name:"", color:"#64748b" });
   };
+
+  const Section = ({ title, icon, children }) => (
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+      <div className="px-5 py-3.5 flex items-center gap-2.5"
+        style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.6)" }}>
+        <span className="text-base">{icon}</span>
+        <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#374151" }}>{title}</p>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+
+  const Row = ({ label, sub, children, last }) => (
+    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: last ? "none" : "1px solid rgba(226,232,240,0.4)" }}>
+      <div><p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{label}</p>{sub && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{sub}</p>}</div>
+      <div className="flex-shrink-0 ml-4">{children}</div>
+    </div>
+  );
+
+  const Toggle = ({ value, onChange }) => (
+    <button type="button" onClick={() => onChange(!value)}
+      className="relative flex-shrink-0 transition-all duration-300"
+      style={{ width:44, height:24, borderRadius:12, background: value ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "rgba(203,213,225,0.7)", boxShadow: value ? "0 2px 8px rgba(43,139,232,0.35)" : "none" }}>
+      <div className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
+        style={{ left: value ? "calc(100% - 20px)" : 4, boxShadow:"0 1px 4px rgba(0,0,0,0.15)" }}/>
+    </button>
+  );
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <div>
-        <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Configurações</h2>
-        <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o app ao seu gosto</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Configurações</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o Códice Produtivo ao seu gosto</p>
+        </div>
+        <button onClick={resetTheme} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+          style={{ background:"rgba(241,245,249,0.8)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(241,245,249,0.8)";e.currentTarget.style.color="#64748b";}}>
+          ↺ Restaurar padrão
+        </button>
       </div>
 
       {/* APARÊNCIA */}
-      <Section title="🎨 Aparência & Tema">
+      <Section title="Aparência & Tema" icon="🎨">
         {/* Cor de destaque */}
-        <div className="pb-4 mb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
-          <p className="text-sm font-semibold mb-3" style={{ color:"#1a1d23" }}>Cor de destaque</p>
+        <div className="pb-5 mb-2" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
+          <p className="text-xs font-bold mb-3" style={{ color:"#374151" }}>Cor de destaque</p>
           <div className="flex gap-2 flex-wrap">
             {ACCENTS.map(a => (
-              <button key={a.color} onClick={()=>applyTheme("accent",a.color)} title={a.label}
-                className="w-8 h-8 rounded-xl transition-all"
-                style={{ background:a.color, border: theme.accent===a.color ? "3px solid #1a1d23" : "2px solid transparent", transform:theme.accent===a.color?"scale(1.15)":"scale(1)", boxShadow:`0 2px 8px ${a.color}44` }}/>
+              <button key={a.color} type="button" onClick={()=>applyTheme("accent", a.color)}
+                title={a.label}
+                className="flex flex-col items-center gap-1 group">
+                <div className="w-8 h-8 rounded-xl transition-all duration-200"
+                  style={{
+                    background: a.color,
+                    border: theme.accent===a.color ? "3px solid #1a1d23" : "2px solid transparent",
+                    transform: theme.accent===a.color ? "scale(1.2)" : "scale(1)",
+                    boxShadow: theme.accent===a.color ? `0 4px 12px ${a.color}60` : `0 2px 6px ${a.color}30`,
+                  }}/>
+                {theme.accent===a.color && <div className="w-1 h-1 rounded-full" style={{ background:"#1a1d23" }}/>}
+              </button>
             ))}
           </div>
+          {theme.accent && (
+            <p className="text-[10px] mt-2" style={{ color:"#94a3b8" }}>
+              Cor ativa: <span className="font-bold" style={{ color:theme.accent }}>{ACCENTS.find(a=>a.color===theme.accent)?.label}</span>
+              {" — "}
+              <button onClick={()=>applyTheme("accent",undefined)} className="underline" style={{ color:"#94a3b8" }}>remover</button>
+            </p>
+          )}
         </div>
 
-        {/* Dark mode */}
-        <Row label="Modo escuro" sub="Alterna entre tema claro e escuro">
-          <button onClick={()=>applyTheme("darkMode",!theme.darkMode)}
-            className="relative w-11 h-6 rounded-full transition-all"
-            style={{ background:theme.darkMode?"linear-gradient(135deg,#1c1f26,#2b8be8)":"rgba(226,232,240,0.8)" }}>
-            <div className="absolute top-0.5 w-5 h-5 rounded-full transition-all shadow-sm"
-              style={{ left:theme.darkMode?"calc(100% - 22px)":"2px", background:"#fff" }}/>
-          </button>
+        <Row label="Modo escuro" sub="Fundo escuro para trabalhar à noite">
+          <Toggle value={!!theme.darkMode} onChange={v=>applyTheme("darkMode", v)}/>
         </Row>
 
-        {/* Densidade */}
-        <Row label="Densidade da interface" sub="Controla o espaçamento entre elementos">
+        <Row label="Densidade da interface" sub="Compacta economiza espaço, espaçosa melhora leitura">
           <div className="flex gap-1.5">
             {[["compact","Compacta"],["normal","Normal"],["relaxed","Espaçosa"]].map(([v,l]) => (
               <button key={v} onClick={()=>applyTheme("density",v)}
                 className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                style={{ background:theme.density===v||(!theme.density&&v==="normal")?"linear-gradient(135deg,#1a1d26,#1e2e4a)":"rgba(241,245,249,0.7)", color:theme.density===v||(!theme.density&&v==="normal")?"#5aaff5":"#64748b" }}>
+                style={{
+                  background: (theme.density||"normal")===v ? "linear-gradient(135deg,#1c1f26,#1e2e4a)" : "rgba(241,245,249,0.8)",
+                  color: (theme.density||"normal")===v ? "#5aaff5" : "#64748b",
+                  border: (theme.density||"normal")===v ? "1px solid rgba(91,170,255,0.2)" : "1px solid rgba(226,232,240,0.6)",
+                }}>
                 {l}
               </button>
             ))}
           </div>
         </Row>
 
-        {/* Tipografia */}
-        <Row label="Tipografia" sub="Fonte usada na interface">
+        <Row label="Fonte da interface" sub="Tipografia usada em toda a aplicação">
           <select value={theme.font||FONTS[0].value} onChange={e=>applyTheme("font",e.target.value)}
             className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151", fontFamily:theme.font }}>
-            {FONTS.map(f => <option key={f.value} value={f.value} style={{ fontFamily:f.value }}>{f.label}</option>)}
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151", fontFamily:theme.font||"inherit", maxWidth:200 }}>
+            {FONTS.map(f=><option key={f.value} value={f.value} style={{ fontFamily:f.value }}>{f.label}</option>)}
           </select>
         </Row>
 
-        {/* Arredondamento */}
-        <Row label="Arredondamento" sub="Raio dos cantos dos elementos">
+        <Row label="Arredondamento dos cards" sub={`${theme.radius??16}px — controla bordas de todos os elementos`} last>
           <div className="flex items-center gap-3">
-            <input type="range" min={0} max={24} step={2} value={theme.radius||16} onChange={e=>applyTheme("radius",Number(e.target.value))}
-              className="w-24 accent-blue-500" />
-            <span className="text-xs font-mono w-8" style={{ color:"#94a3b8" }}>{theme.radius||16}px</span>
+            <input type="range" min={0} max={24} step={2} value={theme.radius??16} onChange={e=>applyTheme("radius",Number(e.target.value))}
+              className="w-28" style={{ accentColor:"#2b8be8" }}/>
+            <div className="w-8 h-8 border-2 border-current rounded flex-shrink-0"
+              style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#2b8be8", background:"rgba(43,139,232,0.08)" }}/>
           </div>
         </Row>
       </Section>
 
-      {/* APP */}
-      <Section title="⚙️ Aplicativo">
-        <Row label="Nome do app" sub="Aparece na barra lateral">
-          <input value={settings.appName||"Códice Produtivo"} onChange={e=>updateSettings({...settings,appName:e.target.value})}
-            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-40"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }} />
+      {/* APLICATIVO */}
+      <Section title="Aplicativo" icon="⚙️">
+        <Row label="Nome do sistema" sub="Exibido na barra lateral">
+          <input value={settings.appName||"Códice Produtivo"}
+            onChange={e=>updateSettings({...settings,appName:e.target.value})}
+            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-44"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}/>
+        </Row>
+        <Row label="Iniciar na aba" sub="Qual página abre ao fazer login" last>
+          <select className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}
+            value={settings.defaultTab||"dashboard"}
+            onChange={e=>updateSettings({...settings,defaultTab:e.target.value})}>
+            <option value="dashboard">Dashboard</option>
+            <option value="tasks">Tarefas</option>
+            <option value="habits">Hábitos</option>
+            <option value="clients">Clientes</option>
+            <option value="projects">Projetos</option>
+          </select>
         </Row>
       </Section>
 
       {/* CATEGORIAS */}
       {isAdmin && (
-        <Section title="🏷 Categorias de Tarefas">
+        <Section title="Categorias de Tarefas" icon="🏷️">
           <div className="space-y-2 mb-4">
             {categories.map(c => (
-              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group"
-                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}>
-                <div className="w-3 h-3 rounded-full" style={{ background:c.color }}/>
+              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group transition-all"
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(203,213,225,0.8)"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.6)"}>
+                <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background:c.color }}/>
                 <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                  <button onClick={()=>{setEditCat(c);setCatForm({name:c.name,color:c.color});}} className="p-1 rounded-lg hover:bg-blue-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
-                  <button onClick={()=>deleteCategory(c.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
+                  <button onClick={()=>{setEditCat(c);setCatForm({name:c.name,color:c.color});}}
+                    className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                    <Icon.Edit />
+                  </button>
+                  <button onClick={()=>deleteCategory(c.id)}
+                    className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                    <Icon.Trash />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <input type="color" value={catForm.color} onChange={e=>setCatForm(p=>({...p,color:e.target.value}))} className="w-9 h-9 rounded-xl border-0 cursor-pointer p-0.5" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
-            <input value={catForm.name} onChange={e=>setCatForm(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&saveCat()} placeholder={editCat?"Editar categoria...":"Nova categoria..."} className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
-            <button onClick={saveCat} disabled={!catForm.name.trim()} className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{editCat?"Salvar":"Adicionar"}</button>
-            {editCat && <button onClick={()=>{setEditCat(null);setCatForm({name:"",color:"#2b8be8"});}} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>}
+          <div className="flex gap-2 items-center">
+            <input type="color" value={catForm.color} onChange={e=>setCatForm(p=>({...p,color:e.target.value}))}
+              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(226,232,240,0.7)" }}/>
+            <input value={catForm.name} onChange={e=>setCatForm(p=>({...p,name:e.target.value}))}
+              onKeyDown={e=>e.key==="Enter"&&saveCat()}
+              placeholder={editCat?"Editar categoria...":"Nova categoria..."}
+              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={saveCat} disabled={!catForm.name.trim()}
+              className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex-shrink-0"
+              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+              {editCat?"Salvar":"+ Add"}
+            </button>
+            {editCat && (
+              <button onClick={()=>{setEditCat(null);setCatForm({name:"",color:"#2b8be8"});}}
+                className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>
+            )}
           </div>
         </Section>
       )}
 
       {/* CONTEXTOS */}
       {isAdmin && (
-        <Section title="📍 Contextos">
+        <Section title="Contextos" icon="📍">
           <div className="space-y-2 mb-4">
             {contexts.map(c => (
-              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group"
-                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}>
-                <div className="w-3 h-3 rounded-full" style={{ background:c.color||"#64748b" }}/>
+              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group transition-all"
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(203,213,225,0.8)"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.6)"}>
+                <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background:c.color||"#64748b" }}/>
                 <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                  <button onClick={()=>{setEditCtx(c);setCtxForm({name:c.name,color:c.color||"#64748b"});}} className="p-1 rounded-lg hover:bg-blue-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
-                  <button onClick={()=>deleteContext(c.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
+                  <button onClick={()=>{setEditCtx(c);setCtxForm({name:c.name,color:c.color||"#64748b"});}}
+                    className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                    <Icon.Edit />
+                  </button>
+                  <button onClick={()=>deleteContext(c.id)}
+                    className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                    <Icon.Trash />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <input type="color" value={ctxForm.color} onChange={e=>setCtxForm(p=>({...p,color:e.target.value}))} className="w-9 h-9 rounded-xl border-0 cursor-pointer p-0.5"/>
-            <input value={ctxForm.name} onChange={e=>setCtxForm(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&saveCtx()} placeholder={editCtx?"Editar contexto...":"Novo contexto..."} className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300" style={{ borderColor:"rgba(221,227,237,0.7)" }}/>
-            <button onClick={saveCtx} disabled={!ctxForm.name.trim()} className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{editCtx?"Salvar":"Adicionar"}</button>
-            {editCtx && <button onClick={()=>{setEditCtx(null);setCtxForm({name:"",color:"#64748b"});}} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>}
+          <div className="flex gap-2 items-center">
+            <input type="color" value={ctxForm.color} onChange={e=>setCtxForm(p=>({...p,color:e.target.value}))}
+              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(226,232,240,0.7)" }}/>
+            <input value={ctxForm.name} onChange={e=>setCtxForm(p=>({...p,name:e.target.value}))}
+              onKeyDown={e=>e.key==="Enter"&&saveCtx()}
+              placeholder={editCtx?"Editar contexto...":"Novo contexto..."}
+              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={saveCtx} disabled={!ctxForm.name.trim()}
+              className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex-shrink-0"
+              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+              {editCtx?"Salvar":"+ Add"}
+            </button>
+            {editCtx && (
+              <button onClick={()=>{setEditCtx(null);setCtxForm({name:"",color:"#64748b"});}}
+                className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>
+            )}
           </div>
         </Section>
       )}
+
+      {/* CONTA */}
+      <Section title="Conta & Sessão" icon="👤">
+        <Row label="Usuário logado" sub={currentProfile?.role === "admin" ? "Administrador" : currentProfile?.role || "Colaborador"}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black text-white"
+              style={{ background:currentProfile?.avatarColor||"#2b8be8" }}>
+              {(currentProfile?.name||"U").charAt(0)}
+            </div>
+            <span className="text-sm font-semibold" style={{ color:"#374151" }}>{currentProfile?.name||"Usuário"}</span>
+          </div>
+        </Row>
+        <Row label="Tema atual" sub="Personalizações salvas localmente no navegador" last>
+          <div className="flex items-center gap-2 text-xs" style={{ color:"#94a3b8" }}>
+            {theme.accent && <div className="w-3 h-3 rounded-full" style={{ background:theme.accent }}/>}
+            {theme.darkMode && <span>🌙 Escuro</span>}
+            {theme.font && theme.font !== FONTS[0].value && <span>Aa</span>}
+            {!theme.accent && !theme.darkMode && !theme.font && <span>Padrão</span>}
+          </div>
+        </Row>
+      </Section>
     </div>
   );
 }
+
 
 
 // ============================================================
