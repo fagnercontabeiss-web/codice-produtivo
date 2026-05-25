@@ -1735,20 +1735,25 @@ function Tasks() {
 function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle }) {
   const [open, setOpen] = useState(false);
   const [portalPos, setPortalPos] = useState({ top:0, left:0, dropUp:false });
-  const ref = useRef(null);
+  const btnRef = useRef(null);
+  const portalRef = useRef(null);
 
+  // Fechar ao clicar FORA — usando mousedown mas ignorando cliques dentro do portal
   useEffect(() => {
     if (!open) return;
     const h = e => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      const insideBtn = btnRef.current && btnRef.current.contains(e.target);
+      const insidePortal = portalRef.current && portalRef.current.contains(e.target);
+      if (!insideBtn && !insidePortal) setOpen(false);
     };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    // Usar mousedown com capture para pegar antes de tudo
+    document.addEventListener("mousedown", h, true);
+    return () => document.removeEventListener("mousedown", h, true);
   }, [open]);
 
   const handleOpen = () => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect();
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       setPortalPos({
         left: rect.left,
@@ -1759,44 +1764,76 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
     setOpen(v => !v);
   };
 
+  const handleSelect = (id) => {
+    onSelect(id);
+    setOpen(false);
+  };
+
   return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={handleOpen}
+    <div className="relative inline-flex">
+      <button
+        ref={btnRef}
+        type="button"
+        onMouseDown={e => e.stopPropagation()}
+        onClick={handleOpen}
         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
-        style={{ color: color || "#64748b", background: color ? color + "18" : "#f1f5f9", border: "1px solid " + (color ? color + "30" : "#e2e8f0") }}>
+        style={{
+          color: color || "#64748b",
+          background: color ? color + "18" : "#f1f5f9",
+          border: "1px solid " + (color ? color + "30" : "#e2e8f0")
+        }}>
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color || "#64748b" }} />
         {label}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5 opacity-50" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="6 9 12 15 18 9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5 opacity-50"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </button>
       {open && createPortal(
-        <div style={{
-          position: "fixed",
-          zIndex: 9999,
-          left: portalPos.left,
-          ...(portalPos.dropUp
-            ? { bottom: window.innerHeight - portalPos.top }
-            : { top: portalPos.top }),
-          minWidth: 180,
-          maxHeight: 240,
-          overflowY: "auto",
-          background: "rgba(255,255,255,0.98)",
-          border: "1px solid rgba(221,227,237,0.8)",
-          borderRadius: 12,
-          boxShadow: "0 8px 32px rgba(26,29,35,0.16)",
-          backdropFilter: "blur(8px)",
-        }}>
-          <div className="px-3 py-2 sticky top-0" style={{ borderBottom: "1px solid rgba(226,232,240,0.6)", background: "rgba(255,255,255,0.98)" }}>
-            <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#94a3b8" }}>{menuTitle}</p>
+        <div
+          ref={portalRef}
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            zIndex: 9999,
+            left: portalPos.left,
+            ...(portalPos.dropUp
+              ? { bottom: window.innerHeight - portalPos.top }
+              : { top: portalPos.top }),
+            minWidth: 190,
+            maxHeight: 260,
+            overflowY: "auto",
+            background: "rgba(255,255,255,0.99)",
+            border: "1px solid rgba(221,227,237,0.9)",
+            borderRadius: 12,
+            boxShadow: "0 8px 32px rgba(26,29,35,0.18)",
+          }}>
+          <div style={{ padding:"8px 12px 6px", borderBottom:"1px solid rgba(226,232,240,0.7)", position:"sticky", top:0, background:"rgba(255,255,255,0.99)" }}>
+            <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8" }}>{menuTitle}</p>
           </div>
           {items.map(item => (
-            <button key={item.id} type="button"
-              onClick={() => { onSelect(item.id); setOpen(false); }}
-              style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background: selectedId===item.id ? (item.color||"#2b8be8")+"18" : "transparent", border:"none", color: selectedId===item.id ? (item.color||"#2b8be8") : "#374151", fontWeight: selectedId===item.id ? 700 : 400 }}
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={() => handleSelect(item.id)}
+              style={{
+                width:"100%", textAlign:"left", padding:"9px 12px",
+                fontSize:12, display:"flex", alignItems:"center", gap:10,
+                cursor:"pointer", border:"none", outline:"none",
+                background: selectedId===item.id ? (item.color||"#2b8be8")+"18" : "transparent",
+                color: selectedId===item.id ? (item.color||"#2b8be8") : "#374151",
+                fontWeight: selectedId===item.id ? 700 : 400,
+              }}
               onMouseEnter={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="#f8fafc"; }}
               onMouseLeave={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="transparent"; }}>
               <span style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:item.color||"#64748b" }}/>
               <span style={{ flex:1 }}>{item.name}</span>
-              {selectedId===item.id && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
+              {selectedId===item.id && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" style={{width:12,height:12}}>
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
             </button>
           ))}
         </div>,
@@ -1805,7 +1842,6 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
     </div>
   );
 }
-
 function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
   // Buscar task SEMPRE do estado global — nunca usar prop diretamente
   const { tasks } = useApp();
