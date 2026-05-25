@@ -1807,9 +1807,10 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
 }
 
 function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
-  // Sempre usar o task mais recente do estado global para evitar stale closure
+  // Buscar task SEMPRE do estado global — nunca usar prop diretamente
   const { tasks } = useApp();
   const task = tasks.find(t => t.id === taskProp.id) || taskProp;
+
   const cat = categories.find(c => c.id === task.categoryId);
   const ctx = contexts.find(c => c.id === task.contextId);
   const od = isOverdue(task.dueDate, task.completed);
@@ -1817,14 +1818,19 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
   const isAdmin = currentProfile?.role === "admin" || !currentProfile;
   const isColab = currentProfile?.role === "colaborador";
   const canAssign = isAdmin || (isColab && currentProfile?.canCreateTasks);
+
   const [showAssign, setShowAssign] = useState(false);
   const [assignPos, setAssignPos] = useState({ top:0, left:0, dropUp:false });
   const [showDetail, setShowDetail] = useState(false);
   const [showComment, setShowComment] = useState(false);
-  const [commentText, setCommentText] = useState(task.description||"");
+  const [commentText, setCommentText] = useState("");
   const [editingDate, setEditingDate] = useState(false);
+  const [datePos, setDatePos] = useState({ top:0, left:0, dropUp:false });
   const assignRef = useRef(null);
   const dateRef = useRef(null);
+
+  // Sync commentText com descrição do task
+  useEffect(() => { setCommentText(task.description||""); }, [task.id]);
 
   useEffect(() => {
     if (!showAssign) return;
@@ -1847,109 +1853,128 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
       const spaceBelow = window.innerHeight - rect.bottom;
       setAssignPos({ left:rect.left, top:spaceBelow<240?rect.top-8:rect.bottom+6, dropUp:spaceBelow<240 });
     }
-    setShowAssign(v => !v);
+    setShowAssign(v=>!v);
+  };
+
+  const handleDateOpen = () => {
+    if (dateRef.current) {
+      const rect = dateRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setDatePos({ left:rect.left, top:spaceBelow<180?rect.top-8:rect.bottom+6, dropUp:spaceBelow<180 });
+    }
+    setEditingDate(v=>!v);
+  };
+
+  // onUpdate seguro — usa o task mais recente do estado
+  const safeUpdate = (patch) => {
+    const fresh = tasks.find(t => t.id === taskProp.id) || task;
+    onUpdate({ ...fresh, ...patch });
   };
 
   const saveComment = () => {
-    onUpdate({...task, description:commentText});
+    safeUpdate({ description: commentText });
     setShowComment(false);
   };
 
-  // Cores rápidas
   const borderColor = od && !task.completed ? "rgba(254,202,202,0.9)" : task.completed ? "rgba(226,232,240,0.5)" : "rgba(221,227,237,0.7)";
   const bg = od && !task.completed ? "rgba(255,245,245,0.95)" : task.completed ? "rgba(248,250,252,0.7)" : "rgba(255,255,255,0.98)";
 
-  // ── MODO ULTRA-COMPACTO ───────────────────────────────────
+  // ── MODO COMPACTO ──────────────────────────────────────
   if (compact) {
     return (
       <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150"
         style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(26,29,35,0.04)" }}
-        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.08)"; e.currentTarget.style.transform="translateX(1px)";}}
-        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(26,29,35,0.04)"; e.currentTarget.style.transform="translateX(0)";}}>
-        <button onClick={onToggle} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateX(1px)";}}
+        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateX(0)";}}>
+        <button onClick={()=>onToggle(task.id)} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
           style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
           {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
         </button>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
         <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
         {cat && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 hidden sm:block" style={{ background:cat.color+"18", color:cat.color }}>{cat.name}</span>}
-        {ctx && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 hidden md:block" style={{ background:ctx.color+"18"||"#f0f4f8", color:ctx.color||"#64748b" }}>{ctx.name}</span>}
         {task.dueDate && <span className="text-[10px] font-medium flex-shrink-0" style={{ color:od&&!task.completed?"#ef4444":"#94a3b8" }}>{new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
         {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2b8be8" }} title={assignedUser.name}>{assignedUser.name.charAt(0)}</div>}
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-1">
-          {!task.completed && <button onClick={onToggle} className="p-1 rounded hover:bg-green-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#10b981"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"} title="Concluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:11,height:11}}><polyline points="20 6 9 17 4 12"/></svg></button>}
-          <button onClick={onEdit} className="p-1 rounded hover:bg-blue-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"} title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          {onDuplicate && <button onClick={()=>onDuplicate(task)} className="p-1 rounded hover:bg-slate-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#64748b"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"} title="Duplicar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>}
-          <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 transition-colors" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"} title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+          {!task.completed && <button onClick={()=>onToggle(task.id)} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#10b981"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:11,height:11}}><polyline points="20 6 9 17 4 12"/></svg></button>}
+          <button onClick={onEdit} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          {onDuplicate && <button onClick={()=>onDuplicate(task)} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#64748b"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>}
+          <button onClick={onDelete} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
         </div>
       </div>
     );
   }
 
-  // ── MODO NORMAL — tudo inline, uma linha principal ────────
+  // ── MODO NORMAL — layout inline ────────────────────────
   return (
     <div className="group rounded-2xl transition-all duration-200"
-      style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow: od&&!task.completed ? "0 2px 12px rgba(239,68,68,0.06)" : "0 2px 12px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}
-      onMouseEnter={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 4px 20px rgba(239,68,68,0.1)":"0 4px 20px rgba(26,29,35,0.08)"; e.currentTarget.style.transform="translateY(-1px)";}}
-      onMouseLeave={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)"; e.currentTarget.style.transform="translateY(0)";}}>
+      style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+      onMouseEnter={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 4px 20px rgba(239,68,68,0.1)":"0 4px 20px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateY(-1px)";}}
+      onMouseLeave={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateY(0)";}}>
 
-      {/* Linha colorida lateral */}
       <div className="flex">
         {cat && <div className="w-1 rounded-l-2xl flex-shrink-0" style={{ background:cat.color, opacity:task.completed?0.25:0.75 }}/>}
         <div className="flex-1 px-4 py-3">
-
-          {/* ── ROW ÚNICA: tudo inline ── */}
           <div className="flex items-center gap-2.5 min-w-0">
 
             {/* Checkbox */}
-            <button onClick={onToggle} className="w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+            <button onClick={()=>onToggle(task.id)}
+              className="rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
               style={{ width:18, height:18, borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
               {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
             </button>
 
             {/* Título */}
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
-              style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>
-              {task.title}
-            </p>
+              style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
 
-            {/* Categoria — sempre visível para poder alterar */}
+            {/* Categoria — sempre visível, usa safeUpdate */}
             <QuickDropdown
               label={cat?.name || "Categoria"}
               color={cat?.color || "#94a3b8"}
               items={categories}
               selectedId={task.categoryId}
-              onSelect={v => onUpdate({...task, categoryId: v})}
+              onSelect={v => safeUpdate({ categoryId: v })}
               menuTitle="Categoria"
             />
 
-            {/* Contexto — sempre visível para poder alterar */}
+            {/* Contexto — sempre visível, usa safeUpdate */}
             <QuickDropdown
               label={ctx?.name || "Contexto"}
               color={ctx?.color || "#94a3b8"}
               items={contexts}
               selectedId={task.contextId}
-              onSelect={v => onUpdate({...task, contextId: v})}
+              onSelect={v => safeUpdate({ contextId: v })}
               menuTitle="Contexto"
             />
 
-            {/* Data */}
+            {/* Data — portal */}
             <div ref={dateRef} className="relative flex-shrink-0">
-              <button onClick={()=>setEditingDate(v=>!v)}
+              <button onClick={handleDateOpen}
                 className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-all"
                 style={{ background:"rgba(226,232,240,0.5)", color:od&&!task.completed?"#dc2626":"#64748b", border:"1px solid rgba(203,213,225,0.4)" }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 {task.dueDate ? new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) : "Prazo"}
               </button>
-              {editingDate && (
-                <div className="absolute z-50 left-0 rounded-xl shadow-xl p-3"
-                  style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)", minWidth:200, backdropFilter:"blur(8px)",
-                    ...(dateRef.current && window.innerHeight-dateRef.current.getBoundingClientRect().bottom<180 ? {bottom:"calc(100% + 6px)"}:{top:"calc(100% + 6px)"}) }}>
+              {editingDate && createPortal(
+                <div style={{
+                  position:"fixed", zIndex:9999,
+                  left: datePos.left,
+                  ...(datePos.dropUp ? { bottom: window.innerHeight - datePos.top } : { top: datePos.top }),
+                  background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)",
+                  borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.15)",
+                  padding:12, minWidth:200, backdropFilter:"blur(8px)"
+                }}>
                   <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Alterar prazo</p>
-                  <input type="date" value={task.dueDate||""} onChange={e=>{ onUpdate({...task,dueDate:e.target.value}); setEditingDate(false); }}
-                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" />
-                  <button onClick={()=>{ onUpdate({...task,dueDate:""}); setEditingDate(false); }} className="mt-2 w-full text-xs text-slate-400 hover:text-red-400 transition-colors">Remover prazo</button>
-                </div>
+                  <input type="date" value={task.dueDate||""}
+                    onChange={e=>{ safeUpdate({ dueDate:e.target.value }); setEditingDate(false); }}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" autoFocus/>
+                  <button onClick={()=>{ safeUpdate({ dueDate:"" }); setEditingDate(false); }}
+                    className="mt-2 w-full text-xs text-slate-400 hover:text-red-400 transition-colors">
+                    Remover prazo
+                  </button>
+                </div>,
+                document.body
               )}
             </div>
 
@@ -1968,13 +1993,13 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                 {showAssign && canAssign && createPortal(
                   <div style={{ position:"fixed", zIndex:9999, left:assignPos.left, ...(assignPos.dropUp?{bottom:window.innerHeight-assignPos.top,top:"auto"}:{top:assignPos.top}), background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.15)", minWidth:190, overflow:"hidden", backdropFilter:"blur(8px)" }}>
                     <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"8px 12px 4px" }}>Atribuir responsável</p>
-                    <button type="button" onClick={()=>{ onUpdate({...task,assignedTo:""}); setShowAssign(false); }}
+                    <button type="button" onClick={()=>{ safeUpdate({ assignedTo:"" }); setShowAssign(false); }}
                       style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
                       onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <div style={{ width:20, height:20, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }}/>Sem responsável
                     </button>
-                    {(teamUsers||[]).filter(u=>u.active!==false).map(u => (
-                      <button key={u.id} type="button" onClick={()=>{ onUpdate({...task,assignedTo:u.id}); setShowAssign(false); }}
+                    {(teamUsers||[]).filter(u=>u.active!==false).map(u=>(
+                      <button key={u.id} type="button" onClick={()=>{ safeUpdate({ assignedTo:u.id }); setShowAssign(false); }}
                         style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2b8be8")+"18":"transparent", border:"none" }}
                         onMouseEnter={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="#f8fafc"; }} onMouseLeave={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="transparent"; }}>
                         <div style={{ width:20, height:20, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#fff", background:u.avatarColor||"#2b8be8" }}>{u.name.charAt(0)}</div>
@@ -1987,26 +2012,26 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </div>
             )}
 
-            {/* Recorrente */}
             {task.isRecurring && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2b8be8", border:"1px solid rgba(191,219,254,0.5)" }}>↻</span>
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2b8be8" }}>↻</span>
             )}
 
-            {/* Espaço flex */}
             <div className="flex-1"/>
 
-            {/* QUICK ACTIONS — aparecem no hover */}
+            {/* Quick actions */}
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
               {!task.completed && (
-                <button onClick={onToggle} title="Concluir" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                <button onClick={()=>onToggle(task.id)} title="Concluir" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
                   onMouseEnter={e=>{e.currentTarget.style.background="rgba(16,185,129,0.1)";e.currentTarget.style.color="#10b981";}}
                   onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:13,height:13}}><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
               )}
-              <button onClick={()=>{setShowDetail(v=>!v);setShowComment(false);}} title="Detalhes" className="p-1.5 rounded-lg transition-all" style={{ color:showDetail?"#2b8be8":"#94a3b8", background:showDetail?"rgba(43,139,232,0.08)":"transparent" }}
+              <button onClick={()=>{ setShowDetail(v=>!v); setShowComment(false); }} title="Detalhes"
+                className="p-1.5 rounded-lg transition-all"
+                style={{ color:showDetail?"#2b8be8":"#94a3b8", background:showDetail?"rgba(43,139,232,0.08)":"transparent" }}
                 onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
-                onMouseLeave={e=>{if(!showDetail){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
+                onMouseLeave={e=>{ if(!showDetail){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </button>
               {onDuplicate && (
@@ -2029,7 +2054,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             </div>
           </div>
 
-          {/* ── ÁREA EXPANDÍVEL (descrição / checklist / comentário) ── */}
+          {/* Área expandível */}
           {showDetail && (
             <div className="mt-2.5 pt-2.5 space-y-2" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
               {showComment ? (
@@ -2037,7 +2062,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                   <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} rows={2} autoFocus
                     placeholder="Descrição ou anotação..."
                     className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-                    style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }} />
+                    style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }}/>
                   <div className="flex gap-2">
                     <button onClick={saveComment} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
                     <button onClick={()=>setShowComment(false)} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
@@ -2053,10 +2078,11 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               )}
               {task.checklist && task.checklist.length > 0 && (
                 <div className="space-y-1">
-                  {task.checklist.map((item,i) => (
+                  {task.checklist.map((item,i)=>(
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <input type="checkbox" checked={item.done} onChange={()=>{ const cl=[...task.checklist]; cl[i]={...cl[i],done:!cl[i].done}; onUpdate({...task,checklist:cl}); }}
-                        className="rounded w-3 h-3 text-blue-500 flex-shrink-0" />
+                      <input type="checkbox" checked={item.done}
+                        onChange={()=>{ const cl=[...task.checklist]; cl[i]={...cl[i],done:!cl[i].done}; safeUpdate({ checklist:cl }); }}
+                        className="rounded w-3 h-3 text-blue-500 flex-shrink-0"/>
                       <span style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
                     </div>
                   ))}
@@ -2069,6 +2095,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
     </div>
   );
 }
+
 
 
 
