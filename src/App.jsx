@@ -1719,20 +1719,31 @@ function Tasks() {
 
 function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle }) {
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(false);
+  const [portalPos, setPortalPos] = useState({ top:0, left:0, dropUp:false });
   const ref = useRef(null);
+
   useEffect(() => {
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    if (!open) return;
+    const h = e => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
-  }, []);
+  }, [open]);
+
   const handleOpen = () => {
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
-      setDropUp(window.innerHeight - rect.bottom < 240);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setPortalPos({
+        left: rect.left,
+        top: spaceBelow < 240 ? rect.top - 4 : rect.bottom + 4,
+        dropUp: spaceBelow < 240,
+      });
     }
     setOpen(v => !v);
   };
+
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={handleOpen}
@@ -1742,26 +1753,39 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
         {label}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5 opacity-50" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      {open && (
-        <div className="absolute z-50 left-0 rounded-xl shadow-xl overflow-hidden"
-          style={{ minWidth: 170, border: "1px solid #e2eaf3", background: "#fff", maxHeight: 220, overflowY: "auto",
-            ...(dropUp ? { bottom:"calc(100% + 6px)" } : { top:"calc(100% + 6px)" }) }}>
-          <div className="px-3 py-2 sticky top-0 bg-white" style={{ borderBottom: "1px solid #dde3ed" }}>
+      {open && createPortal(
+        <div style={{
+          position: "fixed",
+          zIndex: 9999,
+          left: portalPos.left,
+          ...(portalPos.dropUp
+            ? { bottom: window.innerHeight - portalPos.top }
+            : { top: portalPos.top }),
+          minWidth: 180,
+          maxHeight: 240,
+          overflowY: "auto",
+          background: "rgba(255,255,255,0.98)",
+          border: "1px solid rgba(221,227,237,0.8)",
+          borderRadius: 12,
+          boxShadow: "0 8px 32px rgba(26,29,35,0.16)",
+          backdropFilter: "blur(8px)",
+        }}>
+          <div className="px-3 py-2 sticky top-0" style={{ borderBottom: "1px solid rgba(226,232,240,0.6)", background: "rgba(255,255,255,0.98)" }}>
             <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#94a3b8" }}>{menuTitle}</p>
           </div>
           {items.map(item => (
-            <button key={item.id} type="button" onClick={() => { onSelect(item.id); setOpen(false); }}
-              className="w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 transition-colors"
-              style={{ background: selectedId === item.id ? `${item.color}18` : "transparent", color: selectedId === item.id ? item.color : "#44403c", fontWeight: selectedId === item.id ? 700 : 400 }}
-              onMouseEnter={e => { if (selectedId !== item.id) e.currentTarget.style.background = "#f8fafc"; }}
-              onMouseLeave={e => { if (selectedId !== item.id) e.currentTarget.style.background = "transparent"; }}
-            >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
-              <span className="flex-1">{item.name}</span>
-              {selectedId === item.id && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" className="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>}
+            <button key={item.id} type="button"
+              onClick={() => { onSelect(item.id); setOpen(false); }}
+              style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background: selectedId===item.id ? (item.color||"#2b8be8")+"18" : "transparent", border:"none", color: selectedId===item.id ? (item.color||"#2b8be8") : "#374151", fontWeight: selectedId===item.id ? 700 : 400 }}
+              onMouseEnter={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="#f8fafc"; }}
+              onMouseLeave={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="transparent"; }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:item.color||"#64748b" }}/>
+              <span style={{ flex:1 }}>{item.name}</span>
+              {selectedId===item.id && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
