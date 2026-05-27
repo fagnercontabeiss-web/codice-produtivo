@@ -5494,8 +5494,10 @@ function SeveranceSimulation() {
   const [erroCalc, setErroCalc]     = useState("");
   const [sigLeft, setSigLeft]       = useState("Códice Contabilidade");
   const [sigRight, setSigRight]     = useState("");
-  const [editObs, setEditObs]       = useState("");
-  const [editingObs, setEditingObs] = useState(false);
+  const [editObs, setEditObs]           = useState("");
+  const [editingObs, setEditingObs]     = useState(false);
+  const [editMemoria, setEditMemoria]   = useState("");
+  const [editingMemoria, setEditingMemoria] = useState(false);
 
   // Sincronizar saved com o banco ao montar
   const { severanceSimulations } = useApp ? useApp() : { severanceSimulations: [] };
@@ -5631,7 +5633,11 @@ function SeveranceSimulation() {
         "</tfoot></table>" +
       "</div>" +
 
-      "<div class='section'><h3>3. Memória de Cálculo</h3><div class='memo-box'>" + memoriaHtml + "</div></div>" +
+      "<div class='section'><h3>3. Memória de Cálculo</h3><div class='memo-box'>" +
+        editMemoria.split("\n\n").filter(l=>l.trim()).map(l =>
+          "<p style='margin-bottom:8px;line-height:1.7'>" + l.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") + "</p>"
+        ).join("") +
+      "</div></div>" +
 
       "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + editObs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") + "</div></div>" +
 
@@ -5689,6 +5695,7 @@ function SeveranceSimulation() {
       setFormData(f); setReportData(res); setVerbas(res.verbas);
       setSigRight(f.name || "");
       setEditObs(res.observacoes || "");
+      setEditMemoria(res.memoriaCalculo || "");
       setView("result");
     } catch (err) { setErroCalc("Erro ao calcular: " + err.message); }
   };
@@ -5751,6 +5758,7 @@ function SeveranceSimulation() {
                           <button onClick={() => { setReportData(s.reportData); setVerbas(s.verbas); setFormData(s.formData);
               setSigRight(s.reportData?.employeeInfo?.name || "");
               setEditObs(s.reportData?.observacoes || "");
+              setEditMemoria(s.reportData?.memoriaCalculo || "");
               setView("result"); }}
                             className="p-1.5 rounded-lg transition-all" style={{ color:"#2b8be8" }}
                             onMouseEnter={e=>e.currentTarget.style.background="#eff6ff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -5906,12 +5914,40 @@ function SeveranceSimulation() {
           </div>
 
           <div className="mb-7">
-            <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>3. Memória de Cálculo</h3>
-            <div className="rounded-xl p-4 space-y-2 text-sm ml-4" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
-              {reportData.memoriaCalculo.split("\n\n").map((linha, i) => (
-                <p key={i} style={{ color:"#374151", lineHeight:1.6 }} dangerouslySetInnerHTML={{ __html: linha.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#1a1d23'>$1</strong>") }} />
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>3. Memória de Cálculo</h3>
+              <button onClick={()=>setEditingMemoria(v=>!v)}
+                className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
+                style={{ background:editingMemoria?"rgba(43,139,232,0.1)":"rgba(241,245,249,0.8)", color:editingMemoria?"#2b8be8":"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+                {editingMemoria ? "✓ Fechar" : "✏️ Editar"}
+              </button>
             </div>
+            {editingMemoria ? (
+              <div className="ml-4 space-y-2">
+                <p className="text-[10px]" style={{ color:"#94a3b8" }}>
+                  Cada parágrafo é uma linha separada. Use <strong>**texto**</strong> para negrito.
+                </p>
+                <textarea
+                  value={editMemoria}
+                  onChange={e=>setEditMemoria(e.target.value)}
+                  rows={Math.max(8, (editMemoria.match(/\n/g)||[]).length + 4)}
+                  className="w-full border rounded-xl px-4 py-3 text-xs font-mono resize-y focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"#f8fafc", color:"#374151", lineHeight:1.7 }}/>
+                <div className="flex gap-2">
+                  <button onClick={()=>setEditMemoria(reportData.memoriaCalculo||"")}
+                    className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                    style={{ background:"rgba(239,68,68,0.08)", color:"#ef4444", border:"1px solid rgba(239,68,68,0.2)" }}>
+                    ↺ Restaurar original
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl p-4 space-y-2 text-sm ml-4" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+                {editMemoria.split("\n\n").filter(l=>l.trim()).map((linha, i) => (
+                  <p key={i} style={{ color:"#374151", lineHeight:1.6 }} dangerouslySetInnerHTML={{ __html: linha.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#1a1d23'>$1</strong>") }} />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mb-12">
