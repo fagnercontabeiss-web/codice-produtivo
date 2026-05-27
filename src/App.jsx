@@ -29,6 +29,7 @@ const defaultState = {
   onboardings: [],
   onboardingSteps: [],
   projects: [],
+  sops: [],
   clientEvents: [],
   severanceSimulations: [],
   aiAnalyses: [],
@@ -88,6 +89,7 @@ function AppProvider({ children }) {
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
         const projectsRaw  = await db.select("projects").catch(() => []);
+        const sopsRaw      = await db.select("sops").catch(() => []);
         const severanceRaw  = await db.select("severance_simulations").catch(() => []);
         const aiRaw         = await db.select("ai_analyses").catch(() => []);
         const clientEvRaw  = await db.select("client_events").catch(() => []);
@@ -113,6 +115,7 @@ function AppProvider({ children }) {
           clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
           severanceSimulations: (severanceRaw||[]).map(s => ({ id:s.id, date:s.created_at, employeeName:s.employee_name, clientName:s.client_name||"", clientId:s.client_id||null, reason:s.reason, dismissalDate:s.dismissal_date, netAmount:parseFloat(s.net_amount)||0, reportData:s.report_data, verbas:s.verbas, formData:s.form_data })),
           aiAnalyses: (aiRaw||[]).map(a => ({ id:a.id, type:a.type, result:a.result, createdAt:a.created_at })),
+          sops: (sopsRaw||[]).map(s => ({ id:s.id, title:s.title, type:s.type||"sop", category:s.category||"Operacional", sector:s.sector||"", description:s.description||"", content:s.content||"", steps:s.steps||[], checklist:s.checklist||[], tags:s.tags||[], links:s.links||[], priority:s.priority||"medium", difficulty:s.difficulty||"medium", frequency:s.frequency||"recorrente", estimatedTime:s.estimated_time||30, version:s.version||"1.0", isFavorite:s.is_favorite||false, isTemplate:s.is_template||false, responsibleId:s.responsible_id||null, views:s.views||0, executions:s.executions||0, notes:s.notes||"", createdAt:s.created_at, updatedAt:s.updated_at })),
           projects: (projectsRaw||[]).map(p => ({
             id:p.id, title:p.title, description:p.description||"", status:p.status||"todo",
             priority:p.priority||"medium", category:p.category||"", clientId:p.client_id||"",
@@ -278,6 +281,21 @@ function AppProvider({ children }) {
     await db.delete("projects", id).catch(console.error);
   }, []);
 
+  // SOPs actions
+  const sopToDb = s => ({ id:s.id, title:s.title, type:s.type||"sop", category:s.category||"Operacional", sector:s.sector||"", description:s.description||"", content:s.content||"", steps:s.steps||[], checklist:s.checklist||[], tags:s.tags||[], links:s.links||[], priority:s.priority||"medium", difficulty:s.difficulty||"medium", frequency:s.frequency||"recorrente", estimated_time:s.estimatedTime||30, version:s.version||"1.0", is_favorite:s.isFavorite||false, is_template:s.isTemplate||false, responsible_id:s.responsibleId||null, views:s.views||0, executions:s.executions||0, notes:s.notes||"", updated_at:new Date().toISOString() });
+  const addSop = useCallback(async s => {
+    setState(st => ({ ...st, sops:[s,...st.sops] }));
+    await db.upsert("sops", sopToDb(s)).catch(console.error);
+  }, []);
+  const updateSop = useCallback(async s => {
+    setState(st => ({ ...st, sops:st.sops.map(x => x.id===s.id?s:x) }));
+    await db.upsert("sops", sopToDb(s)).catch(console.error);
+  }, []);
+  const deleteSop = useCallback(async id => {
+    setState(st => ({ ...st, sops:st.sops.filter(s => s.id!==id) }));
+    await db.delete("sops", id).catch(console.error);
+  }, []);
+
   // AI actions
   const saveAiAnalysis = useCallback(async (type, result) => {
     const entry = { id:uid(), type, result, createdAt:new Date().toISOString() };
@@ -335,7 +353,7 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject, saveAiAnalysis };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject, saveAiAnalysis, addSop, updateSop, deleteSop };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -578,6 +596,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       items: [
         { id: "projects",  label: "Projetos",     icon: Icon.Tasks },
         { id: "codiceai",  label: "Códice IA",    icon: Icon.Sparkles },
+        { id: "sops",      label: "SOPs & Playbooks", icon: Icon.Tasks },
         { id: "reports",   label: "Relatórios",   icon: Icon.Reports },
         { id: "workload", label: "Workload",       icon: Icon.Tasks },
         { id: "settings", label: "Configurações", icon: Icon.Settings },
@@ -9153,6 +9172,771 @@ function CodiceIA() {
   );
 }
 
+
+// ============================================================
+// SOPs & PLAYBOOKS — Central Operacional
+// ============================================================
+
+const SOP_CATEGORIES = ["Fiscal","Contábil","Departamento Pessoal","Jurídico","Administrativo","Comercial","Marketing","Financeiro","Atendimento","Operacional"];
+
+const SOP_PRIORITY = {
+  low:      { label:"Baixa",    color:"#94a3b8", bg:"rgba(148,163,184,0.1)" },
+  medium:   { label:"Média",    color:"#f59e0b", bg:"rgba(245,158,11,0.1)"  },
+  high:     { label:"Alta",     color:"#f97316", bg:"rgba(249,115,22,0.1)"  },
+  critical: { label:"Crítica",  color:"#ef4444", bg:"rgba(239,68,68,0.1)"   },
+};
+const SOP_DIFFICULTY = {
+  easy:   { label:"Fácil",   color:"#10b981" },
+  medium: { label:"Médio",   color:"#f59e0b" },
+  hard:   { label:"Difícil", color:"#ef4444" },
+};
+const SOP_TYPE = {
+  sop:      { label:"SOP",      icon:"📋", color:"#2b8be8", bg:"rgba(43,139,232,0.08)"  },
+  playbook: { label:"Playbook", icon:"📘", color:"#a855f7", bg:"rgba(168,85,247,0.08)"  },
+};
+
+const SOP_TEMPLATES = [
+  { title:"Admissão de Colaborador", category:"Departamento Pessoal", type:"sop", priority:"high", estimatedTime:120, difficulty:"medium",
+    steps:["Receber documentos do colaborador","Registrar no e-Social","Assinar CTPS","Configurar folha de pagamento","Abertura de conta salário","Cadastro no plano de saúde","Entrega de EPIs","Integração e treinamento inicial"],
+    checklist:["Documentos recebidos e conferidos","Cadastro e-Social realizado","CTPS assinada","Folha configurada","Conta salário aberta","Cadastro benefícios realizado"] },
+  { title:"Rescisão de Contrato CLT", category:"Departamento Pessoal", type:"sop", priority:"high", estimatedTime:90, difficulty:"medium",
+    steps:["Receber comunicado de rescisão","Calcular verbas rescisórias","Emitir Termo de Rescisão","Homologar rescisão","Dar baixa na CTPS","Gerar guia FGTS e multa","Emitir Seguro Desemprego"],
+    checklist:["Motivo da rescisão verificado","Cálculo conferido","TRCT emitido","Baixa CTPS realizada","FGTS/multa quitados"] },
+  { title:"Abertura de CNPJ", category:"Fiscal", type:"sop", priority:"high", estimatedTime:480, difficulty:"hard",
+    steps:["Coleta de documentos dos sócios","Definir objeto social e CNAE","Escolher regime tributário","Elaborar contrato social","Registrar na Junta Comercial","Obter CNPJ na Receita Federal","Inscrição Estadual","Alvará de funcionamento","Abertura de conta PJ"],
+    checklist:["Documentos dos sócios coletados","Objeto social definido","Regime tributário escolhido","Contrato social elaborado","Registro Junta realizado","CNPJ obtido"] },
+  { title:"Onboarding de Cliente", category:"Contábil", type:"playbook", priority:"high", estimatedTime:240, difficulty:"medium",
+    steps:["Reunião de boas-vindas","Coleta de documentos da empresa","Levantamento de pendências fiscais","Migração do contador anterior","Parametrização no sistema","Primeiro fechamento contábil","Apresentação dos relatórios"],
+    checklist:["Reunião realizada","Documentos coletados","Pendências levantadas","Migração concluída","Sistema parametrizado"] },
+  { title:"Folha de Pagamento", category:"Departamento Pessoal", type:"sop", priority:"critical", estimatedTime:180, difficulty:"medium",
+    steps:["Verificar marcações de ponto","Lançar horas extras e faltas","Calcular descontos","Processar folha no sistema","Gerar guia INSS e IRRF","Emitir holerites","Realizar pagamento"],
+    checklist:["Ponto verificado","Horas extras lançadas","Descontos calculados","Folha processada","Guias geradas","Holerites emitidos","Pagamento realizado"] },
+  { title:"Regularização Fiscal", category:"Fiscal", type:"sop", priority:"critical", estimatedTime:360, difficulty:"hard",
+    steps:["Diagnóstico fiscal inicial","Levantamento de débitos","Negociar parcelamento (REFIS/PERT)","Entregar declarações em atraso","Regularização Receita Federal","Regularização Secretaria Estadual","Regularização Prefeitura","Obter Certidões Negativas"],
+    checklist:["Diagnóstico realizado","Débitos levantados","Parcelamento negociado","Declarações entregues","Certidões obtidas"] },
+];
+
+function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
+  const typeConf = SOP_TYPE[sop.type] || SOP_TYPE.sop;
+  const priorConf = SOP_PRIORITY[sop.priority] || SOP_PRIORITY.medium;
+  const doneSteps = (sop.checklist||[]).filter(c=>c.done).length;
+  const totalSteps = (sop.checklist||[]).length;
+  const pct = totalSteps > 0 ? Math.round(doneSteps/totalSteps*100) : 0;
+
+  return (
+    <div className="group rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer"
+      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+      onClick={()=>onOpen(sop)}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,139,232,0.2)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
+      {/* Top accent */}
+      <div className="h-0.5" style={{ background:`linear-gradient(90deg,${typeConf.color},${typeConf.color}44)` }}/>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+              style={{ background:typeConf.bg }}>
+              {typeConf.icon}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md" style={{ background:typeConf.bg, color:typeConf.color }}>{typeConf.label}</span>
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md" style={{ background:priorConf.bg, color:priorConf.color }}>{priorConf.label}</span>
+              </div>
+              <h3 className="text-sm font-black leading-snug" style={{ color:"#1a1d23" }}>{sop.title}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+            <button onClick={e=>{e.stopPropagation();onFavorite(sop);}} className="p-1.5 rounded-lg transition-all" style={{ color:sop.isFavorite?"#f59e0b":"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(245,158,11,0.08)";e.currentTarget.style.color="#f59e0b";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";if(!sop.isFavorite)e.currentTarget.style.color="#94a3b8";}}>
+              <svg viewBox="0 0 24 24" fill={sop.isFavorite?"currentColor":"none"} stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </button>
+            {isAdmin && (
+              <button onClick={e=>{e.stopPropagation();onDelete(sop.id);}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
+                <Icon.Trash />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {sop.description && <p className="text-xs mb-3 line-clamp-2" style={{ color:"#64748b", lineHeight:1.5 }}>{sop.description}</p>}
+
+        {totalSteps > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px]" style={{ color:"#94a3b8" }}>{doneSteps}/{totalSteps} etapas</span>
+              <span className="text-[10px] font-bold" style={{ color:pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+            </div>
+            <div className="w-full h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+              <div className="h-1 rounded-full transition-all" style={{ width:pct+"%", background:pct===100?"#10b981":"#2b8be8" }}/>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-[10px]" style={{ color:"#94a3b8" }}>
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(226,232,240,0.5)" }}>{sop.category}</span>
+            {sop.estimatedTime && <span>⏱ {sop.estimatedTime}min</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {sop.executions > 0 && <span>▶ {sop.executions}x</span>}
+            {sop.tags?.slice(0,2).map(t=><span key={t} className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{t}</span>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
+  const { sops } = useApp();
+  const sop = sops.find(s => s.id === sopProp.id) || sopProp;
+  const [executionMode, setExecutionMode] = useState(false);
+  const [checklist, setChecklist] = useState(sop.checklist||[]);
+  const [timer, setTimer] = useState(0);
+  const [timerOn, setTimerOn] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setChecklist(sop.checklist||[]);
+  }, [sop.id]);
+
+  useEffect(() => {
+    if (timerOn) { timerRef.current = setInterval(()=>setTimer(t=>t+1),1000); }
+    else { clearInterval(timerRef.current); }
+    return () => clearInterval(timerRef.current);
+  }, [timerOn]);
+
+  const toggleCheck = (i) => {
+    const next = [...checklist];
+    next[i] = { ...next[i], done: !next[i].done };
+    setChecklist(next);
+    onUpdate({ ...sop, checklist:next, executions:(sop.executions||0)+1 });
+  };
+
+  const done = checklist.filter(c=>c.done).length;
+  const pct = checklist.length > 0 ? Math.round(done/checklist.length*100) : 0;
+  const typeConf = SOP_TYPE[sop.type] || SOP_TYPE.sop;
+  const priorConf = SOP_PRIORITY[sop.priority] || SOP_PRIORITY.medium;
+  const diffConf = SOP_DIFFICULTY[sop.difficulty] || SOP_DIFFICULTY.medium;
+  const responsible = teamUsers?.find(u => u.id === sop.responsibleId);
+
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  return (
+    <Modal title="" onClose={onClose} maxWidth="max-w-2xl">
+      <div style={{ maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+        {/* Header */}
+        <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.6)", background:`linear-gradient(135deg,${typeConf.bg},rgba(255,255,255,0.98))` }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background:typeConf.bg, border:`1px solid ${typeConf.color}20` }}>{typeConf.icon}</div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:typeConf.bg, color:typeConf.color }}>{typeConf.label}</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:priorConf.bg, color:priorConf.color }}>{priorConf.label}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>v{sop.version||"1.0"}</span>
+                </div>
+                <h2 className="text-base font-black" style={{ color:"#1a1d23" }}>{sop.title}</h2>
+                <div className="flex items-center gap-3 mt-1 text-[10px]" style={{ color:"#94a3b8" }}>
+                  {sop.category && <span>📁 {sop.category}</span>}
+                  {sop.estimatedTime && <span>⏱ {sop.estimatedTime}min</span>}
+                  <span style={{ color:diffConf.color }}>● {diffConf.label}</span>
+                  {responsible && <span>👤 {responsible.name.split(" ")[0]}</span>}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Cronômetro */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(26,29,35,0.06)", border:"1px solid rgba(26,29,35,0.08)" }}>
+                <span className="text-xs font-mono font-bold" style={{ color:"#1a1d23" }}>{fmt(timer)}</span>
+                <button onClick={()=>setTimerOn(v=>!v)} className="p-0.5 rounded transition-all" style={{ color:timerOn?"#ef4444":"#10b981" }}>
+                  {timerOn
+                    ? <svg viewBox="0 0 24 24" fill="currentColor" style={{width:12,height:12}}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    : <svg viewBox="0 0 24 24" fill="currentColor" style={{width:12,height:12}}><polygon points="5 3 19 12 5 21 5 3"/></svg>}
+                </button>
+                <button onClick={()=>{setTimer(0);setTimerOn(false);}} className="p-0.5 rounded text-slate-400 hover:text-slate-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                </button>
+              </div>
+              <button onClick={()=>setExecutionMode(v=>!v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
+                style={{ background:executionMode?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(241,245,249,0.8)", color:executionMode?"#5aaff5":"#64748b", border:executionMode?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.7)" }}>
+                ⚡ {executionMode ? "Sair" : "Executar"}
+              </button>
+            </div>
+          </div>
+
+          {/* Progresso */}
+          {checklist.length > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
+                <span className="text-xs font-black" style={{ color:pct===100?"#10b981":"#2b8be8" }}>{done}/{checklist.length} ({pct}%)</span>
+              </div>
+              <div className="w-full h-2 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                <div className="h-2 rounded-full transition-all duration-500"
+                  style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#2b8be8,#1d6fd4)" }}/>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* MODO EXECUÇÃO */}
+          {executionMode ? (
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:"rgba(91,170,255,0.8)" }}>⚡ Modo Execução — foco total</p>
+              {checklist.length === 0 ? (
+                <p className="text-sm" style={{ color:"#94a3b8" }}>Nenhum item de checklist neste SOP.</p>
+              ) : checklist.map((item,i) => (
+                <div key={i} onClick={()=>toggleCheck(i)}
+                  className="flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all"
+                  style={{
+                    background:item.done?"rgba(16,185,129,0.06)":"rgba(255,255,255,0.98)",
+                    border:item.done?"1.5px solid rgba(16,185,129,0.2)":"1px solid rgba(221,227,237,0.7)",
+                    boxShadow:item.done?"none":"0 2px 8px rgba(26,29,35,0.04)",
+                  }}
+                  onMouseEnter={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(43,139,232,0.3)";}}
+                  onMouseLeave={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
+                  <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{ borderColor:item.done?"#10b981":"#d1d5db", background:item.done?"#10b981":"transparent" }}>
+                    {item.done && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold" style={{ color:item.done?"#94a3b8":"#1a1d23", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                    {item.note && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{item.note}</p>}
+                  </div>
+                  <span className="text-xs font-bold" style={{ color:"#cbd5e1" }}>{i+1}</span>
+                </div>
+              ))}
+              {pct === 100 && (
+                <div className="rounded-2xl p-5 text-center" style={{ background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.2)" }}>
+                  <p className="text-2xl mb-1">🎉</p>
+                  <p className="text-sm font-black" style={{ color:"#10b981" }}>SOP concluído com sucesso!</p>
+                  <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Tempo: {fmt(timer)}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Descrição */}
+              {sop.description && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Descrição</p>
+                  <p className="text-sm leading-relaxed" style={{ color:"#374151" }}>{sop.description}</p>
+                </div>
+              )}
+
+              {/* Etapas */}
+              {(sop.steps||[]).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Etapas do Processo</p>
+                  <div className="space-y-2">
+                    {sop.steps.map((step,i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{i+1}</div>
+                        <p className="text-sm flex-1" style={{ color:"#374151", lineHeight:1.5 }}>{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Checklist */}
+              {checklist.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Checklist Operacional</p>
+                  <div className="space-y-2">
+                    {checklist.map((item,i) => (
+                      <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all"
+                        style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}
+                        onClick={()=>toggleCheck(i)}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(43,139,232,0.2)"}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        <div className="w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{ borderColor:item.done?"#10b981":"#d1d5db", background:item.done?"#10b981":"transparent" }}>
+                          {item.done && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:8,height:8}}><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <span className="text-sm flex-1" style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Conteúdo */}
+              {sop.content && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Conteúdo</p>
+                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(226,232,240,0.5)", whiteSpace:"pre-wrap" }}>{sop.content}</div>
+                </div>
+              )}
+
+              {/* Tags + Links */}
+              {(sop.tags?.length > 0 || sop.links?.length > 0) && (
+                <div className="flex flex-wrap gap-2">
+                  {sop.tags?.map(t => <span key={t} className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{t}</span>)}
+                  {sop.links?.map((l,i) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:"rgba(16,185,129,0.08)", color:"#10b981" }}>🔗 {l.label||l.url}</a>)}
+                </div>
+              )}
+
+              {/* Notas */}
+              {sop.notes && (
+                <div className="rounded-xl p-3 text-xs italic" style={{ background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.15)", color:"#92400e" }}>
+                  📝 {sop.notes}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function SopForm({ sop, onSave, onClose }) {
+  const { teamUsers } = useApp();
+  const empty = { title:"", type:"sop", category:"Operacional", sector:"", description:"", content:"", steps:[], checklist:[], tags:[], links:[], priority:"medium", difficulty:"medium", frequency:"recorrente", estimatedTime:30, version:"1.0", isFavorite:false, isTemplate:false, responsibleId:"", notes:"" };
+  const [f, setF] = useState(sop ? { title:sop.title, type:sop.type||"sop", category:sop.category||"Operacional", sector:sop.sector||"", description:sop.description||"", content:sop.content||"", steps:[...(sop.steps||[])], checklist:[...(sop.checklist||[])], tags:[...(sop.tags||[])], links:[...(sop.links||[])], priority:sop.priority||"medium", difficulty:sop.difficulty||"medium", frequency:sop.frequency||"recorrente", estimatedTime:sop.estimatedTime||30, version:sop.version||"1.0", isFavorite:sop.isFavorite||false, isTemplate:sop.isTemplate||false, responsibleId:sop.responsibleId||"", notes:sop.notes||"" } : empty);
+  const [newStep, setNewStep] = useState("");
+  const [newCheck, setNewCheck] = useState("");
+  const [newTag, setNewTag] = useState("");
+
+  return (
+    <Modal title={sop?"Editar SOP":"Novo SOP / Playbook"} onClose={onClose} maxWidth="max-w-2xl">
+      <div className="p-6 overflow-y-auto space-y-5" style={{ maxHeight:"80vh" }}>
+        {/* Tipo */}
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(SOP_TYPE).map(([k,v])=>(
+            <button key={k} type="button" onClick={()=>setF(p=>({...p,type:k}))}
+              className="p-3 rounded-xl text-left transition-all"
+              style={{ background:f.type===k?v.bg:"rgba(248,250,252,0.7)", border:f.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.6)" }}>
+              <span className="text-lg">{v.icon}</span>
+              <p className="text-xs font-black mt-1" style={{ color:f.type===k?v.color:"#374151" }}>{v.label}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Título */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Título *</label>
+          <input value={f.title} onChange={e=>setF(p=>({...p,title:e.target.value}))} placeholder="Ex: Admissão de Colaborador"
+            className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Descrição */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Descrição</label>
+          <textarea value={f.description} onChange={e=>setF(p=>({...p,description:e.target.value}))} rows={2}
+            placeholder="Objetivo e contexto deste SOP..."
+            className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Grid 3 col */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Categoria</label>
+            <select value={f.category} onChange={e=>setF(p=>({...p,category:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              {SOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Prioridade</label>
+            <select value={f.priority} onChange={e=>setF(p=>({...p,priority:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              {Object.entries(SOP_PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Dificuldade</label>
+            <select value={f.difficulty} onChange={e=>setF(p=>({...p,difficulty:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              {Object.entries(SOP_DIFFICULTY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Tempo (min)</label>
+            <input type="number" value={f.estimatedTime} onChange={e=>setF(p=>({...p,estimatedTime:Number(e.target.value)}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Versão</label>
+            <input value={f.version} onChange={e=>setF(p=>({...p,version:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
+            <select value={f.responsibleId} onChange={e=>setF(p=>({...p,responsibleId:e.target.value}))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              <option value="">Nenhum</option>
+              {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Etapas */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Etapas do Processo</label>
+          <div className="space-y-1.5 mb-2">
+            {f.steps.map((s,i)=>(
+              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"#2b8be8" }}>{i+1}</span>
+                <span className="flex-1 text-xs" style={{ color:"#374151" }}>{s}</span>
+                <button type="button" onClick={()=>setF(p=>({...p,steps:p.steps.filter((_,j)=>j!==i)}))} className="text-slate-300 hover:text-red-400 transition-colors">×</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={newStep} onChange={e=>setNewStep(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newStep.trim()){ setF(p=>({...p,steps:[...p.steps,newStep.trim()]})); setNewStep(""); } }} placeholder="Adicionar etapa (Enter)..."
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button type="button" onClick={()=>{ if(newStep.trim()){ setF(p=>({...p,steps:[...p.steps,newStep.trim()]})); setNewStep(""); }}}
+              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+</button>
+          </div>
+        </div>
+
+        {/* Checklist */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Checklist</label>
+          <div className="space-y-1.5 mb-2">
+            {f.checklist.map((c,i)=>(
+              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                <input type="checkbox" checked={c.done||false} onChange={()=>setF(p=>{ const cl=[...p.checklist]; cl[i]={...cl[i],done:!cl[i].done}; return {...p,checklist:cl}; })} className="w-3.5 h-3.5 rounded" style={{ accentColor:"#2b8be8" }}/>
+                <span className="flex-1 text-xs" style={{ color:"#374151" }}>{c.text}</span>
+                <button type="button" onClick={()=>setF(p=>({...p,checklist:p.checklist.filter((_,j)=>j!==i)}))} className="text-slate-300 hover:text-red-400 transition-colors">×</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={newCheck} onChange={e=>setNewCheck(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newCheck.trim()){ setF(p=>({...p,checklist:[...p.checklist,{text:newCheck.trim(),done:false}]})); setNewCheck(""); } }} placeholder="Adicionar item (Enter)..."
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button type="button" onClick={()=>{ if(newCheck.trim()){ setF(p=>({...p,checklist:[...p.checklist,{text:newCheck.trim(),done:false}]})); setNewCheck(""); }}}
+              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+</button>
+          </div>
+        </div>
+
+        {/* Conteúdo livre */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Conteúdo / Instruções detalhadas</label>
+          <textarea value={f.content} onChange={e=>setF(p=>({...p,content:e.target.value}))} rows={4}
+            placeholder="Instruções detalhadas, observações técnicas, referências legais..."
+            className="w-full border rounded-xl px-3 py-2 text-sm resize-y focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Tags</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {f.tags.map((t,i)=>(
+              <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>
+                #{t}<button type="button" onClick={()=>setF(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
+              </span>
+            ))}
+          </div>
+          <input value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newTag.trim()){ setF(p=>({...p,tags:[...p.tags,newTag.trim()]})); setNewTag(""); }}} placeholder="Adicionar tag (Enter)..."
+            className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Observações</label>
+          <textarea value={f.notes} onChange={e=>setF(p=>({...p,notes:e.target.value}))} rows={2}
+            placeholder="Notas internas, alertas ou contexto adicional..."
+            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+
+        {/* Flags */}
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <button type="button" onClick={()=>setF(p=>({...p,isTemplate:!p.isTemplate}))}
+              className="relative w-9 h-5 rounded-full transition-all"
+              style={{ background:f.isTemplate?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(203,213,225,0.7)" }}>
+              <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left:f.isTemplate?"calc(100% - 18px)":"2px" }}/>
+            </button>
+            <span className="text-xs font-semibold" style={{ color:"#374151" }}>Salvar como template</span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+          <button onClick={()=>onSave(f)} disabled={!f.title.trim()}
+            className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+            <Icon.Plus />{sop?"Salvar":"Criar"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function SOPs() {
+  const { sops, addSop, updateSop, deleteSop, currentProfile } = useApp();
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
+  const [view, setView] = useState("home"); // home | list
+  const [search, setSearch] = useState("");
+  const [filterCat, setFilterCat] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingSop, setEditingSop] = useState(null);
+  const [detailSop, setDetailSop] = useState(null);
+  const [templateMode, setTemplateMode] = useState(false);
+
+  const { teamUsers } = useApp();
+
+  const handleSave = async (f) => {
+    if (editingSop) {
+      await updateSop({ ...editingSop, ...f, updatedAt:new Date().toISOString() });
+    } else {
+      await addSop({ id:uid(), ...f, views:0, executions:0, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
+    }
+    setFormOpen(false); setEditingSop(null);
+  };
+
+  const useTemplate = async (tpl) => {
+    await addSop({ id:uid(), ...tpl, isFavorite:false, isTemplate:false, views:0, executions:0, version:"1.0", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
+    setTemplateMode(false);
+  };
+
+  const filtered = sops.filter(s => {
+    if (search && !s.title.toLowerCase().includes(search.toLowerCase()) && !s.description?.toLowerCase().includes(search.toLowerCase()) && !s.tags?.some(t=>t.toLowerCase().includes(search.toLowerCase()))) return false;
+    if (filterCat !== "all" && s.category !== filterCat) return false;
+    if (filterType !== "all" && s.type !== filterType) return false;
+    if (filterPriority !== "all" && s.priority !== filterPriority) return false;
+    return true;
+  });
+
+  const favorites = sops.filter(s=>s.isFavorite);
+  const recents = [...sops].sort((a,b)=>b.updatedAt?.localeCompare(a.updatedAt||"")||0).slice(0,4);
+  const critical = sops.filter(s=>s.priority==="critical"&&s.type==="sop");
+  const categories = [...new Set(sops.map(s=>s.category).filter(Boolean))];
+
+  const catCounts = sops.reduce((acc,s)=>{ acc[s.category]=(acc[s.category]||0)+1; return acc; },{});
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>📚 SOPs & Playbooks</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Central operacional do escritório — processos, padrões e playbooks</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>setTemplateMode(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+            style={{ background:"rgba(241,245,249,0.9)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+            📋 Templates
+          </button>
+          {isAdmin && (
+            <button onClick={()=>{setEditingSop(null);setFormOpen(true);}}
+              className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              <Icon.Plus />Novo SOP
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search + Filtros */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="relative flex-1" style={{ minWidth:200, maxWidth:320 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{width:14,height:14,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar SOPs, playbooks, tags..."
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todos os tipos</option>
+          <option value="sop">📋 SOP</option>
+          <option value="playbook">📘 Playbook</option>
+        </select>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todas categorias</option>
+          {SOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todas prioridades</option>
+          {Object.entries(SOP_PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      {/* Empty state */}
+      {sops.length === 0 && !templateMode ? (
+        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+          <p className="text-5xl mb-4">📚</p>
+          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>Nenhum SOP ainda</p>
+          <p className="text-sm mt-1 mb-5" style={{ color:"#94a3b8" }}>Comece pelos templates prontos ou crie do zero</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={()=>setTemplateMode(true)} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background:"rgba(241,245,249,0.9)", color:"#374151", border:"1px solid rgba(226,232,240,0.7)" }}>📋 Usar templates</button>
+            {isAdmin && <button onClick={()=>{setEditingSop(null);setFormOpen(true);}} className="px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>+ Criar do zero</button>}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Favoritos */}
+          {favorites.length > 0 && !search && filterCat==="all" && filterType==="all" && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
+                <span style={{ color:"#f59e0b" }}>★</span> Favoritos
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {favorites.map(s=>(
+                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
+                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Processos críticos */}
+          {critical.length > 0 && !search && filterCat==="all" && filterType==="all" && filterPriority==="all" && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
+                <span style={{ color:"#ef4444" }}>⚡</span> Processos Críticos
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {critical.map(s=>(
+                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
+                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Categorias com contadores */}
+          {!search && categories.length > 0 && filterCat==="all" && filterType==="all" && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Por Categoria</p>
+              <div className="flex gap-2 flex-wrap">
+                {categories.map(c=>(
+                  <button key={c} onClick={()=>setFilterCat(c)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 2px 6px rgba(26,29,35,0.04)" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(43,139,232,0.3)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";e.currentTarget.style.color="#374151";}}>
+                    {c}
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>{catCounts[c]||0}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Todos os SOPs filtrados */}
+          {filtered.length > 0 && (
+            <div>
+              {(search || filterCat!=="all" || filterType!=="all" || filterPriority!=="all") && (
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>
+                  {filtered.length} resultado{filtered.length!==1?"s":""}
+                  {filterCat!=="all" && ` — ${filterCat}`}
+                </p>
+              )}
+              {!search && filterCat==="all" && filterType==="all" && filterPriority==="all" && (
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Todos ({filtered.length})</p>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map(s=>(
+                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
+                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 && search && (
+            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+              <p className="text-3xl mb-2">🔍</p>
+              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum resultado para "{search}"</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Templates Modal */}
+      {templateMode && (
+        <Modal title="📋 Templates de SOPs" onClose={()=>setTemplateMode(false)} maxWidth="max-w-2xl">
+          <div className="p-5 overflow-y-auto" style={{ maxHeight:"75vh" }}>
+            <p className="text-xs mb-4" style={{ color:"#94a3b8" }}>Clique em um template para adicionar à sua biblioteca.</p>
+            <div className="grid grid-cols-1 gap-3">
+              {SOP_TEMPLATES.map((tpl,i)=>{
+                const tc = SOP_TYPE[tpl.type]||SOP_TYPE.sop;
+                const pc = SOP_PRIORITY[tpl.priority]||SOP_PRIORITY.medium;
+                const already = sops.some(s=>s.title===tpl.title);
+                return (
+                  <div key={i} className="flex items-center gap-3 p-4 rounded-xl transition-all"
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)", opacity:already?0.5:1 }}>
+                    <span className="text-2xl flex-shrink-0">{tc.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{tpl.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px]" style={{ color:tc.color }}>{tc.label}</span>
+                        <span className="text-[10px]" style={{ color:"#94a3b8" }}>• {tpl.category}</span>
+                        <span className="text-[10px]" style={{ color:pc.color }}>• {pc.label}</span>
+                        <span className="text-[10px]" style={{ color:"#94a3b8" }}>• ⏱{tpl.estimatedTime}min</span>
+                        <span className="text-[10px]" style={{ color:"#94a3b8" }}>• {tpl.steps?.length||0} etapas</span>
+                      </div>
+                    </div>
+                    <button onClick={()=>!already&&useTemplate(tpl)} disabled={already}
+                      className="px-3 py-1.5 text-white rounded-xl text-xs font-bold flex-shrink-0 disabled:opacity-40"
+                      style={{ background:already?"#94a3b8":"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                      {already?"Adicionado":"+ Usar"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Form */}
+      {formOpen && <SopForm sop={editingSop} onSave={handleSave} onClose={()=>{setFormOpen(false);setEditingSop(null);}}/>}
+
+      {/* Detail */}
+      {detailSop && (
+        <SopDetail
+          sop={sops.find(s=>s.id===detailSop.id)||detailSop}
+          onClose={()=>setDetailSop(null)}
+          onUpdate={updateSop}
+          isAdmin={isAdmin}
+          teamUsers={teamUsers}
+        />
+      )}
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -9203,6 +9987,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
       {activeTab === "codiceai" && <CodiceIA />}
+      {activeTab === "sops" && <SOPs />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
