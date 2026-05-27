@@ -9198,7 +9198,7 @@ function AppContent({ onLogout }) {
       {activeTab === "onboarding" && <Onboarding />}
       {!isViewer && activeTab === "obligations" && <Obligations />}
       {!isViewer && activeTab === "reports" && <Reports />}
-      {isAdmin   && activeTab === "severance" && <SeveranceSimulation />}
+      {activeTab === "severance" && <SeveranceSimulation />}
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
