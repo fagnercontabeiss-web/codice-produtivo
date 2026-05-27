@@ -587,7 +587,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
   ];
 
   // Abas exclusivas do admin (nunca aparecem para outros)
-  const adminOnlyTabs = ["settings", "team", "severance", "reports"];
+  const adminOnlyTabs = ["settings", "team", "reports"];
 
   const navGroups = allNavDefs.map(group => ({
     ...group,
