@@ -8724,7 +8724,17 @@ function CodiceIA() {
     };
   };
 
-  const getSession = () => { try { const s = JSON.parse(localStorage.getItem("sb-kpgpcqjefrixzshmskls-auth-token")||"{}"); return s.access_token||""; } catch { return ""; } };
+  // Token JWT direto do auth module — sempre o mais atual
+  const getSession = () => {
+    try {
+      // Prioridade 1: session em memória (mais fresca)
+      const session = auth.getSession();
+      if (session?.access_token) return session.access_token;
+      // Prioridade 2: localStorage como fallback
+      const s = JSON.parse(localStorage.getItem("sb_session")||"{}");
+      return s.access_token || "";
+    } catch { return ""; }
+  };
 
   const runAnalysis = async (type = "full") => {
     setLoading(p=>({...p,[type]:true}));
