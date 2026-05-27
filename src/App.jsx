@@ -31,6 +31,7 @@ const defaultState = {
   projects: [],
   clientEvents: [],
   severanceSimulations: [],
+  aiAnalyses: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
   settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
@@ -87,7 +88,8 @@ function AppProvider({ children }) {
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
         const projectsRaw  = await db.select("projects").catch(() => []);
-        const severanceRaw = await db.select("severance_simulations").catch(() => []);
+        const severanceRaw  = await db.select("severance_simulations").catch(() => []);
+        const aiRaw         = await db.select("ai_analyses").catch(() => []);
         const clientEvRaw  = await db.select("client_events").catch(() => []);
         const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
         const currentUserId = auth.getUserId();
@@ -110,6 +112,7 @@ function AppProvider({ children }) {
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
           clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
           severanceSimulations: (severanceRaw||[]).map(s => ({ id:s.id, date:s.created_at, employeeName:s.employee_name, clientName:s.client_name||"", clientId:s.client_id||null, reason:s.reason, dismissalDate:s.dismissal_date, netAmount:parseFloat(s.net_amount)||0, reportData:s.report_data, verbas:s.verbas, formData:s.form_data })),
+          aiAnalyses: (aiRaw||[]).map(a => ({ id:a.id, type:a.type, result:a.result, createdAt:a.created_at })),
           projects: (projectsRaw||[]).map(p => ({
             id:p.id, title:p.title, description:p.description||"", status:p.status||"todo",
             priority:p.priority||"medium", category:p.category||"", clientId:p.client_id||"",
@@ -275,6 +278,13 @@ function AppProvider({ children }) {
     await db.delete("projects", id).catch(console.error);
   }, []);
 
+  // AI actions
+  const saveAiAnalysis = useCallback(async (type, result) => {
+    const entry = { id:uid(), type, result, createdAt:new Date().toISOString() };
+    setState(s => ({ ...s, aiAnalyses:[entry, ...s.aiAnalyses.slice(0,9)] }));
+    await db.upsert("ai_analyses", { id:entry.id, type, result, user_id:auth.getUserId() }).catch(console.error);
+  }, []);
+
   // Client Events actions
   const addClientEvent = useCallback(async ev => {
     setState(s => ({ ...s, clientEvents:[...s.clientEvents, ev] }));
@@ -325,7 +335,7 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject, saveAiAnalysis };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -566,8 +576,9 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
     {
       label: "Análise",
       items: [
-        { id: "projects", label: "Projetos",       icon: Icon.Tasks },
-        { id: "reports",  label: "Relatórios",    icon: Icon.Reports },
+        { id: "projects",  label: "Projetos",     icon: Icon.Tasks },
+        { id: "codiceai",  label: "Códice IA",    icon: Icon.Sparkles },
+        { id: "reports",   label: "Relatórios",   icon: Icon.Reports },
         { id: "workload", label: "Workload",       icon: Icon.Tasks },
         { id: "settings", label: "Configurações", icon: Icon.Settings },
         { id: "team",     label: "Equipe",         icon: Icon.Clients },
@@ -8624,6 +8635,510 @@ function Projects() {
   );
 }
 
+
+// ============================================================
+// CÓDICE IA — Central de Inteligência Operacional
+// ============================================================
+
+async function callCodiceAI(type, context, messages, sessionToken) {
+  const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/codice-ai", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + (sessionToken || ""),
+      "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ type, context, messages }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Erro na IA");
+  return json.data;
+}
+
+function ScoreRing({ score, size = 80 }) {
+  const r = size * 0.38;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(Math.max(score, 0), 100) / 100;
+  const color = score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={size*0.08}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={size*0.08}
+        strokeDasharray={circ} strokeDashoffset={circ*(1-pct)}
+        strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition:"stroke-dashoffset 1s ease", filter:`drop-shadow(0 0 6px ${color}88)` }}/>
+      <text x={size/2} y={size/2+4} textAnchor="middle" fontSize={size*0.22} fontWeight="900" fill={color}>{score}</text>
+    </svg>
+  );
+}
+
+function AIInsightCard({ icon, title, content, color, urgent }) {
+  return (
+    <div className="rounded-2xl p-4 transition-all duration-300"
+      style={{
+        background: urgent ? `rgba(239,68,68,0.06)` : "rgba(255,255,255,0.04)",
+        border: `1px solid ${color}25`,
+        backdropFilter: "blur(8px)",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateX(4px)";e.currentTarget.style.borderColor=color+"50";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateX(0)";e.currentTarget.style.borderColor=color+"25";}}>
+      <div className="flex items-start gap-3">
+        <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color }}>{title}</p>
+          <p className="text-sm leading-relaxed" style={{ color:"rgba(255,255,255,0.75)" }}>{content}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CodiceIA() {
+  const { tasks, habits, projects, teamUsers, clients, onboardings, currentProfile, aiAnalyses, saveAiAnalysis } = useApp();
+  const [loading, setLoading] = useState({ full:false, burnout:false, workload:false, habits:false });
+  const [analysis, setAnalysis] = useState(null);
+  const [activeSection, setActiveSection] = useState("overview");
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+  const t = today();
+
+  // Contexto real do sistema para enviar à IA
+  const buildContext = () => {
+    const overdue = tasks.filter(x => !x.completed && x.dueDate && x.dueDate < t && !x.parentId);
+    const doneThisWeek = tasks.filter(x => {
+      const d = new Date(); d.setDate(d.getDate()-7);
+      return x.completed && x.dueDate >= d.toISOString().split("T")[0];
+    });
+    const rate = tasks.length > 0 ? Math.round(tasks.filter(x=>x.completed).length/tasks.length*100) : 0;
+    return {
+      data_hoje: t,
+      tarefas: { total:tasks.filter(x=>!x.parentId).length, concluidas:tasks.filter(x=>x.completed).length, atrasadas:overdue.length, concluidas_7d:doneThisWeek.length, taxa_conclusao:rate },
+      habitos: { total:habits.length, consistencia_media: habits.length > 0 ? Math.round(habits.reduce((s,h)=>{ const d30=(h.completedDates||[]).filter(d=>{ const dt=new Date(); dt.setDate(dt.getDate()-30); return d >= dt.toISOString().split("T")[0]; }).length; return s+Math.round(d30/30*100); },0)/habits.length) : 0 },
+      projetos: { total:projects.length, ativos:projects.filter(p=>p.status!=="done").length, atrasados:projects.filter(p=>p.dueDate&&p.dueDate<t&&p.status!=="done").length },
+      equipe: (teamUsers||[]).map(u => { const ut=tasks.filter(x=>x.assignedTo===u.id); return { nome:u.name, ativas:ut.filter(x=>!x.completed).length, atrasadas:ut.filter(x=>!x.completed&&x.dueDate&&x.dueDate<t).length, concluidas:ut.filter(x=>x.completed).length }; }),
+      clientes: { total:clients.length, ativos:clients.filter(c=>c.status==="active").length },
+      onboardings: { ativos:onboardings.filter(o=>o.status==="em_andamento").length },
+      atrasadas_detalhes: overdue.slice(0,5).map(x=>({ titulo:x.title, dias:Math.floor((new Date(t)-new Date(x.dueDate+"T12:00:00"))/(1000*60*60*24)) })),
+    };
+  };
+
+  const getSession = () => { try { const s = JSON.parse(localStorage.getItem("sb-kpgpcqjefrixzshmskls-auth-token")||"{}"); return s.access_token||""; } catch { return ""; } };
+
+  const runAnalysis = async (type = "full") => {
+    setLoading(p=>({...p,[type]:true}));
+    try {
+      const ctx = buildContext();
+      const data = await callCodiceAI(type, ctx, null, getSession());
+      if (type === "full") setAnalysis(data);
+      await saveAiAnalysis(type, data);
+    } catch(e) {
+      console.error("Códice IA:", e.message);
+    } finally {
+      setLoading(p=>({...p,[type]:false}));
+    }
+  };
+
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const userMsg = { role:"user", content: chatInput.trim() };
+    const ctx = buildContext();
+    const history = [...chatMessages, userMsg];
+    setChatMessages(history);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const msgs = [
+        { role:"user", content:`Contexto atual do escritório:\n${JSON.stringify(ctx, null, 2)}\n\nPergunta: ${userMsg.content}` }
+      ];
+      if (chatMessages.length > 0) {
+        msgs.unshift(...chatMessages.slice(-6));
+      }
+      const reply = await callCodiceAI("chat", ctx, msgs, getSession());
+      setChatMessages(p => [...p, { role:"assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) }]);
+    } catch(e) {
+      setChatMessages(p => [...p, { role:"assistant", content: "Erro ao processar. Verifique a chave da API." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatMessages]);
+
+  // Carregar última análise salva ao montar
+  useEffect(() => {
+    const last = (aiAnalyses||[]).find(a => a.type === "full");
+    if (last?.result && !analysis) setAnalysis(last.result);
+  }, [aiAnalyses]);
+
+  const ctx = buildContext();
+  const SECTIONS = [["overview","🎯 Visão Geral"],["burnout","🔥 Burnout"],["workload","⚡ Workload"],["habits","🌱 Hábitos"],["chat","💬 Chat IA"]];
+
+  return (
+    <div className="min-h-screen rounded-2xl overflow-hidden" style={{
+      background: "linear-gradient(160deg,#0f1117 0%,#0d1520 40%,#0f1117 100%)",
+      border: "1px solid rgba(91,170,255,0.1)",
+    }}>
+
+      {/* ── HERO ── */}
+      <div className="px-6 pt-8 pb-6" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background:"linear-gradient(135deg,rgba(91,170,255,0.2),rgba(43,139,232,0.1))", border:"1px solid rgba(91,170,255,0.2)" }}>
+                🧠
+              </div>
+              <div>
+                <h1 className="text-xl font-black" style={{ color:"#fff", letterSpacing:"-0.02em" }}>Códice IA</h1>
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color:"rgba(91,170,255,0.7)" }}>Central de Inteligência Operacional</p>
+              </div>
+            </div>
+            <p className="text-xs max-w-lg" style={{ color:"rgba(255,255,255,0.45)" }}>
+              Análise estratégica em tempo real com GPT-4o. Dados reais do escritório transformados em inteligência acionável.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {analysis && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.2)" }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background:"#10b981", boxShadow:"0 0 6px #10b981" }}/>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#10b981" }}>Análise ativa</span>
+              </div>
+            )}
+            <button onClick={()=>runAnalysis("full")} disabled={loading.full}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all"
+              style={{ background:loading.full?"rgba(91,170,255,0.1)":"linear-gradient(135deg,rgba(91,170,255,0.9),rgba(43,139,232,0.9))", color:"#fff", border:"1px solid rgba(91,170,255,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(43,139,232,0.3)", opacity:loading.full?0.7:1 }}>
+              {loading.full ? <><Icon.Loader /><span>Analisando...</span></> : <><Icon.Sparkles /><span>Analisar Agora</span></>}
+            </button>
+          </div>
+        </div>
+
+        {/* Mini KPIs sempre visíveis */}
+        <div className="grid grid-cols-4 gap-3 mt-5">
+          {[
+            { label:"Tarefas ativas", value:ctx.tarefas.total-ctx.tarefas.concluidas, color:"#5aaff5" },
+            { label:"Atrasadas", value:ctx.tarefas.atrasadas, color:ctx.tarefas.atrasadas>0?"#ef4444":"#10b981" },
+            { label:"Taxa conclusão", value:`${ctx.tarefas.taxa_conclusao}%`, color:ctx.tarefas.taxa_conclusao>=70?"#10b981":ctx.tarefas.taxa_conclusao>=40?"#f59e0b":"#ef4444" },
+            { label:"Projetos ativos", value:ctx.projetos.ativos, color:"#a855f7" },
+          ].map(k=>(
+            <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.35)" }}>{k.label}</p>
+              <p className="text-xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── TABS ── */}
+      <div className="flex gap-1 px-4 pt-4" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+        {SECTIONS.map(([id,label])=>(
+          <button key={id} onClick={()=>setActiveSection(id)}
+            className="px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all"
+            style={{ background:activeSection===id?"rgba(91,170,255,0.12)":"transparent", color:activeSection===id?"#5aaff5":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #5aaff5":"2px solid transparent" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-6">
+
+        {/* ── VISÃO GERAL ── */}
+        {activeSection === "overview" && (
+          <div className="space-y-6">
+            {!analysis ? (
+              <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(91,170,255,0.2)" }}>
+                <div className="text-5xl mb-4">🧠</div>
+                <p className="text-lg font-black mb-2" style={{ color:"#fff" }}>Inteligência ainda não ativada</p>
+                <p className="text-sm mb-6" style={{ color:"rgba(255,255,255,0.4)" }}>Clique em "Analisar Agora" para gerar a análise executiva completa do escritório com GPT-4o.</p>
+                <button onClick={()=>runAnalysis("full")} disabled={loading.full}
+                  className="px-6 py-3 rounded-xl text-sm font-black" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff" }}>
+                  {loading.full ? "Analisando..." : "🚀 Gerar primeira análise"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Score + Manchete */}
+                <div className="rounded-2xl p-6" style={{ background:"linear-gradient(135deg,rgba(43,139,232,0.08),rgba(255,255,255,0.03))", border:"1px solid rgba(91,170,255,0.15)" }}>
+                  <div className="flex items-center gap-6">
+                    <ScoreRing score={analysis.score||0} size={88}/>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(91,170,255,0.6)" }}>Score operacional — {analysis.score_label||""}</p>
+                      <h2 className="text-xl font-black leading-snug mb-2" style={{ color:"#fff" }}>{analysis.manchete}</h2>
+                      <p className="text-sm leading-relaxed" style={{ color:"rgba(255,255,255,0.6)" }}>{analysis.resumo_executivo}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Pontos fortes */}
+                  {analysis.pontos_fortes?.length > 0 && (
+                    <div className="rounded-2xl p-5" style={{ background:"rgba(16,185,129,0.05)", border:"1px solid rgba(16,185,129,0.15)" }}>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#10b981" }}>✓ Pontos Fortes</p>
+                      <div className="space-y-2">
+                        {analysis.pontos_fortes.map((p,i)=>(
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="text-xs mt-0.5" style={{ color:"#10b981" }}>•</span>
+                            <p className="text-sm" style={{ color:"rgba(255,255,255,0.7)" }}>{p}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Alertas */}
+                  {analysis.alertas?.length > 0 && (
+                    <div className="rounded-2xl p-5" style={{ background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)" }}>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#ef4444" }}>⚡ Alertas</p>
+                      <div className="space-y-2">
+                        {analysis.alertas.map((a,i)=>(
+                          <div key={i} className="p-2.5 rounded-xl" style={{ background:"rgba(239,68,68,0.06)" }}>
+                            <p className="text-xs font-bold" style={{ color:a.urgencia==="alta"?"#ef4444":a.urgencia==="media"?"#f59e0b":"#94a3b8" }}>{a.titulo}</p>
+                            <p className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.5)" }}>{a.descricao}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recomendações */}
+                {analysis.recomendacoes?.length > 0 && (
+                  <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(91,170,255,0.8)" }}>🎯 Recomendações</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {analysis.recomendacoes.map((r,i)=>{
+                        const prazoCor = r.prazo==="hoje"?"#ef4444":r.prazo==="semana"?"#f59e0b":"#10b981";
+                        return (
+                          <div key={i} className="p-3 rounded-xl" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background:prazoCor+"20", color:prazoCor }}>{r.prazo}</span>
+                            </div>
+                            <p className="text-xs font-bold mb-1" style={{ color:"rgba(255,255,255,0.9)" }}>{r.acao}</p>
+                            <p className="text-[10px]" style={{ color:"rgba(255,255,255,0.4)" }}>{r.impacto}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Insights */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {analysis.insight_habitos && <AIInsightCard icon="🌱" title="Hábitos" content={analysis.insight_habitos} color="#10b981"/>}
+                  {analysis.insight_projetos && <AIInsightCard icon="🚀" title="Projetos" content={analysis.insight_projetos} color="#a855f7"/>}
+                  {analysis.insight_equipe && <AIInsightCard icon="👥" title="Equipe" content={analysis.insight_equipe} color="#5aaff5"/>}
+                </div>
+
+                {/* Previsão */}
+                {analysis.previsao_7d && (
+                  <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background:"rgba(168,85,247,0.06)", border:"1px solid rgba(168,85,247,0.15)" }}>
+                    <span className="text-2xl">🔮</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(168,85,247,0.8)" }}>Previsão 7 dias</p>
+                      <p className="text-sm" style={{ color:"rgba(255,255,255,0.7)" }}>{analysis.previsao_7d}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── BURNOUT ── */}
+        {activeSection === "burnout" && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise de Risco de Burnout</h3>
+                <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>Baseada em carga, atrasos e padrões comportamentais</p>
+              </div>
+              <button onClick={()=>runAnalysis("burnout")} disabled={loading.burnout}
+                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(239,68,68,0.8),rgba(220,38,38,0.8))", color:"#fff" }}>
+                {loading.burnout ? "Analisando..." : "🔥 Analisar Burnout"}
+              </button>
+            </div>
+            {analysis?.burnout_risk ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl p-6 text-center" style={{
+                  background:`rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.08)`,
+                  border:`1px solid rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.2)`
+                }}>
+                  <p className="text-5xl font-black uppercase mb-2" style={{ color:analysis.burnout_risk==="alto"?"#ef4444":analysis.burnout_risk==="medio"?"#f59e0b":"#10b981" }}>
+                    {analysis.burnout_risk}
+                  </p>
+                  <p className="text-sm" style={{ color:"rgba(255,255,255,0.5)" }}>Risco de burnout detectado</p>
+                </div>
+                {analysis.burnout_motivos?.length > 0 && (
+                  <div className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(239,68,68,0.8)" }}>Sinais detectados</p>
+                    {analysis.burnout_motivos.map((m,i)=>(
+                      <div key={i} className="flex items-center gap-2 mb-2">
+                        <span className="text-xs" style={{ color:"#ef4444" }}>⚡</span>
+                        <p className="text-sm" style={{ color:"rgba(255,255,255,0.65)" }}>{m}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(239,68,68,0.2)" }}>
+                <p className="text-3xl mb-3">🔥</p>
+                <p className="text-sm" style={{ color:"rgba(255,255,255,0.4)" }}>Clique em "Analisar Burnout" para detectar sinais de sobrecarga</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── WORKLOAD ── */}
+        {activeSection === "workload" && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise de Workload da Equipe</h3>
+              <button onClick={()=>runAnalysis("workload")} disabled={loading.workload}
+                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(91,170,255,0.8),rgba(43,139,232,0.8))", color:"#fff" }}>
+                {loading.workload ? "Analisando..." : "⚡ Analisar Workload"}
+              </button>
+            </div>
+            {/* Cards da equipe */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ctx.equipe.map((u,i)=>{
+                const load = u.ativas + u.atrasadas * 1.5;
+                const pct = Math.min(Math.round(load/10*100),100);
+                const lc = pct>=80?"#ef4444":pct>=50?"#f59e0b":"#10b981";
+                return (
+                  <div key={i} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-black" style={{ color:"#fff" }}>{u.nome}</p>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:lc+"20", color:lc }}>
+                        {pct>=80?"Crítico":pct>=50?"Pesado":"Normal"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {[{l:"Ativas",v:u.ativas,c:"#5aaff5"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
+                        <div key={k.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(255,255,255,0.04)" }}>
+                          <p className="text-base font-black" style={{ color:k.c }}>{k.v}</p>
+                          <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>{k.l}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(255,255,255,0.08)" }}>
+                      <div className="h-1.5 rounded-full" style={{ width:pct+"%", background:`linear-gradient(90deg,${lc},${lc}aa)` }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── HÁBITOS ── */}
+        {activeSection === "habits" && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise Comportamental de Hábitos</h3>
+              <button onClick={()=>runAnalysis("habits")} disabled={loading.habits}
+                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(16,185,129,0.8),rgba(5,150,105,0.8))", color:"#fff" }}>
+                {loading.habits ? "Analisando..." : "🌱 Analisar Hábitos"}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {habits.map(h=>{
+                const d30 = new Date(); d30.setDate(d30.getDate()-30);
+                const c = Math.round((h.completedDates||[]).filter(d=>d>=d30.toISOString().split("T")[0]).length/30*100);
+                return (
+                  <div key={h.id} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-2xl">{h.emoji||"⭐"}</span>
+                      <div>
+                        <p className="text-sm font-black" style={{ color:"#fff" }}>{h.title}</p>
+                        {h.identity && <p className="text-[10px]" style={{ color:`${h.color||"#5aaff5"}` }}>{h.identity}</p>}
+                      </div>
+                      <div className="ml-auto text-right">
+                        <p className="text-lg font-black" style={{ color:c>=70?"#10b981":c>=40?"#f59e0b":"#ef4444" }}>{c}%</p>
+                        <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>30 dias</p>
+                      </div>
+                    </div>
+                    <div className="w-full h-1 rounded-full" style={{ background:"rgba(255,255,255,0.08)" }}>
+                      <div className="h-1 rounded-full" style={{ width:c+"%", background:h.color||"#5aaff5" }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── CHAT IA ── */}
+        {activeSection === "chat" && (
+          <div className="flex flex-col" style={{ height:"calc(100vh - 380px)", minHeight:400 }}>
+            <div className="mb-4">
+              <h3 className="text-base font-black" style={{ color:"#fff" }}>Chat com o Códice IA</h3>
+              <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>Consultor executivo com contexto real do seu escritório. Pergunte qualquer coisa.</p>
+            </div>
+            {/* Mensagens */}
+            <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+              {chatMessages.length === 0 && (
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {["Como está a produtividade da equipe esta semana?","Quais projetos correm mais risco de atraso?","Existe risco de burnout no time?","O que devo priorizar hoje?"].map(q=>(
+                    <button key={q} onClick={()=>{setChatInput(q);}}
+                      className="p-3 rounded-xl text-left text-xs transition-all"
+                      style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.6)" }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(91,170,255,0.3)";e.currentTarget.style.color="#fff";}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {chatMessages.map((m,i)=>(
+                <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}>
+                  <div className="max-w-lg rounded-2xl px-4 py-3 text-sm"
+                    style={{
+                      background: m.role==="user" ? "linear-gradient(135deg,rgba(91,170,255,0.25),rgba(43,139,232,0.2))" : "rgba(255,255,255,0.05)",
+                      border: m.role==="user" ? "1px solid rgba(91,170,255,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                      color: "rgba(255,255,255,0.85)",
+                      lineHeight: 1.6,
+                    }}>
+                    {m.role==="assistant" && <span className="text-[10px] font-black uppercase tracking-widest block mb-1" style={{ color:"rgba(91,170,255,0.7)" }}>Códice IA</span>}
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-4 py-3" style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="flex items-center gap-1.5">
+                      {[0,1,2].map(i=>(
+                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background:"rgba(91,170,255,0.7)", animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef}/>
+            </div>
+            {/* Input */}
+            <div className="flex gap-3">
+              <input value={chatInput} onChange={e=>setChatInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()}
+                placeholder="Pergunte sobre produtividade, equipe, projetos, hábitos..."
+                className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#5aaff5" }}/>
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+                className="px-4 py-3 rounded-xl font-black text-sm transition-all disabled:opacity-40"
+                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff", minWidth:52 }}>
+                {chatLoading ? "..." : "→"}
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
 // APP ROOT
 // ============================================================
 function AppContent({ onLogout }) {
@@ -8673,6 +9188,7 @@ function AppContent({ onLogout }) {
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
+      {activeTab === "codiceai" && <CodiceIA />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
