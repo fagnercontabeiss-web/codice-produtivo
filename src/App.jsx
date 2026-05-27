@@ -8745,6 +8745,10 @@ function CodiceIA() {
       await saveAiAnalysis(type, data);
     } catch(e) {
       console.error("Códice IA:", e.message);
+      // Mostrar erro real para diagnóstico
+      if (type === "full") {
+        setAnalysis({ _error: true, manchete: "Erro na análise", resumo_executivo: e.message, score: 0, score_label:"Erro", pontos_fortes:[], alertas:[], recomendacoes:[], previsao_7d:"", burnout_risk:"baixo", burnout_motivos:[], insight_habitos:"", insight_projetos:"", insight_equipe:"" });
+      }
     } finally {
       setLoading(p=>({...p,[type]:false}));
     }
@@ -8768,7 +8772,7 @@ function CodiceIA() {
       const reply = await callCodiceAI("chat", ctx, msgs, getSession());
       setChatMessages(p => [...p, { role:"assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) }]);
     } catch(e) {
-      setChatMessages(p => [...p, { role:"assistant", content: "Erro ao processar. Verifique a chave da API." }]);
+      setChatMessages(p => [...p, { role:"assistant", content: `Erro: ${e.message}` }]);
     } finally {
       setChatLoading(false);
     }
