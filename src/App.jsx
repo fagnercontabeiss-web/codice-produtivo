@@ -5477,7 +5477,7 @@ function calcularRescisao(data) {
     employeeInfo: { name, cpf, cargo, admissionDate: admFmt, dismissalDate: demFmt, reason, baseSalary: sal, dependentes, diasAviso, mesesCompletos, anos },
     verbas,
     memoriaCalculo: memoriaLinhas.join("\n\n"),
-    observacoes: `Este cálculo é uma **simulação estimada** baseada nas informações fornecidas e nas tabelas vigentes (INSS e IRRF 2024). A multa de 40% do FGTS usa o saldo estimado — **recomenda-se confirmar o saldo real na Caixa Econômica Federal**. Os valores de IRRF podem variar conforme outras deduções (previdência privada, pensão alimentícia, etc.). Confira os valores no sistema oficial de folha de pagamento antes do pagamento.`
+    observacoes: `Este cálculo é uma **simulação estimada** baseada nas informações fornecidas. Os valores de INSS e IRRF seguem as tabelas vigentes na data do cálculo, devendo ser conferidos caso haja atualização posterior. O FGTS e a multa rescisória incidem apenas quando aplicável ao tipo de contrato e motivo da rescisão. Os valores de IRRF podem variar conforme deduções específicas (previdência privada, pensão alimentícia, dependentes, etc.). **Recomenda-se conferir os valores no sistema oficial de folha de pagamento antes de efetuar o pagamento.**`
   };
 }
 
@@ -5492,6 +5492,10 @@ function SeveranceSimulation() {
   const [verbas, setVerbas]         = useState([]);
   const [formData, setFormData]     = useState(null);
   const [erroCalc, setErroCalc]     = useState("");
+  const [sigLeft, setSigLeft]       = useState("Códice Contabilidade");
+  const [sigRight, setSigRight]     = useState("");
+  const [editObs, setEditObs]       = useState("");
+  const [editingObs, setEditingObs] = useState(false);
 
   // Sincronizar saved com o banco ao montar
   const { severanceSimulations } = useApp ? useApp() : { severanceSimulations: [] };
@@ -5629,11 +5633,11 @@ function SeveranceSimulation() {
 
       "<div class='section'><h3>3. Memória de Cálculo</h3><div class='memo-box'>" + memoriaHtml + "</div></div>" +
 
-      "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + obsHtml + "</div></div>" +
+      "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + editObs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") + "</div></div>" +
 
       "<div class='assinatura'>" +
-        "<div class='assinatura-col'><div class='linha-assinatura'>Códice Contabilidade</div></div>" +
-        "<div class='assinatura-col'><div class='linha-assinatura'>" + reportData.employeeInfo.name + (reportData.employeeInfo.cpf ? "<br/><span style='font-size:11px;color:#94a3b8;font-weight:400'>CPF: " + reportData.employeeInfo.cpf + "</span>" : "") + "</div></div>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigLeft||"Códice Contabilidade") + "</div></div>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigRight||reportData.employeeInfo.name) + (reportData.employeeInfo.cpf ? "<br/><span style='font-size:11px;color:#94a3b8;font-weight:400'>CPF: " + reportData.employeeInfo.cpf + "</span>" : "") + "</div></div>" +
       "</div>" +
 
       "</body></html>";
@@ -5682,7 +5686,10 @@ function SeveranceSimulation() {
     if (new Date(f.dismissalDate) <= new Date(f.admissionDate)) { setErroCalc("Data de demissão deve ser posterior à admissão."); return; }
     try {
       const res = calcularRescisao(f);
-      setFormData(f); setReportData(res); setVerbas(res.verbas); setView("result");
+      setFormData(f); setReportData(res); setVerbas(res.verbas);
+      setSigRight(f.name || "");
+      setEditObs(res.observacoes || "");
+      setView("result");
     } catch (err) { setErroCalc("Erro ao calcular: " + err.message); }
   };
 
@@ -5741,7 +5748,10 @@ function SeveranceSimulation() {
                       <td className="px-4 py-3 text-sm font-black" style={{ color:"#10b981" }}>{fmtCurrency(s.netAmount)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button onClick={() => { setReportData(s.reportData); setVerbas(s.verbas); setFormData(s.formData); setView("result"); }}
+                          <button onClick={() => { setReportData(s.reportData); setVerbas(s.verbas); setFormData(s.formData);
+              setSigRight(s.reportData?.employeeInfo?.name || "");
+              setEditObs(s.reportData?.observacoes || "");
+              setView("result"); }}
                             className="p-1.5 rounded-lg transition-all" style={{ color:"#2b8be8" }}
                             onMouseEnter={e=>e.currentTarget.style.background="#eff6ff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <Icon.Eye />
@@ -5905,21 +5915,43 @@ function SeveranceSimulation() {
           </div>
 
           <div className="mb-12">
-            <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>4. Observações</h3>
-            <div className="rounded-xl p-4 text-sm ml-4" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#78350f" }}
-              dangerouslySetInnerHTML={{ __html: reportData.observacoes.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>4. Observações</h3>
+              <button onClick={()=>setEditingObs(v=>!v)}
+                className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
+                style={{ background:editingObs?"rgba(43,139,232,0.1)":"rgba(241,245,249,0.8)", color:editingObs?"#2b8be8":"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+                {editingObs ? "✓ Fechar" : "✏️ Editar"}
+              </button>
+            </div>
+            {editingObs ? (
+              <textarea value={editObs} onChange={e=>setEditObs(e.target.value)} rows={5}
+                className="w-full border rounded-xl px-4 py-3 text-sm ml-4 resize-none focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"#fde68a", background:"#fffbeb", color:"#78350f", width:"calc(100% - 1rem)" }}/>
+            ) : (
+              <div className="rounded-xl p-4 text-sm ml-4" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#78350f" }}
+                dangerouslySetInnerHTML={{ __html: editObs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
+            )}
           </div>
 
-          <div className="flex justify-between pt-8 px-4" style={{ borderTop:"1px solid #dde3ed" }}>
-            <div className="w-52 text-center">
-              <div className="border-t-2 pt-2 mt-12" style={{ borderColor:"#1a1d23" }}>
-                <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>Códice Contabilidade</p>
+          <div className="pt-8 px-4" style={{ borderTop:"1px solid #dde3ed" }}>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>Assinaturas — clique para editar</p>
+            <div className="flex justify-between">
+              <div className="w-56 text-center">
+                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #1a1d23" }}>
+                  <input value={sigLeft} onChange={e=>setSigLeft(e.target.value)}
+                    className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
+                    style={{ color:"#1a1d23" }} placeholder="Nome do responsável"/>
+                  <p className="text-[10px] mt-1" style={{ color:"#cbd5e1" }}>Representante do Escritório</p>
+                </div>
               </div>
-            </div>
-            <div className="w-52 text-center">
-              <div className="border-t-2 pt-2 mt-12" style={{ borderColor:"#1a1d23" }}>
-                <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{reportData.employeeInfo.name}</p>
-                {reportData.employeeInfo.cpf && <p className="text-xs" style={{ color:"#94a3b8" }}>CPF: {reportData.employeeInfo.cpf}</p>}
+              <div className="w-56 text-center">
+                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #1a1d23" }}>
+                  <input value={sigRight} onChange={e=>setSigRight(e.target.value)}
+                    className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
+                    style={{ color:"#1a1d23" }} placeholder="Nome do colaborador"/>
+                  {reportData.employeeInfo.cpf && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>CPF: {reportData.employeeInfo.cpf}</p>}
+                  <p className="text-[10px] mt-1" style={{ color:"#cbd5e1" }}>Colaborador</p>
+                </div>
               </div>
             </div>
           </div>
