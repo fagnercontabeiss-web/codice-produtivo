@@ -66,8 +66,8 @@ function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
-  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all" });
-  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all" });
+  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all", parentId:r.parent_id||null });
+  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null });
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2b8be8", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2b8be8", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
@@ -1233,6 +1233,7 @@ function Tasks() {
   });
 
   const filtered = visibleTasks.filter(t => {
+    if (t.parentId) return false; // Subtarefas não aparecem na lista principal
     if (filterStatus === "completed" && !t.completed) return false;
     if (filterStatus === "pending" && t.completed) return false;
     if (hideCompleted && t.completed) return false;
@@ -1843,9 +1844,12 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
   );
 }
 function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
-  // Buscar task SEMPRE do estado global — nunca usar prop diretamente
-  const { tasks } = useApp();
+  const { tasks, addTask } = useApp();
+  // Sempre ler do estado global para evitar stale closure
   const task = tasks.find(t => t.id === taskProp.id) || taskProp;
+
+  const subtasks = tasks.filter(t => t.parentId === task.id);
+  const subtasksDone = subtasks.filter(t => t.completed).length;
 
   const cat = categories.find(c => c.id === task.categoryId);
   const ctx = contexts.find(c => c.id === task.contextId);
@@ -1861,55 +1865,72 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [editingDate, setEditingDate] = useState(false);
-  const [datePos, setDatePos] = useState({ top:0, left:0, dropUp:false });
+  const [datePos, setDatePos] = useState({ top:0, left:0 });
+  const [showSubForm, setShowSubForm] = useState(false);
+  const [subTitle, setSubTitle] = useState("");
   const assignRef = useRef(null);
   const dateRef = useRef(null);
 
-  // Sync commentText com descrição do task
   useEffect(() => { setCommentText(task.description||""); }, [task.id]);
 
+  // Fechar assign ao clicar fora
   useEffect(() => {
     if (!showAssign) return;
-    const h = e => { if (assignRef.current && !assignRef.current.contains(e.target)) setShowAssign(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const h = e => {
+      const inBtn = assignRef.current?.contains(e.target);
+      const inPortal = document.getElementById("assign-portal-"+task.id)?.contains(e.target);
+      if (!inBtn && !inPortal) setShowAssign(false);
+    };
+    document.addEventListener("mousedown", h, true);
+    return () => document.removeEventListener("mousedown", h, true);
   }, [showAssign]);
 
+  // Fechar date ao clicar fora
   useEffect(() => {
     if (!editingDate) return;
-    const h = e => { if (dateRef.current && !dateRef.current.contains(e.target)) setEditingDate(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const h = e => {
+      const inBtn = dateRef.current?.contains(e.target);
+      const inPortal = document.getElementById("date-portal-"+task.id)?.contains(e.target);
+      if (!inBtn && !inPortal) setEditingDate(false);
+    };
+    document.addEventListener("mousedown", h, true);
+    return () => document.removeEventListener("mousedown", h, true);
   }, [editingDate]);
 
-  const handleAssignOpen = () => {
-    if (!canAssign) return;
-    if (assignRef.current) {
-      const rect = assignRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setAssignPos({ left:rect.left, top:spaceBelow<240?rect.top-8:rect.bottom+6, dropUp:spaceBelow<240 });
-    }
-    setShowAssign(v=>!v);
-  };
-
-  const handleDateOpen = () => {
-    if (dateRef.current) {
-      const rect = dateRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setDatePos({ left:rect.left, top:spaceBelow<180?rect.top-8:rect.bottom+6, dropUp:spaceBelow<180 });
-    }
-    setEditingDate(v=>!v);
-  };
-
-  // onUpdate seguro — usa o task mais recente do estado
+  // Atualização segura — sempre parte do estado mais fresco
   const safeUpdate = (patch) => {
     const fresh = tasks.find(t => t.id === taskProp.id) || task;
     onUpdate({ ...fresh, ...patch });
   };
 
-  const saveComment = () => {
-    safeUpdate({ description: commentText });
-    setShowComment(false);
+  const handleAssignOpen = () => {
+    if (!canAssign || !assignRef.current) return;
+    const rect = assignRef.current.getBoundingClientRect();
+    const dropUp = window.innerHeight - rect.bottom < 240;
+    setAssignPos({ left:rect.left, top:dropUp ? rect.top-8 : rect.bottom+6, dropUp });
+    setShowAssign(v => !v);
+  };
+
+  const handleDateOpen = () => {
+    if (!dateRef.current) return;
+    const rect = dateRef.current.getBoundingClientRect();
+    const dropUp = window.innerHeight - rect.bottom < 180;
+    setDatePos({ left:rect.left, top:dropUp ? rect.top-8 : rect.bottom+6 });
+    setEditingDate(v => !v);
+  };
+
+  const addSubtask = async () => {
+    if (!subTitle.trim()) return;
+    const sub = {
+      id: uid(), title: subTitle.trim(), description:"",
+      categoryId: task.categoryId, contextId: task.contextId,
+      clientId: task.clientId, dueDate: task.dueDate,
+      completed: false, isRecurring: false, recurrenceType: null,
+      recurrenceEndDate: null, checklist:[], assignedTo: task.assignedTo,
+      visibility: task.visibility, parentId: task.id
+    };
+    await addTask(sub);
+    setSubTitle(""); setShowSubForm(false);
   };
 
   const borderColor = od && !task.completed ? "rgba(254,202,202,0.9)" : task.completed ? "rgba(226,232,240,0.5)" : "rgba(221,227,237,0.7)";
@@ -1919,29 +1940,26 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
   if (compact) {
     return (
       <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150"
-        style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(26,29,35,0.04)" }}
-        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateX(1px)";}}
-        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateX(0)";}}>
+        style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(26,29,35,0.04)" }}>
         <button onClick={()=>onToggle(task.id)} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
           style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
           {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
         </button>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
         <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
-        {cat && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 hidden sm:block" style={{ background:cat.color+"18", color:cat.color }}>{cat.name}</span>}
+        {subtasks.length > 0 && <span className="text-[10px]" style={{ color:"#94a3b8" }}>{subtasksDone}/{subtasks.length}</span>}
         {task.dueDate && <span className="text-[10px] font-medium flex-shrink-0" style={{ color:od&&!task.completed?"#ef4444":"#94a3b8" }}>{new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
-        {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2b8be8" }} title={assignedUser.name}>{assignedUser.name.charAt(0)}</div>}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-1">
+        {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2b8be8" }}>{assignedUser.name.charAt(0)}</div>}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
           {!task.completed && <button onClick={()=>onToggle(task.id)} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#10b981"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:11,height:11}}><polyline points="20 6 9 17 4 12"/></svg></button>}
-          <button onClick={onEdit} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          {onDuplicate && <button onClick={()=>onDuplicate(task)} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#64748b"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>}
-          <button onClick={onDelete} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+          <button onClick={onEdit} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
+          <button onClick={onDelete} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
         </div>
       </div>
     );
   }
 
-  // ── MODO NORMAL — layout inline ────────────────────────
+  // ── MODO NORMAL ────────────────────────────────────────
   return (
     <div className="group rounded-2xl transition-all duration-200"
       style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
@@ -1951,12 +1969,12 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
       <div className="flex">
         {cat && <div className="w-1 rounded-l-2xl flex-shrink-0" style={{ background:cat.color, opacity:task.completed?0.25:0.75 }}/>}
         <div className="flex-1 px-4 py-3">
-          <div className="flex items-center gap-2.5 min-w-0">
 
+          {/* ── ROW PRINCIPAL ── */}
+          <div className="flex items-center gap-2.5 min-w-0">
             {/* Checkbox */}
-            <button onClick={()=>onToggle(task.id)}
-              className="rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-              style={{ width:18, height:18, borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
+            <button onClick={()=>onToggle(task.id)} className="rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+              style={{ width:18,height:18, borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
               {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
             </button>
 
@@ -1964,60 +1982,50 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
               style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
 
-            {/* Categoria — sempre visível, usa safeUpdate */}
-            <QuickDropdown
-              label={cat?.name || "Categoria"}
-              color={cat?.color || "#94a3b8"}
-              items={categories}
-              selectedId={task.categoryId}
-              onSelect={v => safeUpdate({ categoryId: v })}
-              menuTitle="Categoria"
-            />
+            {/* Badge subtarefas */}
+            {subtasks.length > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{ background:subtasksDone===subtasks.length?"rgba(16,185,129,0.12)":"rgba(226,232,240,0.6)", color:subtasksDone===subtasks.length?"#10b981":"#94a3b8" }}>
+                {subtasksDone}/{subtasks.length}
+              </span>
+            )}
 
-            {/* Contexto — sempre visível, usa safeUpdate */}
-            <QuickDropdown
-              label={ctx?.name || "Contexto"}
-              color={ctx?.color || "#94a3b8"}
-              items={contexts}
-              selectedId={task.contextId}
-              onSelect={v => safeUpdate({ contextId: v })}
-              menuTitle="Contexto"
-            />
+            {/* Categoria */}
+            <QuickDropdown label={cat?.name||"Categoria"} color={cat?.color||"#94a3b8"} items={categories} selectedId={task.categoryId}
+              onSelect={v=>safeUpdate({categoryId:v})} menuTitle="Categoria"/>
 
-            {/* Data — portal */}
+            {/* Contexto */}
+            <QuickDropdown label={ctx?.name||"Contexto"} color={ctx?.color||"#94a3b8"} items={contexts} selectedId={task.contextId}
+              onSelect={v=>safeUpdate({contextId:v})} menuTitle="Contexto"/>
+
+            {/* ── DATA — portal com id único ── */}
             <div ref={dateRef} className="relative flex-shrink-0">
-              <button onClick={handleDateOpen}
+              <button onMouseDown={e=>e.stopPropagation()} onClick={handleDateOpen}
                 className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-all"
                 style={{ background:"rgba(226,232,240,0.5)", color:od&&!task.completed?"#dc2626":"#64748b", border:"1px solid rgba(203,213,225,0.4)" }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 {task.dueDate ? new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) : "Prazo"}
               </button>
               {editingDate && createPortal(
-                <div style={{
-                  position:"fixed", zIndex:9999,
-                  left: datePos.left,
-                  ...(datePos.dropUp ? { bottom: window.innerHeight - datePos.top } : { top: datePos.top }),
-                  background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)",
-                  borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.15)",
-                  padding:12, minWidth:200, backdropFilter:"blur(8px)"
-                }}>
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Alterar prazo</p>
-                  <input type="date" value={task.dueDate||""}
-                    onChange={e=>{ safeUpdate({ dueDate:e.target.value }); setEditingDate(false); }}
-                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" autoFocus/>
-                  <button onClick={()=>{ safeUpdate({ dueDate:"" }); setEditingDate(false); }}
-                    className="mt-2 w-full text-xs text-slate-400 hover:text-red-400 transition-colors">
+                <div id={"date-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
+                  style={{ position:"fixed", zIndex:9999, left:datePos.left, top:datePos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", padding:14, minWidth:210 }}>
+                  <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:8 }}>Alterar prazo</p>
+                  <input type="date" defaultValue={task.dueDate||""}
+                    autoFocus
+                    onChange={e=>{ safeUpdate({dueDate:e.target.value}); setEditingDate(false); }}
+                    style={{ width:"100%", border:"1px solid rgba(221,227,237,0.8)", borderRadius:8, padding:"6px 10px", fontSize:13, outline:"none" }}/>
+                  <button onMouseDown={e=>{e.stopPropagation(); safeUpdate({dueDate:""}); setEditingDate(false);}}
+                    style={{ marginTop:8, width:"100%", fontSize:11, color:"#ef4444", background:"transparent", border:"none", cursor:"pointer" }}>
                     Remover prazo
                   </button>
-                </div>,
-                document.body
+                </div>, document.body
               )}
             </div>
 
-            {/* Responsável */}
-            {(teamUsers||[]).length > 1 && (
+            {/* ── RESPONSÁVEL — portal com id único ── */}
+            {(teamUsers||[]).length > 0 && (
               <div ref={assignRef} className="relative flex-shrink-0">
-                <button type="button" onClick={handleAssignOpen}
+                <button type="button" onMouseDown={e=>e.stopPropagation()} onClick={handleAssignOpen}
                   className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full transition-all"
                   style={assignedUser
                     ? { background:assignedUser.avatarColor+"18", color:assignedUser.avatarColor, border:"1px solid "+assignedUser.avatarColor+"30", cursor:canAssign?"pointer":"default" }
@@ -2027,20 +2035,25 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                   {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:7,height:7,opacity:0.4}}><polyline points="6 9 12 15 18 9"/></svg>}
                 </button>
                 {showAssign && canAssign && createPortal(
-                  <div style={{ position:"fixed", zIndex:9999, left:assignPos.left, ...(assignPos.dropUp?{bottom:window.innerHeight-assignPos.top,top:"auto"}:{top:assignPos.top}), background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.8)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.15)", minWidth:190, overflow:"hidden", backdropFilter:"blur(8px)" }}>
-                    <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"8px 12px 4px" }}>Atribuir responsável</p>
-                    <button type="button" onClick={()=>{ safeUpdate({ assignedTo:"" }); setShowAssign(false); }}
-                      style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
+                  <div id={"assign-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
+                    style={{ position:"fixed", zIndex:9999, left:assignPos.left, top:assignPos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", minWidth:200, overflow:"hidden" }}>
+                    <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"10px 14px 6px" }}>Atribuir responsável</p>
+                    <button type="button" onMouseDown={e=>e.stopPropagation()}
+                      onClick={()=>{ safeUpdate({assignedTo:null}); setShowAssign(false); }}
+                      style={{ width:"100%", textAlign:"left", padding:"9px 14px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
                       onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <div style={{ width:20, height:20, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }}/>Sem responsável
+                      <div style={{ width:22, height:22, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }}/>
+                      Sem responsável
                     </button>
                     {(teamUsers||[]).filter(u=>u.active!==false).map(u=>(
-                      <button key={u.id} type="button" onClick={()=>{ safeUpdate({ assignedTo:u.id }); setShowAssign(false); }}
-                        style={{ width:"100%", textAlign:"left", padding:"8px 12px", fontSize:12, display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2b8be8")+"18":"transparent", border:"none" }}
-                        onMouseEnter={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="#f8fafc"; }} onMouseLeave={e=>{ if(u.id!==task.assignedTo)e.currentTarget.style.background="transparent"; }}>
-                        <div style={{ width:20, height:20, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#fff", background:u.avatarColor||"#2b8be8" }}>{u.name.charAt(0)}</div>
+                      <button key={u.id} type="button" onMouseDown={e=>e.stopPropagation()}
+                        onClick={()=>{ safeUpdate({assignedTo:u.id}); setShowAssign(false); }}
+                        style={{ width:"100%", textAlign:"left", padding:"9px 14px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2b8be8")+"15":"transparent", border:"none" }}
+                        onMouseEnter={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="#f8fafc"; }}
+                        onMouseLeave={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="transparent"; }}>
+                        <div style={{ width:22, height:22, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, color:"#fff", background:u.avatarColor||"#2b8be8", flexShrink:0 }}>{u.name.charAt(0)}</div>
                         <span style={{ color:"#374151", fontWeight:u.id===task.assignedTo?700:400, flex:1 }}>{u.name}</span>
-                        {u.id===task.assignedTo && <span style={{ color:"#10b981" }}>✓</span>}
+                        {u.id===task.assignedTo && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
                       </button>
                     ))}
                   </div>, document.body
@@ -2048,10 +2061,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </div>
             )}
 
-            {task.isRecurring && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2b8be8" }}>↻</span>
-            )}
-
+            {task.isRecurring && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2b8be8" }}>↻</span>}
             <div className="flex-1"/>
 
             {/* Quick actions */}
@@ -2063,7 +2073,16 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:13,height:13}}><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
               )}
-              <button onClick={()=>{ setShowDetail(v=>!v); setShowComment(false); }} title="Detalhes"
+              {/* Subtarefa */}
+              <button onClick={()=>setShowSubForm(v=>!v)} title="Adicionar subtarefa"
+                className="p-1.5 rounded-lg transition-all" style={{ color:showSubForm?"#a855f7":"#94a3b8", background:showSubForm?"rgba(168,85,247,0.1)":"transparent" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(168,85,247,0.1)";e.currentTarget.style.color="#a855f7";}}
+                onMouseLeave={e=>{ if(!showSubForm){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}>
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+              <button onClick={()=>{setShowDetail(v=>!v);setShowComment(false);}} title="Detalhes"
                 className="p-1.5 rounded-lg transition-all"
                 style={{ color:showDetail?"#2b8be8":"#94a3b8", background:showDetail?"rgba(43,139,232,0.08)":"transparent" }}
                 onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
@@ -2090,7 +2109,62 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             </div>
           </div>
 
-          {/* Área expandível */}
+          {/* ── FORM SUBTAREFA ── */}
+          {showSubForm && (
+            <div className="mt-2.5 flex items-center gap-2 pl-6">
+              <div className="w-4 h-4 flex-shrink-0 flex items-end pb-1">
+                <svg viewBox="0 0 16 16" fill="none" stroke="#cbd5e1" strokeWidth="1.5" style={{width:12,height:12}}>
+                  <path d="M2 2v8h10"/>
+                </svg>
+              </div>
+              <input
+                value={subTitle}
+                onChange={e=>setSubTitle(e.target.value)}
+                onKeyDown={e=>{ if(e.key==="Enter") addSubtask(); if(e.key==="Escape") setShowSubForm(false); }}
+                placeholder="Nome da subtarefa... (Enter para salvar)"
+                autoFocus
+                className="flex-1 text-xs border rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-purple-300"
+                style={{ borderColor:"rgba(168,85,247,0.3)", background:"rgba(168,85,247,0.04)" }}/>
+              <button onClick={addSubtask} className="text-xs font-bold px-2.5 py-1.5 text-white rounded-xl"
+                style={{ background:"linear-gradient(135deg,#c084fc,#a855f7)" }}>+ Sub</button>
+              <button onClick={()=>setShowSubForm(false)} className="text-xs text-slate-400 hover:text-slate-600 px-1">✕</button>
+            </div>
+          )}
+
+          {/* ── SUBTAREFAS ── */}
+          {subtasks.length > 0 && (
+            <div className="mt-2 space-y-1 pl-6">
+              {subtasks.map(sub => (
+                <div key={sub.id} className="flex items-center gap-2 group/sub py-1 px-2 rounded-lg transition-all"
+                  style={{ background:"rgba(248,250,252,0.7)" }}>
+                  <div className="w-3 flex-shrink-0">
+                    <svg viewBox="0 0 10 10" fill="none" stroke="#cbd5e1" strokeWidth="1.5" style={{width:10,height:10}}>
+                      <path d="M1 1v5h7"/>
+                    </svg>
+                  </div>
+                  <button onClick={()=>{ const fresh=tasks.find(t=>t.id===sub.id)||sub; onUpdate({...fresh,completed:!fresh.completed}); }}
+                    className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{ borderColor:sub.completed?"#10b981":"#d1d5db", background:sub.completed?"#10b981":"transparent" }}>
+                    {sub.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
+                  </button>
+                  <span className={"flex-1 text-xs "+(sub.completed?"line-through opacity-40":"")} style={{ color:"#374151" }}>{sub.title}</span>
+                  <button onClick={()=>onDelete(sub.id)} className="opacity-0 group-hover/sub:opacity-100 p-0.5 rounded transition-all" style={{ color:"#94a3b8" }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:11,height:11}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  </button>
+                </div>
+              ))}
+              {/* Progresso das subtarefas */}
+              <div className="flex items-center gap-2 pl-5 pt-0.5">
+                <div className="flex-1 h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                  <div className="h-1 rounded-full transition-all" style={{ width:`${subtasks.length>0?Math.round(subtasksDone/subtasks.length*100):0}%`, background:"#10b981" }}/>
+                </div>
+                <span className="text-[9px] font-bold" style={{ color:"#94a3b8" }}>{subtasksDone}/{subtasks.length}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── ÁREA EXPANDÍVEL ── */}
           {showDetail && (
             <div className="mt-2.5 pt-2.5 space-y-2" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
               {showComment ? (
@@ -2100,7 +2174,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                     className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
                     style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }}/>
                   <div className="flex gap-2">
-                    <button onClick={saveComment} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+                    <button onClick={()=>{ safeUpdate({description:commentText}); setShowComment(false); }} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
                     <button onClick={()=>setShowComment(false)} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
                   </div>
                 </div>
@@ -2117,8 +2191,8 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                   {task.checklist.map((item,i)=>(
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={item.done}
-                        onChange={()=>{ const cl=[...task.checklist]; cl[i]={...cl[i],done:!cl[i].done}; safeUpdate({ checklist:cl }); }}
-                        className="rounded w-3 h-3 text-blue-500 flex-shrink-0"/>
+                        onChange={()=>{ const cl=[...task.checklist]; cl[i]={...cl[i],done:!cl[i].done}; safeUpdate({checklist:cl}); }}
+                        className="rounded w-3 h-3 flex-shrink-0"/>
                       <span style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
                     </div>
                   ))}
@@ -2131,6 +2205,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
     </div>
   );
 }
+
 
 
 
