@@ -5485,9 +5485,7 @@ function SeveranceSimulation() {
   const { clients } = useApp();
 
   const [view, setView]           = useState("list");
-  const [saved, setSaved]         = useState(() => {
-    try { return JSON.parse(localStorage.getItem("severanceSimulations") || "[]"); } catch { return []; }
-  });
+  const [saved, setSaved] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [verbas, setVerbas]         = useState([]);
   const [formData, setFormData]     = useState(null);
@@ -5499,10 +5497,10 @@ function SeveranceSimulation() {
   const [editMemoria, setEditMemoria]   = useState("");
   const [editingMemoria, setEditingMemoria] = useState(false);
 
-  // Sincronizar saved com o banco ao montar
-  const { severanceSimulations } = useApp ? useApp() : { severanceSimulations: [] };
+  // Carregar simulações do banco (compartilhado entre todos os usuários da equipe)
+  const { severanceSimulations } = useApp();
   useEffect(() => {
-    if (severanceSimulations && severanceSimulations.length > 0 && saved.length === 0) {
+    if (severanceSimulations?.length > 0) {
       setSaved(severanceSimulations);
     }
   }, [severanceSimulations]);
@@ -5681,6 +5679,8 @@ function SeveranceSimulation() {
       form_data: entry.formData,
     }).catch(console.error);
     setView("list");
+    // Recarregar lista do banco para garantir sincronia
+    setSaved(p => [entry, ...p.filter(x => x.id !== entry.id)]);
   };
 
   const handleGerar = () => {
@@ -5970,14 +5970,13 @@ function SeveranceSimulation() {
           </div>
 
           <div className="pt-8 px-4" style={{ borderTop:"1px solid #dde3ed" }}>
-            <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>Assinaturas — clique para editar</p>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>Assinaturas</p>
             <div className="flex justify-between">
               <div className="w-56 text-center">
                 <div className="mt-12 pt-2" style={{ borderTop:"2px solid #1a1d23" }}>
                   <input value={sigLeft} onChange={e=>setSigLeft(e.target.value)}
                     className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
                     style={{ color:"#1a1d23" }} placeholder="Nome do responsável"/>
-                  <p className="text-[10px] mt-1" style={{ color:"#cbd5e1" }}>Representante do Escritório</p>
                 </div>
               </div>
               <div className="w-56 text-center">
@@ -5986,7 +5985,6 @@ function SeveranceSimulation() {
                     className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
                     style={{ color:"#1a1d23" }} placeholder="Nome do colaborador"/>
                   {reportData.employeeInfo.cpf && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>CPF: {reportData.employeeInfo.cpf}</p>}
-                  <p className="text-[10px] mt-1" style={{ color:"#cbd5e1" }}>Colaborador</p>
                 </div>
               </div>
             </div>
