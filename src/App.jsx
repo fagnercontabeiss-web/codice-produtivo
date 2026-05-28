@@ -629,9 +629,9 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         {/* Logo */}
         <div className="flex flex-col items-center justify-center py-7 px-4 relative" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           {settings.logoUrl
-            ? <img src={settings.logoUrl} alt="Logo" className="h-10 w-auto mb-2 object-contain" />
-            : <div className="w-10 h-10 rounded-xl mb-3 flex items-center justify-center text-white font-black text-lg shadow-lg"
-                style={{ background: "linear-gradient(135deg, #5aaff5 0%, #2b8be8 100%)" }}>
+            ? <img src={settings.logoUrl} alt="Logo" style={{ height:72, width:"auto", maxWidth:160, objectFit:"contain", marginBottom:8 }} />
+            : <div className="rounded-xl mb-3 flex items-center justify-center text-white font-black shadow-lg"
+                style={{ width:72, height:72, fontSize:28, background:"linear-gradient(135deg,#5aaff5 0%,#2b8be8 100%)" }}>
                 {settings.appName?.[0] || "C"}
               </div>
           }
