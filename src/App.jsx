@@ -73,7 +73,7 @@ function AppProvider({ children }) {
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2b8be8", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2b8be8", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
-  const clientToDb   = c => ({ id:c.id, name:c.name||"", document:c.document||"", type:c.type||"pj", monthly_fee:parseFloat(c.monthlyFee)||0, payment_status:c.paymentStatus||"pending", payment_method:c.paymentMethod||"pix", notes:c.notes||"", due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active", billing_sent:c.billingSent||false });
+  const clientToDb   = c => ({ id:c.id, name:c.name||"", document:c.document||"", type:c.type||"pj", monthly_fee:parseFloat(c.monthlyFee)||0, payment_status:c.paymentStatus||"pending", payment_method:c.paymentMethod||"pix", notes:c.notes||"", due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active", billing_sent:c.billingSent||false, operational_status:c.operationalStatus||"healthy", priority:c.priority||"medium", responsible_id:c.responsibleId||null, tags:c.tags||[], last_interaction:c.lastInteraction||null, observations:c.observations||"" });
   const goalFromDb = r => ({ id:r.id, title:r.title, completed:r.completed, createdAt:r.created_at });
   const goalToDb   = g => ({ id:g.id, title:g.title, completed:g.completed });
 
@@ -3923,462 +3923,604 @@ function ClientTimeline({ client, onClose }) {
 }
 
 function Clients() {
-  const { clients, addClient, updateClient, deleteClient } = useApp();
-  const [isOpen, setIsOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [dueDates, setDueDates] = useState([]);
-  const [ddDesc, setDdDesc] = useState(""); const [ddDate, setDdDate] = useState("");
+  const { clients, addClient, updateClient, deleteClient, tasks, onboardings, projects, sops, teamUsers, currentProfile } = useApp();
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
+  const t = today();
+
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
-  const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
-  const [importOpen, setImportOpen] = useState(false);
-  const [clientDetail, setClientDetail] = useState(null);
-  const [clientTimeline, setClientTimeline] = useState(null);
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [viewMode, setViewMode] = useState("cards"); // cards | list
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
 
-  const handleImport = (toAdd, toUpdate) => {
-    toAdd.forEach(c => addClient(c));
-    toUpdate.forEach(c => updateClient(c));
+  // ── Status operacional config ─────────────────────────
+  const OP_STATUS = {
+    healthy:   { label:"Operação saudável",  color:"#10b981", bg:"rgba(16,185,129,0.1)",  dot:"#10b981",  icon:"🟢" },
+    onboarding:{ label:"Em onboarding",      color:"#2b8be8", bg:"rgba(43,139,232,0.1)",  dot:"#2b8be8",  icon:"🚀" },
+    attention: { label:"Atenção",            color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  dot:"#f59e0b",  icon:"🟡" },
+    stopped:   { label:"Processo parado",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316",  icon:"⚠️" },
+    critical:  { label:"Crítico",            color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444",  icon:"🔴" },
+    waiting:   { label:"Aguardando cliente", color:"#a855f7", bg:"rgba(168,85,247,0.1)",  dot:"#a855f7",  icon:"⏳" },
+    regularized:{ label:"Regularizado",      color:"#06b6d4", bg:"rgba(6,182,212,0.1)",   dot:"#06b6d4",  icon:"✅" },
+  };
+  const PRIORITY = {
+    low:      { label:"Baixa",   color:"#94a3b8" },
+    medium:   { label:"Média",   color:"#f59e0b" },
+    high:     { label:"Alta",    color:"#f97316" },
+    critical: { label:"Crítica", color:"#ef4444" },
   };
 
-  const emptyForm = { name:"", document:"", type:"pj", monthlyFee:"", paymentStatus:"pending", paymentMethod:"pix", notes:"" };
-  const [cf, setCf] = useState(emptyForm);
-
-  const open = (c) => {
-    setEditing(c || null);
-    setDueDates(c?.dueDates || []);
-    setCf(c ? { name:c.name||"", document:c.document||"", type:c.type||"pj", monthlyFee:c.monthlyFee||"", paymentStatus:c.paymentStatus||"pending", paymentMethod:c.paymentMethod||"pix", notes:c.notes||"" } : emptyForm);
-    setIsOpen(true);
-  };
-  const save = () => {
-    if (!cf.name.trim()) return;
-    const fee = parseFloat(String(cf.monthlyFee).replace(/[^\d,.-]/g,"").replace(",","."));
-    const data = { id: editing?.id || uid(), name:cf.name, document:cf.document, type:cf.type, monthlyFee:isNaN(fee)?0:fee, paymentStatus:cf.paymentStatus, paymentMethod:cf.paymentMethod, notes:cf.notes, dueDates, obligations: editing?.obligations || [], obligationStatuses: editing?.obligationStatuses || [], status:"active", createdAt: editing?.createdAt || new Date().toISOString() };
-    editing ? updateClient(data) : addClient(data);
-    setIsOpen(false); setEditing(null);
+  // ── Métricas por cliente ──────────────────────────────
+  const getClientMetrics = (c) => {
+    const clientTasks = tasks.filter(tk => tk.clientId === c.id && !tk.parentId);
+    const openTasks = clientTasks.filter(tk => !tk.completed);
+    const overdueTasks = openTasks.filter(tk => tk.dueDate && tk.dueDate < t);
+    const clientOnboarding = onboardings.find(o => o.clientId === c.id || o.clientName === c.name);
+    const clientProjects = projects.filter(p => p.clientId === c.id);
+    const activeProjects = clientProjects.filter(p => p.status !== "done");
+    return { openTasks:openTasks.length, overdueTasks:overdueTasks.length, clientOnboarding, activeProjects:activeProjects.length };
   };
 
-  // ── Stats ──────────────────────────────────────────────────
-  const totalMRR    = clients.reduce((s, c) => s + (c.monthlyFee || 0), 0);
-  const countPaid   = clients.filter(c => c.paymentStatus === "paid").length;
-  const countPend   = clients.filter(c => c.paymentStatus === "pending").length;
-  const countOver   = clients.filter(c => c.paymentStatus === "overdue").length;
-  const valueOver   = clients.filter(c => c.paymentStatus === "overdue").reduce((s,c) => s+(c.monthlyFee||0),0);
-  const ticketMedio = clients.length > 0 ? totalMRR / clients.length : 0;
+  const getHealthScore = (c) => {
+    const m = getClientMetrics(c);
+    let score = 100;
+    score -= m.overdueTasks * 15;
+    score -= m.openTasks > 10 ? 20 : m.openTasks > 5 ? 10 : 0;
+    if (c.operationalStatus === "critical") score -= 30;
+    if (c.operationalStatus === "stopped") score -= 20;
+    if (c.operationalStatus === "attention") score -= 10;
+    return Math.max(0, Math.min(100, score));
+  };
 
-  // ── Filtering ─────────────────────────────────────────────
+  // ── KPIs globais ─────────────────────────────────────
+  const activeClients = clients.filter(c => c.status === "active");
+  const pendingClients = clients.filter(c => {
+    const m = getClientMetrics(c);
+    return m.overdueTasks > 0 || c.operationalStatus === "critical" || c.operationalStatus === "attention";
+  });
+  const onboardingClients = onboardings.filter(o => o.status === "em_andamento");
+  const avgHealth = activeClients.length > 0
+    ? Math.round(activeClients.reduce((s,c) => s + getHealthScore(c), 0) / activeClients.length)
+    : 100;
+
+  // ── Filtros ───────────────────────────────────────────
   const filtered = clients.filter(c => {
-    if (filterStatus !== "all" && c.paymentStatus !== filterStatus) return false;
-    if (filterType !== "all" && (c.type || "pj") !== filterType) return false;
     if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.document?.includes(search)) return false;
+    if (filterStatus !== "all" && (c.operationalStatus||"healthy") !== filterStatus) return false;
+    if (filterType !== "all" && c.type !== filterType) return false;
+    if (filterPriority !== "all" && (c.priority||"medium") !== filterPriority) return false;
     return true;
+  }).sort((a,b) => {
+    const po = { critical:0, high:1, medium:2, low:3 };
+    return (po[a.priority||"medium"]||2) - (po[b.priority||"medium"]||2);
   });
 
-  // ── Config ────────────────────────────────────────────────
-  const statusCfg = {
-    paid:    { label:"Em dia",   dot:"#10b981", bg:"#f0fdf4", color:"#16a34a", border:"#bbf7d0" },
-    pending: { label:"Pendente", dot:"#f59e0b", bg:"#fffbeb", color:"#d97706", border:"#fde68a" },
-    overdue: { label:"Atrasado", dot:"#ef4444", bg:"#fff5f5", color:"#dc2626", border:"#fca5a5" },
-  };
-  const typeCfg = {
-    pj:  { label:"PJ",  bg:"#eff6ff", color:"#2b8be8" },
-    pf:  { label:"PF",  bg:"#f0fdf4", color:"#16a34a" },
-    mei: { label:"MEI", bg:"#fffbeb", color:"#d97706" },
-  };
-  const methodLabel = { boleto:"Boleto", pix:"Pix", transfer:"Transferência" };
+  // ── ClientCard ────────────────────────────────────────
+  const ClientCard = ({ c }) => {
+    const m = getClientMetrics(c);
+    const health = getHealthScore(c);
+    const opConf = OP_STATUS[c.operationalStatus||"healthy"] || OP_STATUS.healthy;
+    const prConf = PRIORITY[c.priority||"medium"] || PRIORITY.medium;
+    const responsible = teamUsers?.find(u => u.id === c.responsibleId);
 
-  return (
-    <div className="space-y-5">
+    return (
+      <div className="rounded-2xl overflow-hidden transition-all duration-300 group cursor-pointer"
+        style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+        onClick={()=>setSelectedClient(c)}
+        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,139,232,0.2)";}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
 
-      {/* ── KPI CARDS ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* MRR */}
-        <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#fff" }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Receita Mensal (MRR)</p>
-          <p className="text-2xl font-black" style={{ letterSpacing:"-0.5px" }}>{fmtCurrency(totalMRR)}</p>
-          <p className="text-xs mt-1" style={{ color:"rgba(255,255,255,0.4)" }}>Ticket médio {fmtCurrency(ticketMedio)}</p>
-        </div>
-        {/* Status breakdown */}
-        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Em dia</p>
-          <p className="text-2xl font-black" style={{ color:"#16a34a" }}>{countPaid}</p>
-          <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background:"#e8edf5" }}>
-            <div className="h-full rounded-full" style={{ width:`${clients.length ? (countPaid/clients.length*100) : 0}%`, background:"#10b981" }} />
+        {/* Barra de saúde no topo */}
+        <div className="h-0.5" style={{ background:`linear-gradient(90deg,${opConf.color},${opConf.color}44)`, width:`${health}%`, transition:"width 0.8s ease" }}/>
+
+        <div className="p-5">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                style={{ background:`linear-gradient(135deg,${opConf.color},${opConf.color}cc)`, boxShadow:`0 2px 8px ${opConf.color}30` }}>
+                {c.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black truncate" style={{ color:"#1a1d23" }}>{c.name}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase" style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>{c.type==="pf"?"PF":"PJ"}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
+                </div>
+              </div>
+            </div>
+            {/* Health score */}
+            <div className="text-right flex-shrink-0">
+              <p className="text-lg font-black" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</p>
+              <p className="text-[9px]" style={{ color:"#94a3b8" }}>saúde</p>
+            </div>
           </div>
-          <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>{clients.length ? Math.round(countPaid/clients.length*100) : 0}% da base</p>
-        </div>
-        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Pendente</p>
-          <p className="text-2xl font-black" style={{ color:"#d97706" }}>{countPend}</p>
-          <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background:"#e8edf5" }}>
-            <div className="h-full rounded-full" style={{ width:`${clients.length ? (countPend/clients.length*100) : 0}%`, background:"#f59e0b" }} />
+
+          {/* Métricas rápidas */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[
+              { label:"Tarefas", value:m.openTasks, warn:m.openTasks>5, icon:"📋" },
+              { label:"Atrasadas", value:m.overdueTasks, warn:m.overdueTasks>0, icon:"⚠️" },
+              { label:"Projetos", value:m.activeProjects, warn:false, icon:"🚀" },
+            ].map(k=>(
+              <div key={k.label} className="rounded-xl p-2 text-center" style={{ background: k.warn?"rgba(239,68,68,0.06)":"rgba(248,250,252,0.7)", border:`1px solid ${k.warn?"rgba(239,68,68,0.15)":"rgba(226,232,240,0.5)"}` }}>
+                <p className="text-base font-black" style={{ color:k.warn?"#ef4444":"#374151" }}>{k.value}</p>
+                <p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.label}</p>
+              </div>
+            ))}
           </div>
-          <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>{clients.length ? Math.round(countPend/clients.length*100) : 0}% da base</p>
-        </div>
-        <div className="rounded-2xl p-5" style={{ background: countOver > 0 ? "#fff5f5" : "#fff", border:`1px solid ${countOver > 0 ? "#fca5a5" : "#dde3ed"}`, boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Inadimplente</p>
-          <p className="text-2xl font-black" style={{ color: countOver > 0 ? "#dc2626" : "#94a3b8" }}>{countOver}</p>
-          <p className="text-xs font-semibold mt-2" style={{ color: countOver > 0 ? "#dc2626" : "#cbd5e1" }}>{fmtCurrency(valueOver)}</p>
-          <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>{clients.length ? Math.round(countOver/clients.length*100) : 0}% da base</p>
+
+          {/* Onboarding progress */}
+          {m.clientOnboarding && (
+            <div className="mb-3 p-2.5 rounded-xl" style={{ background:"rgba(43,139,232,0.06)", border:"1px solid rgba(43,139,232,0.15)" }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold" style={{ color:"#2b8be8" }}>🚀 Onboarding em andamento</span>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              {responsible && (
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white" style={{ background:responsible.avatarColor||"#2b8be8" }} title={responsible.name}>
+                  {responsible.name.charAt(0)}
+                </div>
+              )}
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ color:prConf.color, background:prConf.color+"15" }}>{prConf.label}</span>
+            </div>
+            {c.tags?.length > 0 && (
+              <div className="flex gap-1">
+                {c.tags.slice(0,2).map(tag=>(
+                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md font-medium" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+    );
+  };
 
-      {/* ── TOOLBAR ── */}
-      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-        <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom:"1px solid #e8edf5" }}>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Search */}
-            <div className="relative">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar cliente..."
-                className="pl-9 pr-3 py-1.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-blue-400"
-                style={{ border:"1px solid #dde3ed", width:180, color:"#374151" }} />
+  // ── ClientDetail 360 ─────────────────────────────────
+  const ClientDetail = ({ c }) => {
+    const m = getClientMetrics(c);
+    const opConf = OP_STATUS[c.operationalStatus||"healthy"] || OP_STATUS.healthy;
+    const health = getHealthScore(c);
+    const clientTasks = tasks.filter(tk => tk.clientId === c.id && !tk.parentId).slice(0,10);
+    const clientProjects = projects.filter(p => p.clientId === c.id);
+    const [activeTab, setActiveTab] = useState("overview");
+
+    const tabs = [["overview","📊 Resumo"],["tasks","📋 Tarefas"],["projects","🚀 Projetos"],["sops","📚 SOPs"]];
+
+    return (
+      <Modal title="" onClose={()=>setSelectedClient(null)} maxWidth="max-w-3xl">
+        <div style={{ maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
+          {/* Hero */}
+          <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:`linear-gradient(135deg,${opConf.bg},rgba(255,255,255,0.98))` }}>
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0"
+                style={{ background:`linear-gradient(135deg,${opConf.color},${opConf.color}cc)`, boxShadow:`0 4px 16px ${opConf.color}30` }}>
+                {c.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-black" style={{ color:"#1a1d23" }}>{c.name}</h2>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
+                  {c.document && <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.document}</span>}
+                  <span className="text-[10px] uppercase font-bold" style={{ color:"#94a3b8" }}>{c.type==="pf"?"Pessoa Física":"Pessoa Jurídica"}</span>
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-2xl font-black" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</p>
+                <p className="text-[10px]" style={{ color:"#94a3b8" }}>saúde operacional</p>
+              </div>
             </div>
-            {/* Status filter */}
-            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
-              className="text-sm rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-400"
-              style={{ border:"1px solid #dde3ed", color:"#374151" }}>
-              <option value="all">Todos status</option>
-              <option value="paid">Em dia</option>
-              <option value="pending">Pendente</option>
-              <option value="overdue">Atrasado</option>
-            </select>
-            {/* Type filter */}
-            <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-              className="text-sm rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-400"
-              style={{ border:"1px solid #dde3ed", color:"#374151" }}>
-              <option value="all">Todos tipos</option>
-              <option value="pj">PJ</option>
-              <option value="pf">PF</option>
-              <option value="mei">MEI</option>
-            </select>
-            {filtered.length !== clients.length && (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2b8be8" }}>
-                {filtered.length} de {clients.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* View toggle */}
-            <div className="flex p-1 rounded-xl" style={{ background:"#e8edf5" }}>
-              <button onClick={()=>setViewMode("cards")} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={viewMode==="cards" ? {background:"#fff",color:"#2b8be8",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"} : {color:"#64748b"}}>
-                ⊞ Cards
-              </button>
-              <button onClick={()=>setViewMode("list")} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={viewMode==="list" ? {background:"#fff",color:"#2b8be8",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"} : {color:"#64748b"}}>
-                ≡ Lista
-              </button>
+
+            {/* KPIs rápidos */}
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              {[
+                { label:"Tarefas abertas", value:m.openTasks, color:"#2b8be8" },
+                { label:"Atrasadas", value:m.overdueTasks, color:m.overdueTasks>0?"#ef4444":"#10b981" },
+                { label:"Projetos ativos", value:m.activeProjects, color:"#a855f7" },
+                { label:"Onboarding", value:m.clientOnboarding?"Ativo":"—", color:m.clientOnboarding?"#2b8be8":"#94a3b8" },
+              ].map(k=>(
+                <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                  <p className="text-lg font-black" style={{ color:k.color }}>{k.value}</p>
+                  <p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.label}</p>
+                </div>
+              ))}
             </div>
-            <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="#dcfce7";}}
-              onMouseLeave={e=>{e.currentTarget.style.background="#f0fdf4";}}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Importar
-            </button>
-            <button onClick={() => open()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
-              <Icon.Plus />Novo Cliente
-            </button>
           </div>
-        </div>
 
-        {/* ── CARDS VIEW ── */}
-        {viewMode === "cards" && (
-          <div className="p-4">
-            {filtered.length === 0 ? (
-              <div className="text-center py-12" style={{ color:"#94a3b8" }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10 mx-auto mb-2 opacity-30"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                <p className="text-sm">Nenhum cliente encontrado.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filtered.map(c => {
-                  const st = statusCfg[c.paymentStatus || "pending"];
-                  const tp = typeCfg[c.type || "pj"];
-                  return (
-                    <div key={c.id} className="rounded-2xl p-5 group transition-all hover:shadow-md"
-                      style={{ background:"#fff", border:`1px solid ${st.border}`, borderTop:`3px solid ${st.dot}`, boxShadow:"0 2px 6px rgba(26,29,35,0.05)" }}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1 min-w-0 pr-2">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <h3 className="font-bold text-sm truncate" style={{ color:"#1a1d23" }}>{c.name}</h3>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background:tp.bg, color:tp.color }}>{tp.label}</span>
-                          </div>
-                          <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "—"}</p>
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                          <button onClick={() => setClientTimeline(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }} title="Timeline do cliente"
-                            onMouseEnter={e=>{e.currentTarget.style.background="#f0fdf4";e.currentTarget.style.color="#10b981";}}
-                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                          </button>
-                          <button onClick={() => setClientDetail(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }} title="Ver ficha"
-                            onMouseEnter={e=>{e.currentTarget.style.background="#fdf4ff";e.currentTarget.style.color="#a855f7";}}
-                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Eye /></button>
-                          <button onClick={() => open(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }}
-                            onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2b8be8";}}
-                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Edit /></button>
-                          <button onClick={() => deleteClient(c.id)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }}
-                            onMouseEnter={e=>{e.currentTarget.style.background="#fef2f2";e.currentTarget.style.color="#ef4444";}}
-                            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Trash /></button>
-                        </div>
-                      </div>
-
-                      {/* Fee + method */}
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="p-2.5 rounded-xl" style={{ background:"#f5f7fb" }}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color:"#94a3b8" }}>Honorários</p>
-                          <p className="font-bold text-sm" style={{ color:"#1a1d23" }}>{fmtCurrency(c.monthlyFee)}</p>
-                        </div>
-                        <div className="p-2.5 rounded-xl" style={{ background:"#f5f7fb" }}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color:"#94a3b8" }}>Pagamento</p>
-                          <p className="font-medium text-sm" style={{ color:"#374151" }}>{methodLabel[c.paymentMethod] || "—"}</p>
-                        </div>
-                      </div>
-
-                      {/* Status buttons */}
-                      <div className="flex gap-1.5">
-                        {Object.entries(statusCfg).map(([k, v]) => {
-                          const active = (c.paymentStatus || "pending") === k;
-                          return (
-                            <button key={k} onClick={() => updateClient({ ...c, paymentStatus: k })}
-                              className="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all"
-                              style={active
-                                ? { background:v.bg, color:v.color, border:`1px solid ${v.border}` }
-                                : { background:"#f5f7fb", color:"#94a3b8", border:"1px solid #e8edf5" }}>
-                              {v.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {c.notes && <p className="text-xs mt-3 px-2.5 py-2 rounded-xl" style={{ color:"#64748b", background:"#f8fafc", border:"1px solid #e8edf5" }}>{c.notes}</p>}
-                      {c.dueDates?.length > 0 && (
-                        <div className="mt-3 pt-3" style={{ borderTop:"1px solid #f0f4f8" }}>
-                          <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color:"#94a3b8" }}>Vencimentos</p>
-                          {c.dueDates.map(d => (
-                            <div key={d.id} className="flex justify-between text-xs mb-1">
-                              <span style={{ color:"#374151" }}>{d.description}</span>
-                              <span className="font-medium px-1.5 py-0.5 rounded" style={{ background:"#f0f4f8", color:"#64748b" }}>{fmt(d.date)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Tabs */}
+          <div className="flex gap-1 px-5 pt-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)" }}>
+            {tabs.map(([id,label])=>(
+              <button key={id} onClick={()=>setActiveTab(id)}
+                className="px-3 py-2 text-xs font-bold rounded-t-xl transition-all"
+                style={{ background:activeTab===id?"rgba(43,139,232,0.08)":"transparent", color:activeTab===id?"#2b8be8":"#94a3b8", borderBottom:activeTab===id?"2px solid #2b8be8":"2px solid transparent" }}>
+                {label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* ── LIST VIEW ── */}
-        {viewMode === "list" && (
-          <div className="overflow-x-auto">
-            {filtered.length === 0 ? (
-              <div className="text-center py-12" style={{ color:"#94a3b8" }}>
-                <p className="text-sm">Nenhum cliente encontrado.</p>
-              </div>
-            ) : (
-              <table className="w-full text-left min-w-[640px]">
-                <thead>
-                  <tr style={{ borderBottom:"2px solid #e8edf5", background:"#f8fafc" }}>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Cliente</th>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Tipo</th>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Honorários</th>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Pagamento</th>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Status</th>
-                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-right" style={{ color:"#94a3b8" }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(c => {
-                    const st = statusCfg[c.paymentStatus || "pending"];
-                    const tp = typeCfg[c.type || "pj"];
-                    return (
-                      <tr key={c.id} className="group" style={{ borderBottom:"1px solid #f0f4f8" }}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{c.name}</p>
-                          <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "—"}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background:tp.bg, color:tp.color }}>{tp.label}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>{fmtCurrency(c.monthlyFee)}</p>
-                          <p className="text-xs" style={{ color:"#94a3b8" }}>{methodLabel[c.paymentMethod] || "—"}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs" style={{ color:"#64748b" }}>{methodLabel[c.paymentMethod] || "—"}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            {Object.entries(statusCfg).map(([k, v]) => {
-                              const active = (c.paymentStatus || "pending") === k;
-                              return (
-                                <button key={k} onClick={() => updateClient({ ...c, paymentStatus: k })}
-                                  className="px-2 py-1 text-[10px] font-bold rounded-lg transition-all"
-                                  style={active
-                                    ? { background:v.bg, color:v.color, border:`1px solid ${v.border}` }
-                                    : { background:"transparent", color:"#cbd5e1", border:"1px solid #e8edf5" }}>
-                                  {v.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => open(c)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }}
-                              onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2b8be8";}}
-                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Edit /></button>
-                            <button onClick={() => deleteClient(c.id)} className="p-1.5 rounded-lg transition-colors" style={{ color:"#94a3b8" }}
-                              onMouseEnter={e=>{e.currentTarget.style.background="#fef2f2";e.currentTarget.style.color="#ef4444";}}
-                              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}><Icon.Trash /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop:"2px solid #e8edf5", background:"#f8fafc" }}>
-                    <td className="px-4 py-3 text-xs font-bold" style={{ color:"#64748b" }}>{filtered.length} cliente(s)</td>
-                    <td /><td />
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{fmtCurrency(filtered.reduce((s,c)=>s+(c.monthlyFee||0),0))}</p>
-                      <p className="text-[10px]" style={{ color:"#94a3b8" }}>total filtrado</p>
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── MODAL ── */}
-      {isOpen && (
-        <Modal title={editing ? "Editar Cliente" : "Novo Cliente"} onClose={() => { setIsOpen(false); setEditing(null); }} maxWidth="max-w-2xl">
-          <div className="p-6 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left: dados básicos */}
-              <div className="space-y-4">
-                <p className="text-xs font-black uppercase tracking-widest pb-2" style={{ color:"#94a3b8", borderBottom:"1px solid #e8edf5" }}>Dados Básicos</p>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Razão Social / Nome *</label>
-                  <input value={cf.name} onChange={e=>setCf(p=>({...p,name:e.target.value}))} className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
-                </div>
-                {/* Tipo PF/PJ/MEI */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-2">Tipo</label>
-                  <div className="flex gap-2">
-                    {Object.entries(typeCfg).map(([k, v]) => (
-                      <button key={k} type="button" onClick={() => setCf(p=>({...p,type:k}))}
-                        className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-                        style={cf.type===k ? { background:v.bg, color:v.color, border:`2px solid ${v.color}40` } : { background:"#f5f7fb", color:"#64748b", border:"1px solid #dde3ed" }}>
-                        {v.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">CNPJ / CPF</label>
-                  <input value={cf.document} onChange={e=>setCf(p=>({...p,document:e.target.value}))} className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {activeTab === "overview" && (
+              <>
+                {/* Status operacional + editar */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Honorários (R$)</label>
-                    <input value={cf.monthlyFee} onChange={e=>setCf(p=>({...p,monthlyFee:e.target.value}))} placeholder="1500.00" className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Status Operacional</label>
+                    <select value={c.operationalStatus||"healthy"}
+                      onChange={e=>updateClient({...c, operationalStatus:e.target.value})}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}>
+                      {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Forma de Pagamento</label>
-                    <select value={cf.paymentMethod} onChange={e=>setCf(p=>({...p,paymentMethod:e.target.value}))} className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }}>
-                      <option value="pix">Pix</option><option value="boleto">Boleto</option><option value="transfer">Transferência</option>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Prioridade</label>
+                    <select value={c.priority||"medium"}
+                      onChange={e=>updateClient({...c, priority:e.target.value})}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}>
+                      {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k} style={{ color:v.color }}>{v.label}</option>)}
                     </select>
                   </div>
                 </div>
+
+                {/* Observações rápidas */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-2">Status de Pagamento</label>
-                  <div className="flex gap-2">
-                    {Object.entries(statusCfg).map(([k, v]) => (
-                      <button key={k} type="button" onClick={() => setCf(p=>({...p,paymentStatus:k}))}
-                        className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-                        style={cf.paymentStatus===k ? { background:v.bg, color:v.color, border:`2px solid ${v.border}` } : { background:"#f5f7fb", color:"#64748b", border:"1px solid #dde3ed" }}>
-                        {v.label}
-                      </button>
-                    ))}
+                  <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Observações Operacionais</label>
+                  <ObsEditor client={c} onSave={obs=>updateClient({...c, observations:obs})}/>
+                </div>
+
+                {/* Notas gerais */}
+                {c.notes && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Notas</label>
+                    <p className="text-sm p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(226,232,240,0.5)" }}>{c.notes}</p>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Observações</label>
-                  <textarea value={cf.notes} onChange={e=>setCf(p=>({...p,notes:e.target.value}))} rows={2} className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" style={{ borderColor:"#dde3ed" }} />
-                </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "tasks" && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Tarefas vinculadas ({clientTasks.length})</p>
+                {clientTasks.length === 0
+                  ? <p className="text-sm text-center py-8" style={{ color:"#94a3b8" }}>Nenhuma tarefa vinculada</p>
+                  : clientTasks.map(tk => {
+                      const od = tk.dueDate && tk.dueDate < t && !tk.completed;
+                      return (
+                        <div key={tk.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.2)":"rgba(226,232,240,0.5)"}` }}>
+                          <div className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor:tk.completed?"#10b981":od?"#ef4444":"#d1d5db", background:tk.completed?"#10b981":"transparent" }}/>
+                          <span className="flex-1 text-xs font-medium" style={{ color:tk.completed?"#94a3b8":"#374151", textDecoration:tk.completed?"line-through":"none" }}>{tk.title}</span>
+                          {tk.dueDate && <span className="text-[10px]" style={{ color:od?"#ef4444":"#94a3b8" }}>{new Date(tk.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background:tk.completed?"rgba(16,185,129,0.1)":"rgba(226,232,240,0.5)", color:tk.completed?"#10b981":"#94a3b8" }}>{tk.completed?"Concluída":"Aberta"}</span>
+                        </div>
+                      );
+                    })
+                }
               </div>
-              {/* Right: vencimentos */}
-              <div className="space-y-4">
-                <p className="text-xs font-black uppercase tracking-widest pb-2" style={{ color:"#94a3b8", borderBottom:"1px solid #e8edf5" }}>Vencimentos / Obrigações</p>
-                <div className="space-y-2 p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
-                  <input type="text" value={ddDesc} onChange={e=>setDdDesc(e.target.value)} placeholder="Descrição (ex: DAS, Folha de Pagamento)"
-                    className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
-                  <div className="flex gap-2">
-                    <input type="date" value={ddDate} onChange={e=>setDdDate(e.target.value)}
-                      className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
-                    <button type="button"
-                      onClick={() => { if(ddDesc && ddDate){ setDueDates([...dueDates,{id:uid(),description:ddDesc,date:ddDate}]); setDdDesc(""); setDdDate(""); }}}
-                      className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
-                      + Add
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {dueDates.length === 0 && <p className="text-xs text-center py-4" style={{ color:"#cbd5e1" }}>Nenhum vencimento adicionado.</p>}
-                  {dueDates.map(d => (
-                    <div key={d.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl group/dd"
-                      style={{ background:"#fff", border:"1px solid #dde3ed" }}>
-                      <div>
-                        <p className="text-xs font-semibold" style={{ color:"#1a1d23" }}>{d.description}</p>
-                        <p className="text-xs" style={{ color:"#94a3b8" }}>{fmt(d.date)}</p>
-                      </div>
-                      <button type="button" onClick={()=>setDueDates(dueDates.filter(x=>x.id!==d.id))}
-                        className="p-1 rounded opacity-0 group-hover/dd:opacity-100 transition-opacity" style={{ color:"#94a3b8" }}
-                        onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}>
-                        <Icon.Trash />
-                      </button>
+            )}
+
+            {activeTab === "projects" && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Projetos ({clientProjects.length})</p>
+                {clientProjects.length === 0
+                  ? <p className="text-sm text-center py-8" style={{ color:"#94a3b8" }}>Nenhum projeto vinculado</p>
+                  : clientProjects.map(p => {
+                      const cl = p.checklist||[];
+                      const pct = cl.length>0 ? Math.round(cl.filter(x=>x.done).length/cl.length*100) : 0;
+                      const statusColors = { todo:"#94a3b8", doing:"#2b8be8", done:"#10b981" };
+                      return (
+                        <div key={p.id} className="p-4 rounded-2xl" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{p.title}</p>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:statusColors[p.status]+"18", color:statusColors[p.status] }}>
+                              {p.status==="todo"?"Não iniciado":p.status==="doing"?"Em execução":"Concluído"}
+                            </span>
+                          </div>
+                          {cl.length > 0 && (
+                            <div className="w-full h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                              <div className="h-1 rounded-full" style={{ width:pct+"%", background:statusColors[p.status] }}/>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                }
+              </div>
+            )}
+
+            {activeTab === "sops" && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>SOPs relacionados</p>
+                {(sops||[]).filter(s=>s.category==="Contábil"||s.category==="Fiscal"||s.category==="Departamento Pessoal").slice(0,4).map(s=>(
+                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    <span className="text-lg">{s.type==="playbook"?"📘":"📋"}</span>
+                    <div>
+                      <p className="text-xs font-bold" style={{ color:"#1a1d23" }}>{s.title}</p>
+                      <p className="text-[10px]" style={{ color:"#94a3b8" }}>{s.category} • {s.estimatedTime}min</p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+                {(sops||[]).length === 0 && <p className="text-sm text-center py-8" style={{ color:"#94a3b8" }}>Nenhum SOP cadastrado ainda</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
+  // ── Form de cliente ───────────────────────────────────
+  const emptyForm = { name:"", document:"", type:"pj", notes:"", status:"active", operationalStatus:"healthy", priority:"medium", responsibleId:"", tags:[], observations:"" };
+  const [cf, setCf] = useState(emptyForm);
+  const [newTag, setNewTag] = useState("");
+
+  const openForm = (c=null) => {
+    setEditingClient(c);
+    setCf(c ? { name:c.name, document:c.document||"", type:c.type||"pj", notes:c.notes||"", status:c.status||"active", operationalStatus:c.operationalStatus||"healthy", priority:c.priority||"medium", responsibleId:c.responsibleId||"", tags:c.tags||[], observations:c.observations||"" } : emptyForm);
+    setFormOpen(true);
+  };
+
+  const saveClient = async () => {
+    if (!cf.name.trim()) return;
+    if (editingClient) await updateClient({ ...editingClient, ...cf });
+    else await addClient({ id:uid(), ...cf, monthlyFee:0, paymentStatus:"pending", paymentMethod:"pix", dueDates:[], obligations:[], obligationStatuses:[], billingSent:false, createdAt:new Date().toISOString() });
+    setFormOpen(false); setEditingClient(null);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Clientes</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Central operacional da carteira do escritório</p>
+        </div>
+        <div className="flex gap-2">
+          {/* View toggle */}
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background:"rgba(241,245,249,0.8)" }}>
+            {[["cards","▦"],["list","☰"]].map(([v,icon])=>(
+              <button key={v} onClick={()=>setViewMode(v)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                style={{ background:viewMode===v?"rgba(255,255,255,0.98)":"transparent", color:viewMode===v?"#1a1d23":"#94a3b8", boxShadow:viewMode===v?"0 1px 4px rgba(26,29,35,0.08)":"none" }}>
+                {icon}
+              </button>
+            ))}
+          </div>
+          {isAdmin && (
+            <button onClick={()=>openForm()}
+              className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
+              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              <Icon.Plus />Novo Cliente
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label:"Clientes Ativos",     value:activeClients.length,   sub:"na carteira",            color:"#10b981", icon:"🟢" },
+          { label:"Com Pendências",       value:pendingClients.length,  sub:"atenção necessária",     color:pendingClients.length>0?"#ef4444":"#10b981", icon:"⚠️" },
+          { label:"Onboardings ativos",   value:onboardingClients.length, sub:"em andamento",         color:"#2b8be8", icon:"🚀" },
+          { label:"Saúde da carteira",    value:`${avgHealth}%`,        sub:"score operacional",      color:avgHealth>=70?"#10b981":avgHealth>=40?"#f59e0b":"#ef4444", icon:"🧠" },
+        ].map(k=>(
+          <div key={k.label} className="rounded-2xl p-4 transition-all"
+            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>{k.label}</p>
+                <p className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
+                <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>{k.sub}</p>
+              </div>
+              <span className="text-xl">{k.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="relative flex-1" style={{ minWidth:200, maxWidth:300 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{width:14,height:14,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar clientes..."
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+        </div>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todos os status</option>
+          {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+        </select>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">PF & PJ</option>
+          <option value="pf">Pessoa Física</option>
+          <option value="pj">Pessoa Jurídica</option>
+        </select>
+        <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          <option value="all">Todas prioridades</option>
+          {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <span className="text-xs" style={{ color:"#94a3b8" }}>{filtered.length} cliente{filtered.length!==1?"s":""}</span>
+      </div>
+
+      {/* Lista de clientes */}
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+          <p className="text-5xl mb-4">👥</p>
+          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>{search ? `Nenhum cliente encontrado para "${search}"` : "Nenhum cliente cadastrado"}</p>
+          {!search && isAdmin && <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>+ Adicionar primeiro cliente</button>}
+        </div>
+      ) : viewMode === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(c=><ClientCard key={c.id} c={c}/>)}
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+          {filtered.map((c,i)=>{
+            const m = getClientMetrics(c);
+            const opConf = OP_STATUS[c.operationalStatus||"healthy"]||OP_STATUS.healthy;
+            const health = getHealthScore(c);
+            return (
+              <div key={c.id} className="flex items-center gap-4 px-5 py-3 transition-all cursor-pointer group"
+                style={{ borderTop:i>0?"1px solid rgba(226,232,240,0.5)":"none" }}
+                onClick={()=>setSelectedClient(c)}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(248,250,252,0.7)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white flex-shrink-0" style={{ background:`linear-gradient(135deg,${opConf.color},${opConf.color}cc)` }}>{c.name.charAt(0)}</div>
+                <p className="flex-1 text-sm font-semibold truncate" style={{ color:"#1a1d23" }}>{c.name}</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
+                <span className="text-xs font-bold w-12 text-right" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</span>
+                <span className="text-[10px]" style={{ color:m.overdueTasks>0?"#ef4444":"#94a3b8" }}>⚠ {m.overdueTasks} atrasadas</span>
+                {isAdmin && (
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={e=>{e.stopPropagation();openForm(c);}} className="p-1.5 rounded-lg" style={{ color:"#94a3b8" }} onMouseEnter={e=>{e.currentTarget.style.color="#2b8be8";}} onMouseLeave={e=>{e.currentTarget.style.color="#94a3b8";}}><Icon.Edit/></button>
+                    <button onClick={e=>{e.stopPropagation();deleteClient(c.id);}} className="p-1.5 rounded-lg" style={{ color:"#94a3b8" }} onMouseEnter={e=>{e.currentTarget.style.color="#ef4444";}} onMouseLeave={e=>{e.currentTarget.style.color="#94a3b8";}}><Icon.Trash/></button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {selectedClient && <ClientDetail c={clients.find(x=>x.id===selectedClient.id)||selectedClient}/>}
+
+      {/* Form modal */}
+      {formOpen && (
+        <Modal title={editingClient?"Editar Cliente":"Novo Cliente"} onClose={()=>{setFormOpen(false);setEditingClient(null);}} maxWidth="max-w-lg">
+          <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight:"80vh" }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Nome *</label>
+                <input value={cf.name} onChange={e=>setCf(p=>({...p,name:e.target.value}))} placeholder="Nome do cliente..."
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Tipo</label>
+                <select value={cf.type} onChange={e=>setCf(p=>({...p,type:e.target.value}))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  <option value="pj">Pessoa Jurídica</option>
+                  <option value="pf">Pessoa Física</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>CPF / CNPJ</label>
+                <input value={cf.document} onChange={e=>setCf(p=>({...p,document:e.target.value}))} placeholder="00.000.000/0001-00"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Status operacional</label>
+                <select value={cf.operationalStatus} onChange={e=>setCf(p=>({...p,operationalStatus:e.target.value}))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Prioridade</label>
+                <select value={cf.priority} onChange={e=>setCf(p=>({...p,priority:e.target.value}))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
+                <select value={cf.responsibleId} onChange={e=>setCf(p=>({...p,responsibleId:e.target.value}))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
+                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  <option value="">Nenhum</option>
+                  {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-3" style={{ borderTop:"1px solid #e8edf5" }}>
-              <button type="button" onClick={()=>{setIsOpen(false);setEditing(null);}} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ color:"#64748b", background:"#f5f7fb" }}>Cancelar</button>
-              <button type="button" onClick={save} className="px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>Salvar Cliente</button>
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Notas gerais</label>
+              <textarea value={cf.notes} onChange={e=>setCf(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Informações gerais do cliente..."
+                className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            </div>
+            {/* Tags */}
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Tags</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {cf.tags.map((tg,i)=>(
+                  <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>
+                    #{tg}<button type="button" onClick={()=>setCf(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
+                  </span>
+                ))}
+              </div>
+              <input value={newTag} onChange={e=>setNewTag(e.target.value)}
+                onKeyDown={e=>{ if(e.key==="Enter"&&newTag.trim()){ setCf(p=>({...p,tags:[...p.tags,newTag.trim()]})); setNewTag(""); }}}
+                placeholder="Adicionar tag (Enter)..."
+                className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={()=>{setFormOpen(false);setEditingClient(null);}} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+              <button onClick={saveClient} disabled={!cf.name.trim()}
+                className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                <Icon.Plus />{editingClient?"Salvar":"Criar Cliente"}
+              </button>
             </div>
           </div>
         </Modal>
       )}
-      {importOpen && (
-        <ImportClientsModal
-          onClose={() => setImportOpen(false)}
-          existingClients={clients}
-          onImport={handleImport}
-        />
-      )}
-
-      {/* ITEM 5 — Ficha completa do cliente */}
-      {clientDetail && (
-        <ClientDetailModal client={clientDetail} onClose={() => setClientDetail(null)} onEdit={() => { open(clientDetail); setClientDetail(null); }} />
-      )}
-      {clientTimeline && (
-        <ClientTimeline client={clientTimeline} onClose={() => setClientTimeline(null)} />
-      )}
     </div>
   );
 }
+
+function ObsEditor({ client, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(client.observations||"");
+  useEffect(()=>{ setText(client.observations||""); },[client.id]);
+  if (editing) return (
+    <div className="space-y-2">
+      <textarea value={text} onChange={e=>setText(e.target.value)} rows={3} autoFocus
+        className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
+        style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+      <div className="flex gap-2">
+        <button onClick={()=>{onSave(text);setEditing(false);}} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+        <button onClick={()=>{setText(client.observations||"");setEditing(false);}} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
+      </div>
+    </div>
+  );
+  return (
+    <div onClick={()=>setEditing(true)} className="cursor-text rounded-xl p-3 min-h-12 transition-all"
+      style={{ background:"rgba(248,250,252,0.7)", border:"1px dashed rgba(203,213,225,0.6)" }}>
+      {client.observations
+        ? <p className="text-sm" style={{ color:"#374151" }}>{client.observations}</p>
+        : <p className="text-xs" style={{ color:"#cbd5e1" }}>Clique para adicionar observações operacionais...</p>}
+    </div>
+  );
+}
+
+
 
 // ============================================================
 // FINANCES
