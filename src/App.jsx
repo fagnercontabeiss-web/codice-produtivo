@@ -6370,7 +6370,8 @@ function SaveSettingsButton({ settings, updateSettings }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateSettings(settings);
+      // Buscar settings mais recente do contexto para evitar dados stale
+      await updateSettings({ ...settings });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch(e) {
@@ -6402,7 +6403,11 @@ function SaveSettingsButton({ settings, updateSettings }) {
 
 
 // ── LogoUploader component ─────────────────────────────
-function LogoUploader({ settings, updateSettings }) {
+function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsProp }) {
+  // Sempre usar o settings mais recente do contexto global
+  const { settings, updateSettings } = useApp ? (() => {
+    try { return useApp(); } catch { return { settings: settingsProp, updateSettings: updateSettingsProp }; }
+  })() : { settings: settingsProp, updateSettings: updateSettingsProp };
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(settings.logoUrl || null);
   const [error, setError] = useState("");
@@ -6455,8 +6460,8 @@ function LogoUploader({ settings, updateSettings }) {
       // URL pública
       const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/logos/${filename}`;
       setPreview(publicUrl);
-      // Salvar no settings mas NÃO persistir ainda — aguardar botão Salvar
-      updateSettings({ ...settings, logoUrl: publicUrl });
+      // Salvar no estado E persistir no banco imediatamente
+      await updateSettings({ ...settings, logoUrl: publicUrl });
     } catch (e) {
       setError(e.message || "Erro no upload.");
       setPreview(settings.logoUrl || null);
@@ -6466,9 +6471,9 @@ function LogoUploader({ settings, updateSettings }) {
     }
   };
 
-  const removeLogo = () => {
+  const removeLogo = async () => {
     setPreview(null);
-    updateSettings({ ...settings, logoUrl: null });
+    await updateSettings({ ...settings, logoUrl: null });
   };
 
   return (
