@@ -6476,11 +6476,11 @@ function LogoUploader({ settings, updateSettings }) {
       {/* Preview atual */}
       <div className="flex items-center gap-5">
         {/* Área de preview */}
-        <div className="w-24 h-24 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", border:"2px solid rgba(91,170,255,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
+        <div className="rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{ width:170, height:170, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", border:"2px solid rgba(91,170,255,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
           {preview
-            ? <img src={preview} alt="Logo" className="w-full h-full object-contain p-1"/>
-            : <span className="text-3xl font-black text-white">{(settings.appName||"C")[0]}</span>}
+            ? <img src={preview} alt="Logo" style={{ width:"100%", height:"100%", objectFit:"contain", padding:8 }}/>
+            : <span className="font-black text-white" style={{ fontSize:56 }}>{(settings.appName||"C")[0]}</span>}
         </div>
 
         <div className="flex-1">
