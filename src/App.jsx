@@ -35,7 +35,7 @@ const defaultState = {
   aiAnalyses: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
-  settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice" }
+  settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice", logoUrl: null }
 };
 
 // ============================================================
@@ -97,7 +97,7 @@ function AppProvider({ children }) {
         const currentUserId = auth.getUserId();
         const myProfile = (profilesRaw||[]).find(p => p.id === currentUserId) || null;
         const settings = settingsRows?.[0]
-          ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password }
+          ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password, logoUrl:settingsRows[0].logo_url||null }
           : defaultState.settings;
         setState({
           tasks: tasks.map(taskFromDb), habits: habits.map(habitFromDb),
@@ -237,7 +237,7 @@ function AppProvider({ children }) {
 
   const updateSettings = useCallback(async s => {
     setState(prev => ({ ...prev, settings:s }));
-    await db.upsert("settings", { id:"default", app_name:s.appName, login_email:s.loginEmail, login_password:s.loginPassword }).catch(console.error);
+    await db.upsert("settings", { id:"default", app_name:s.appName, login_email:s.loginEmail, login_password:s.loginPassword, logo_url:s.logoUrl||null }).catch(console.error);
   }, []);
 
   const addRelationship = useCallback(async r => {
@@ -6362,6 +6362,182 @@ function SeveranceSimulation() {
 // ============================================================
 // SETTINGS
 // ============================================================
+// ── Botão Salvar Configurações ─────────────────────────
+function SaveSettingsButton({ settings, updateSettings }) {
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateSettings(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch(e) {
+      console.error("Erro ao salvar:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <button onClick={handleSave} disabled={saving}
+      className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60"
+      style={{
+        background: saved
+          ? "linear-gradient(135deg,#10b981,#059669)"
+          : "linear-gradient(135deg,#1c1f26,#1e2e4a)",
+        color: "#fff",
+        boxShadow: saved ? "0 2px 8px rgba(16,185,129,0.3)" : "0 2px 8px rgba(26,29,35,0.25)",
+        minWidth: 90,
+      }}>
+      {saving
+        ? <><Icon.Loader /><span>Salvando...</span></>
+        : saved
+          ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg><span>Salvo!</span></>
+          : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:12,height:12}}><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>Salvar</span></>}
+    </button>
+  );
+}
+
+
+// ── LogoUploader component ─────────────────────────────
+function LogoUploader({ settings, updateSettings }) {
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(settings.logoUrl || null);
+  const [error, setError] = useState("");
+  const fileRef = useRef(null);
+
+  const SUPABASE_URL = "https://kpgpcqjefrixzshmskls.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwZ3BjcWplZnJpeHpzaG1za2xzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTkxMDIsImV4cCI6MjA4ODU3NTEwMn0.ySbLkrOa_OALIm-V8D0ZNG7RUiGbv8cHidu22OpDH2g";
+
+  const getToken = () => {
+    try {
+      const s = JSON.parse(localStorage.getItem("sb_session") || "{}");
+      return s.access_token || SUPABASE_ANON_KEY;
+    } catch { return SUPABASE_ANON_KEY; }
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamanho (máx 2MB) e tipo
+    if (file.size > 2 * 1024 * 1024) { setError("Arquivo muito grande. Máximo 2MB."); return; }
+    const allowed = ["image/png","image/jpeg","image/jpg","image/svg+xml","image/webp"];
+    if (!allowed.includes(file.type)) { setError("Formato inválido. Use PNG, JPG, SVG ou WebP."); return; }
+
+    setError(""); setUploading(true);
+
+    try {
+      // Preview local imediato
+      const reader = new FileReader();
+      reader.onload = (ev) => setPreview(ev.target.result);
+      reader.readAsDataURL(file);
+
+      // Upload para Supabase Storage
+      const filename = `logo_${Date.now()}.${file.name.split(".").pop()}`;
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/logos/${filename}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${getToken()}`,
+          "Content-Type": file.type,
+          "x-upsert": "true",
+        },
+        body: file,
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Upload falhou: ${err}`);
+      }
+
+      // URL pública
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/logos/${filename}`;
+      setPreview(publicUrl);
+      // Salvar no settings mas NÃO persistir ainda — aguardar botão Salvar
+      updateSettings({ ...settings, logoUrl: publicUrl });
+    } catch (e) {
+      setError(e.message || "Erro no upload.");
+      setPreview(settings.logoUrl || null);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeLogo = () => {
+    setPreview(null);
+    updateSettings({ ...settings, logoUrl: null });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Preview atual */}
+      <div className="flex items-center gap-5">
+        {/* Área de preview */}
+        <div className="w-24 h-24 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", border:"2px solid rgba(91,170,255,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
+          {preview
+            ? <img src={preview} alt="Logo" className="w-full h-full object-contain p-1"/>
+            : <span className="text-3xl font-black text-white">{(settings.appName||"C")[0]}</span>}
+        </div>
+
+        <div className="flex-1">
+          <p className="text-sm font-semibold mb-1" style={{ color:"#1a1d23" }}>
+            {preview ? "Logo atual" : "Nenhuma logo enviada"}
+          </p>
+          <p className="text-xs mb-3" style={{ color:"#94a3b8" }}>
+            PNG, JPG, SVG ou WebP — máximo 2MB. Recomendado: 200×200px ou maior.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {/* Botão upload */}
+            <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
+              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}
+              onMouseEnter={e=>e.currentTarget.style.opacity="0.9"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+              {uploading
+                ? <><Icon.Loader /><span>Enviando...</span></>
+                : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg><span>{preview?"Trocar logo":"Upload logo"}</span></>}
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                className="hidden" onChange={handleFile} disabled={uploading}/>
+            </label>
+            {/* Botão remover */}
+            {preview && (
+              <button onClick={removeLogo} disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{ background:"rgba(239,68,68,0.08)", color:"#ef4444", border:"1px solid rgba(239,68,68,0.2)" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.15)"}
+                onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"}>
+                <Icon.Trash /><span>Remover logo</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Erro */}
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.2)" }}>
+          <span className="text-sm">⚠️</span>
+          <p className="text-xs font-medium" style={{ color:"#ef4444" }}>{error}</p>
+        </div>
+      )}
+
+      {/* Preview sidebar */}
+      {preview && (
+        <div className="p-3 rounded-xl" style={{ background:"rgba(26,29,35,0.96)", border:"1px solid rgba(91,170,255,0.12)" }}>
+          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>Preview na sidebar</p>
+          <div className="flex items-center gap-3">
+            <img src={preview} alt="Preview" className="h-8 w-auto object-contain" style={{ maxWidth:80 }}/>
+            <p className="text-sm font-black" style={{ color:"rgba(255,255,255,0.9)" }}>{settings.appName||"Códice Produtivo"}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function SettingsPage() {
   const { settings, updateSettings, categories, contexts, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, currentProfile } = useApp();
   const isAdmin = !currentProfile || currentProfile.role === "admin";
@@ -6502,17 +6678,20 @@ function SettingsPage() {
   return (
     <div className="space-y-5 max-w-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Configurações</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o Códice Produtivo ao seu gosto</p>
         </div>
-        <button onClick={resetTheme} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-          style={{ background:"rgba(241,245,249,0.8)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(241,245,249,0.8)";e.currentTarget.style.color="#64748b";}}>
-          ↺ Restaurar padrão
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={resetTheme} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            style={{ background:"rgba(241,245,249,0.8)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(241,245,249,0.8)";e.currentTarget.style.color="#64748b";}}>
+            ↺ Restaurar padrão
+          </button>
+          <SaveSettingsButton settings={settings} updateSettings={updateSettings} />
+        </div>
       </div>
 
       {/* APARÊNCIA */}
@@ -6581,6 +6760,11 @@ function SettingsPage() {
               style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#2b8be8", background:"rgba(43,139,232,0.08)" }}/>
           </div>
         </Row>
+      </Section>
+
+      {/* LOGO DO ESCRITÓRIO */}
+      <Section title="Logo do Escritório" icon="🏢">
+        <LogoUploader settings={settings} updateSettings={updateSettings} />
       </Section>
 
       {/* APLICATIVO */}
