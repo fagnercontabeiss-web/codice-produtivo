@@ -237,7 +237,14 @@ function AppProvider({ children }) {
 
   const updateSettings = useCallback(async s => {
     setState(prev => ({ ...prev, settings:s }));
-    await db.upsert("settings", { id:"default", app_name:s.appName, login_email:s.loginEmail, login_password:s.loginPassword, logo_url:s.logoUrl||null }).catch(console.error);
+    await db.upsert("settings", {
+      id: "default",
+      user_id: auth.getUserId(),
+      app_name: s.appName,
+      login_email: s.loginEmail,
+      login_password: s.loginPassword,
+      logo_url: s.logoUrl || null,
+    }).catch(e => console.error("Erro ao salvar settings:", e));
   }, []);
 
   const addRelationship = useCallback(async r => {
