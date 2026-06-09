@@ -1401,14 +1401,12 @@ function Tasks() {
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input type="checkbox" checked={hideCompleted} onChange={e => setHideCompleted(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />Ocultar concluídas
             </label>
-            <button onClick={() => setShowDonePanel(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all relative" style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              Concluídos
-              {tasks.filter(t => t.completed && t.dueDate === today()).length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center text-white" style={{ background:"#16a34a" }}>
-                  {tasks.filter(t => t.completed && t.dueDate === today()).length}
-                </span>
-              )}
+            <button onClick={() => setShowDonePanel(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all"
+              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5", border:"1px solid rgba(91,170,255,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.2)" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+              📊 Relatório
             </button>
             {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
               <button onClick={() => setIsMultiOpen(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-colors" style={{ background:"#f0f4f8", color:"#1a1d23" }}><Icon.List />Em Lote</button>
@@ -1686,11 +1684,7 @@ function Tasks() {
           }
         };
 
-        const [reportTab, setReportTab] = window._reportTab
-          ? [window._reportTab, (v) => { window._reportTab = v; }]
-          : (() => { window._reportTab = "daily"; return ["daily", (v) => { window._reportTab = v; }]; })();
-
-        const [localTab, setLocalTab] = React.useState(window._reportTab || "daily");
+        const [localTab, setLocalTab] = useState("daily");
         const period = getPeriodDates(localTab);
 
         const periodTasks = tasks.filter(t =>
