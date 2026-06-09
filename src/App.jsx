@@ -1230,6 +1230,275 @@ function Dashboard() {
 // ============================================================
 // TASKS
 // ============================================================
+// ── RelatorioPanel — componente React real ─────────────────
+function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, onClose }) {
+  const [tab, setTab] = useState("daily");
+  const [diaData, setDiaData] = useState(today());
+  const t = today();
+
+  const getPeriod = () => {
+    const now = new Date();
+    if (tab === "daily") {
+      return { start: diaData, end: diaData };
+    } else if (tab === "weekly") {
+      const day = now.getDay();
+      const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1)); mon.setHours(0,0,0,0);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return { start: mon.toISOString().split("T")[0], end: sun.toISOString().split("T")[0] };
+    } else {
+      const s = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
+      const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      return { start: s, end: last.toISOString().split("T")[0] };
+    }
+  };
+
+  const period = getPeriod();
+
+  const periodTasks = tasks.filter(tk =>
+    !tk.parentId && tk.dueDate >= period.start && tk.dueDate <= period.end
+  );
+
+  const doneTasks    = periodTasks.filter(tk => tk.completed);
+  const pendingTasks = periodTasks.filter(tk => !tk.completed);
+  const rate = periodTasks.length > 0 ? Math.round(doneTasks.length / periodTasks.length * 100) : 0;
+
+  const byCategory = categories.map(c => {
+    const total = periodTasks.filter(tk => tk.categoryId === c.id).length;
+    const done  = doneTasks.filter(tk => tk.categoryId === c.id).length;
+    return { ...c, total, done, rate: total > 0 ? Math.round(done/total*100) : 0 };
+  }).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
+
+  const byUser = (teamUsers||[]).map(u => {
+    const ut = periodTasks.filter(tk => tk.assignedTo === u.id);
+    const ud = ut.filter(tk => tk.completed).length;
+    return { ...u, total: ut.length, done: ud, rate: ut.length > 0 ? Math.round(ud/ut.length*100) : 0 };
+  }).filter(u => u.total > 0);
+
+  const fmtDate = d => { try { return new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}); } catch { return d; } };
+
+  const periodLabel = tab === "daily"
+    ? `Dia ${fmtDate(diaData)}`
+    : tab === "weekly"
+      ? `${fmtDate(period.start)} – ${fmtDate(period.end)}`
+      : new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background:"rgba(26,29,35,0.65)", backdropFilter:"blur(8px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.8)", maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
+
+        {/* Header */}
+        <div className="px-6 py-5 flex items-center justify-between flex-shrink-0"
+          style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", borderBottom:"1px solid rgba(91,170,255,0.12)" }}>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(91,170,255,0.7)" }}>📊 Relatório de Tarefas</p>
+            <h2 className="text-lg font-black" style={{ color:"#fff" }}>{periodLabel}</h2>
+            <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.4)" }}>
+              {periodTasks.length} tarefa{periodTasks.length!==1?"s":""} no período
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl transition-all" style={{ color:"rgba(255,255,255,0.5)" }}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <Icon.X />
+          </button>
+        </div>
+
+        {/* Tabs + date picker */}
+        <div className="flex items-center gap-2 px-6 pt-4 pb-3 flex-shrink-0" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)" }}>
+          {[["daily","☀️ Diário"],["weekly","📅 Semanal"],["monthly","🗓 Mensal"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className="px-4 py-1.5 rounded-xl text-xs font-black transition-all"
+              style={{
+                background:tab===id?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(241,245,249,0.8)",
+                color:tab===id?"#5aaff5":"#64748b",
+                border:tab===id?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.6)"
+              }}>
+              {label}
+            </button>
+          ))}
+          {tab === "daily" && (
+            <div className="flex items-center gap-2 ml-auto">
+              <input type="date" value={diaData} onChange={e=>setDiaData(e.target.value)}
+                className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
+                style={{ borderColor:"rgba(221,227,237,0.7)", color:"#374151", background:"rgba(255,255,255,0.98)" }}/>
+              <button onClick={()=>setDiaData(today())} className="text-xs font-bold px-2.5 py-1.5 rounded-lg"
+                style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.2)" }}>
+                Hoje
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+          {/* KPIs */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label:"Total",      value:periodTasks.length, color:"#2b8be8" },
+              { label:"Concluídas", value:doneTasks.length,   color:"#10b981" },
+              { label:"Pendentes",  value:pendingTasks.length, color:pendingTasks.length>0?"#f59e0b":"#94a3b8" },
+              { label:"Taxa",       value:`${rate}%`,         color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" },
+            ].map(k=>(
+              <div key={k.label} className="rounded-2xl p-4 text-center"
+                style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
+                <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color:"#94a3b8" }}>{k.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Progresso geral */}
+          {periodTasks.length > 0 && (
+            <div className="rounded-2xl p-4" style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-black" style={{ color:"#374151" }}>Progresso geral do período</p>
+                <p className="text-xs font-black" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>{rate}%</p>
+              </div>
+              <div className="w-full h-3 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                <div className="h-3 rounded-full transition-all duration-700"
+                  style={{ width:rate+"%", background:rate>=70?"linear-gradient(90deg,#10b981,#059669)":rate>=40?"linear-gradient(90deg,#f59e0b,#d97706)":"linear-gradient(90deg,#ef4444,#dc2626)" }}/>
+              </div>
+            </div>
+          )}
+
+          {/* Por categoria */}
+          {byCategory.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Por Categoria</p>
+              <div className="space-y-2">
+                {byCategory.map(c=>(
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl"
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background:c.color }}/>
+                    <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{c.name}</span>
+                    <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.done}/{c.total}</span>
+                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                      <div className="h-1.5 rounded-full" style={{ width:c.rate+"%", background:c.color }}/>
+                    </div>
+                    <span className="text-[10px] font-bold w-8 text-right"
+                      style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#f59e0b":"#ef4444" }}>
+                      {c.rate}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Por responsável */}
+          {byUser.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Por Responsável</p>
+              <div className="space-y-2">
+                {byUser.map(u=>(
+                  <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl"
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
+                      style={{ background:u.avatarColor||"#2b8be8" }}>{u.name.charAt(0)}</div>
+                    <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{u.name.split(" ")[0]}</span>
+                    <span className="text-[10px]" style={{ color:"#94a3b8" }}>{u.done}/{u.total}</span>
+                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                      <div className="h-1.5 rounded-full" style={{ width:u.rate+"%", background:u.avatarColor||"#2b8be8" }}/>
+                    </div>
+                    <span className="text-[10px] font-bold w-8 text-right"
+                      style={{ color:u.rate>=70?"#10b981":u.rate>=40?"#f59e0b":"#ef4444" }}>
+                      {u.rate}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Concluídas */}
+          {doneTasks.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
+                <span style={{ color:"#10b981" }}>✓</span> Concluídas ({doneTasks.length})
+              </p>
+              <div className="space-y-1.5">
+                {doneTasks.map(task => {
+                  const cat = categories.find(c => c.id === task.categoryId);
+                  return (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl group/dt transition-all"
+                      style={{ background:"rgba(16,185,129,0.04)", border:"1px solid rgba(16,185,129,0.12)" }}
+                      onMouseEnter={e=>e.currentTarget.style.background="rgba(16,185,129,0.08)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="rgba(16,185,129,0.04)"}>
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background:"#10b981" }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:8,height:8}}><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <p className="flex-1 text-xs font-medium truncate" style={{ color:"#374151", textDecoration:"line-through", textDecorationColor:"#10b98160" }}>{task.title}</p>
+                      {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
+                      {task.dueDate && <span className="text-[9px]" style={{ color:"#94a3b8" }}>{fmtDate(task.dueDate)}</span>}
+                      <button onClick={()=>toggleTaskCompletion(task.id)}
+                        className="opacity-0 group-hover/dt:opacity-100 px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all flex-shrink-0"
+                        style={{ background:"rgba(249,115,22,0.1)", color:"#f97316", border:"1px solid rgba(249,115,22,0.2)" }}>
+                        ↩ Desfazer
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Pendentes */}
+          {pendingTasks.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
+                <span style={{ color:"#f59e0b" }}>○</span> Pendentes ({pendingTasks.length})
+              </p>
+              <div className="space-y-1.5">
+                {pendingTasks.map(task => {
+                  const cat = categories.find(c => c.id === task.categoryId);
+                  const od = task.dueDate < today();
+                  return (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                      style={{ background:od?"rgba(239,68,68,0.04)":"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.12)":"rgba(226,232,240,0.5)"}` }}>
+                      <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor:od?"#ef4444":"#d1d5db" }}/>
+                      <p className="flex-1 text-xs font-medium truncate" style={{ color:od?"#dc2626":"#374151" }}>{task.title}</p>
+                      {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
+                      {task.dueDate && <span className="text-[9px] font-bold" style={{ color:od?"#ef4444":"#94a3b8" }}>{fmtDate(task.dueDate)}</span>}
+                      {od && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(239,68,68,0.1)", color:"#ef4444" }}>Atrasada</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {periodTasks.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-4xl mb-3">📋</p>
+              <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>Nenhuma tarefa no período</p>
+              <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>
+                {tab === "daily" ? "Selecione outra data acima" : "Não há tarefas registradas neste período"}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+          style={{ borderTop:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.5)" }}>
+          <p className="text-xs" style={{ color:"#94a3b8" }}>
+            {doneTasks.length > 0 && `${doneTasks.length} concluída${doneTasks.length!==1?"s":""}`}
+            {pendingTasks.length > 0 && ` · ${pendingTasks.length} pendente${pendingTasks.length!==1?"s":""}`}
+          </p>
+          <p className="text-xs font-bold" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>
+            {rate>=70?"🎯 Ótimo desempenho!":rate>=40?"📈 Em andamento":"⚡ Atenção necessária"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function Tasks() {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion, clients, categories, contexts, currentProfile, teamUsers } = useApp();
   const isAdmin  = currentProfile?.role === "admin" || !currentProfile;
@@ -1248,6 +1517,7 @@ function Tasks() {
   const [editing, setEditing] = useState(null);
   const [isMultiOpen, setIsMultiOpen] = useState(false);
   const [showDonePanel, setShowDonePanel] = useState(false);
+  const [showRelatorio, setShowRelatorio] = useState(false);
   const [doneFilterDate, setDoneFilterDate] = useState(today());
   const [calMonth, setCalMonth] = useState(new Date());
 
@@ -1401,8 +1671,23 @@ function Tasks() {
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input type="checkbox" checked={hideCompleted} onChange={e => setHideCompleted(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />Ocultar concluídas
             </label>
-            <button onClick={() => setShowDonePanel(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all"
-              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5", border:"1px solid rgba(91,170,255,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.2)" }}>
+            {/* Botão Concluídas — original restaurado */}
+            <button onClick={() => setShowDonePanel(true)}
+              className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all relative"
+              style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="#dcfce7";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="#f0fdf4";}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:15,height:15}}>
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              Concluídas
+            </button>
+            {/* Botão Relatório — novo */}
+            <button onClick={() => setShowRelatorio(true)}
+              className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all"
+              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5", border:"1px solid rgba(91,170,255,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.15)" }}
+              onMouseEnter={e=>{e.currentTarget.style.opacity="0.9";}}
+              onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}>
                 <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
               </svg>
@@ -1662,253 +1947,114 @@ function Tasks() {
       )}
 
       {/* ── PAINEL CONCLUÍDOS ── */}
+      {/* ── PAINEL CONCLUÍDAS (original restaurado) ── */}
       {showDonePanel && (() => {
-        const t = today();
-
-        // ── Calcular período pelo tab selecionado ──
-        const getPeriodDates = (tab) => {
-          const now = new Date();
-          if (tab === "daily") {
-            return { start: doneFilterDate, end: doneFilterDate, label: `Dia ${fmt(doneFilterDate)}` };
-          } else if (tab === "weekly") {
-            const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1); mon.setHours(0,0,0,0);
-            const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-            const s = mon.toISOString().split("T")[0];
-            const e = sun.toISOString().split("T")[0];
-            return { start: s, end: e, label: `${fmt(s)} – ${fmt(e)}` };
-          } else {
-            const s = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
-            const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0);
-            const e = lastDay.toISOString().split("T")[0];
-            return { start: s, end: e, label: `${now.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}` };
-          }
-        };
-
-        const [localTab, setLocalTab] = useState("daily");
-        const period = getPeriodDates(localTab);
-
-        const periodTasks = tasks.filter(t =>
-          !t.parentId &&
-          t.dueDate >= period.start &&
-          t.dueDate <= period.end
-        );
-
-        const doneTasks = periodTasks.filter(t => t.completed);
-        const pendingTasks = periodTasks.filter(t => !t.completed);
-        const overduePeriod = pendingTasks.filter(t => t.dueDate < t);
-        const rate = periodTasks.length > 0 ? Math.round(doneTasks.length / periodTasks.length * 100) : 0;
-
-        const byCategory = categories.map(c => {
-          const total = periodTasks.filter(t => t.categoryId === c.id).length;
-          const done = doneTasks.filter(t => t.categoryId === c.id).length;
-          return { ...c, total, done, rate: total > 0 ? Math.round(done/total*100) : 0 };
-        }).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
-
-        const byUser = teamUsers?.map(u => {
-          const uTasks = periodTasks.filter(tk => tk.assignedTo === u.id);
-          const uDone = uTasks.filter(tk => tk.completed).length;
-          return { ...u, total: uTasks.length, done: uDone, rate: uTasks.length > 0 ? Math.round(uDone/uTasks.length*100) : 0 };
-        }).filter(u => u.total > 0) || [];
-
+        const doneTasks = tasks.filter(t => t.completed && t.dueDate === doneFilterDate);
+        const byCategory = categories.map(c => ({ ...c, count: doneTasks.filter(t => t.categoryId === c.id).length })).filter(c => c.count > 0);
         return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-            style={{ background:"rgba(26,29,35,0.65)", backdropFilter:"blur(8px)" }}
-            onClick={e => e.target === e.currentTarget && setShowDonePanel(false)}>
-            <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
-              style={{ background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.8)", maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
-
-              {/* Header */}
-              <div className="px-6 py-5 flex items-center justify-between flex-shrink-0"
-                style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", borderBottom:"1px solid rgba(91,170,255,0.12)" }}>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background:"rgba(26,29,35,0.6)", backdropFilter:"blur(6px)" }} onClick={e => e.target === e.currentTarget && setShowDonePanel(false)}>
+            <div className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl" style={{ background:"#fff", border:"1px solid #dde3ed", maxHeight:"85vh", display:"flex", flexDirection:"column" }}>
+              <div className="px-6 py-5 flex items-center justify-between flex-shrink-0" style={{ background:"linear-gradient(135deg,#f0fdf4,#dcfce7)", borderBottom:"1px solid #bbf7d0" }}>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(91,170,255,0.7)" }}>📊 Relatório de Tarefas</p>
-                  <h2 className="text-lg font-black" style={{ color:"#fff" }}>{period.label}</h2>
-                  <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.45)" }}>
-                    {periodTasks.length} tarefa{periodTasks.length!==1?"s":""} no período
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" className="w-5 h-5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <h2 className="text-base font-black" style={{ color:"#14532d" }}>Tarefas Concluídas</h2>
+                  </div>
+                  <p className="text-xs" style={{ color:"#16a34a" }}>
+                    <span className="font-black text-2xl" style={{ color:"#15803d" }}>{doneTasks.length}</span> tarefa{doneTasks.length !== 1 ? "s" : ""} concluída{doneTasks.length !== 1 ? "s" : ""} em {fmt(doneFilterDate)}
                   </p>
                 </div>
-                <button onClick={() => setShowDonePanel(false)} className="p-2 rounded-xl transition-all" style={{ color:"rgba(255,255,255,0.5)" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <button onClick={() => setShowDonePanel(false)} className="p-2 rounded-xl transition-colors" style={{ color:"#16a34a" }}
+                  onMouseEnter={e => e.currentTarget.style.background="#bbf7d0"}
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
                   <Icon.X />
                 </button>
               </div>
-
-              {/* Tabs período */}
-              <div className="flex px-6 pt-4 gap-1 flex-shrink-0">
-                {[["daily","☀️ Diário"],["weekly","📅 Semanal"],["monthly","🗓 Mensal"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setLocalTab(id)}
-                    className="px-4 py-2 rounded-xl text-xs font-black transition-all"
-                    style={{
-                      background:localTab===id?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(241,245,249,0.8)",
-                      color:localTab===id?"#5aaff5":"#64748b",
-                      border:localTab===id?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.6)"
-                    }}>
-                    {label}
-                  </button>
-                ))}
-                {/* Date picker só para diário */}
-                {localTab === "daily" && (
-                  <input type="date" value={doneFilterDate} onChange={e => setDoneFilterDate(e.target.value)}
-                    className="ml-auto border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-                    style={{ borderColor:"rgba(221,227,237,0.7)", color:"#374151", background:"rgba(255,255,255,0.98)" }}/>
+              <div className="px-6 py-3 flex items-center gap-3 flex-shrink-0" style={{ borderBottom:"1px solid #f0f4f8", background:"#fafcff" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <input type="date" value={doneFilterDate} onChange={e => setDoneFilterDate(e.target.value)}
+                  className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-400 outline-none"
+                  style={{ borderColor:"#dde3ed", color:"#374151" }} />
+                <button onClick={() => setDoneFilterDate(today())} className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}>Hoje</button>
+                {doneTasks.length > 0 && (
+                  <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full" style={{ background:"#dcfce7", color:"#15803d" }}>
+                    {doneTasks.length} {doneTasks.length === 1 ? "tarefa" : "tarefas"}
+                  </span>
                 )}
               </div>
-
-              {/* Conteúdo */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
-
-                {/* KPIs */}
-                <div className="grid grid-cols-4 gap-3">
-                  {[
-                    { label:"Total", value:periodTasks.length, color:"#2b8be8" },
-                    { label:"Concluídas", value:doneTasks.length, color:"#10b981" },
-                    { label:"Pendentes", value:pendingTasks.length, color:pendingTasks.length>0?"#f59e0b":"#10b981" },
-                    { label:"Taxa", value:`${rate}%`, color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" },
-                  ].map(k=>(
-                    <div key={k.label} className="rounded-2xl p-4 text-center" style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
-                      <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color:"#94a3b8" }}>{k.label}</p>
-                    </div>
+              {byCategory.length > 0 && (
+                <div className="px-6 py-2.5 flex flex-wrap gap-1.5 flex-shrink-0" style={{ borderBottom:"1px solid #f0f4f8" }}>
+                  {byCategory.map(c => (
+                    <span key={c.id} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background:`${c.color}15`, color:c.color, border:`1px solid ${c.color}30` }}>
+                      {c.name} · {c.count}
+                    </span>
                   ))}
                 </div>
-
-                {/* Barra de progresso geral */}
-                {periodTasks.length > 0 && (
-                  <div className="rounded-2xl p-4" style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-black" style={{ color:"#374151" }}>Progresso geral</p>
-                      <p className="text-xs font-black" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>{rate}%</p>
-                    </div>
-                    <div className="w-full h-3 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
-                      <div className="h-3 rounded-full transition-all duration-700"
-                        style={{ width:rate+"%", background:rate>=70?"linear-gradient(90deg,#10b981,#059669)":rate>=40?"linear-gradient(90deg,#f59e0b,#d97706)":"linear-gradient(90deg,#ef4444,#dc2626)" }}/>
-                    </div>
-                  </div>
-                )}
-
-                {/* Por categoria */}
-                {byCategory.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Por Categoria</p>
-                    <div className="space-y-2">
-                      {byCategory.map(c => (
-                        <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background:c.color }}/>
-                          <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{c.name}</span>
-                          <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.done}/{c.total}</span>
-                          <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
-                            <div className="h-1.5 rounded-full" style={{ width:c.rate+"%", background:c.color }}/>
-                          </div>
-                          <span className="text-[10px] font-bold w-8 text-right" style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#f59e0b":"#ef4444" }}>{c.rate}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Por responsável */}
-                {byUser.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Por Responsável</p>
-                    <div className="space-y-2">
-                      {byUser.map(u => (
-                        <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0" style={{ background:u.avatarColor||"#2b8be8" }}>{u.name.charAt(0)}</div>
-                          <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{u.name.split(" ")[0]}</span>
-                          <span className="text-[10px]" style={{ color:"#94a3b8" }}>{u.done}/{u.total}</span>
-                          <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
-                            <div className="h-1.5 rounded-full" style={{ width:u.rate+"%", background:u.avatarColor||"#2b8be8" }}/>
-                          </div>
-                          <span className="text-[10px] font-bold w-8 text-right" style={{ color:u.rate>=70?"#10b981":u.rate>=40?"#f59e0b":"#ef4444" }}>{u.rate}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tarefas concluídas */}
-                {doneTasks.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
-                      <span style={{ color:"#10b981" }}>✓</span> Concluídas ({doneTasks.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {doneTasks.map(task => {
-                        const cat = categories.find(c => c.id === task.categoryId);
-                        return (
-                          <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl group/dt transition-all"
-                            style={{ background:"rgba(16,185,129,0.04)", border:"1px solid rgba(16,185,129,0.12)" }}
-                            onMouseEnter={e=>e.currentTarget.style.background="rgba(16,185,129,0.08)"}
-                            onMouseLeave={e=>e.currentTarget.style.background="rgba(16,185,129,0.04)"}>
-                            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background:"#10b981" }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:8,height:8}}><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
-                            <p className="flex-1 text-xs font-medium truncate" style={{ color:"#374151", textDecoration:"line-through", textDecorationColor:"#10b98160" }}>{task.title}</p>
-                            {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
-                            {task.dueDate && <span className="text-[9px]" style={{ color:"#94a3b8" }}>{fmt(task.dueDate)}</span>}
-                            {/* Botão desfazer */}
-                            <button onClick={()=>toggleTaskCompletion(task.id)}
-                              className="opacity-0 group-hover/dt:opacity-100 px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all flex-shrink-0"
-                              style={{ background:"rgba(249,115,22,0.1)", color:"#f97316", border:"1px solid rgba(249,115,22,0.2)" }}>
-                              ↩
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tarefas pendentes */}
-                {pendingTasks.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
-                      <span style={{ color:"#f59e0b" }}>○</span> Pendentes ({pendingTasks.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {pendingTasks.map(task => {
-                        const cat = categories.find(c => c.id === task.categoryId);
-                        const od = task.dueDate < today();
-                        return (
-                          <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                            style={{ background:od?"rgba(239,68,68,0.04)":"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.12)":"rgba(226,232,240,0.5)"}` }}>
-                            <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor:od?"#ef4444":"#d1d5db" }}/>
-                            <p className="flex-1 text-xs font-medium truncate" style={{ color:od?"#dc2626":"#374151" }}>{task.title}</p>
-                            {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
-                            {task.dueDate && <span className="text-[9px] font-bold" style={{ color:od?"#ef4444":"#94a3b8" }}>{fmt(task.dueDate)}</span>}
-                            {od && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(239,68,68,0.1)", color:"#ef4444" }}>Atrasada</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {periodTasks.length === 0 && (
+              )}
+              <div className="overflow-y-auto flex-1 p-4">
+                {doneTasks.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-4xl mb-3">📋</p>
-                    <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>Nenhuma tarefa no período</p>
-                    <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Selecione outro período ou data</p>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" className="w-12 h-12 mx-auto mb-3"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    <p className="text-sm font-medium" style={{ color:"#9ca3af" }}>Nenhuma tarefa concluída neste dia.</p>
+                    <p className="text-xs mt-1" style={{ color:"#d1d5db" }}>Selecione outra data acima.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {doneTasks.map((task, idx) => {
+                      const cat = categories.find(c => c.id === task.categoryId);
+                      const ctx = contexts.find(c => c.id === task.contextId);
+                      return (
+                        <div key={task.id} className="flex items-center gap-3 px-4 py-3 rounded-xl group/done transition-all"
+                          style={{ background:"#f8fafc", border:"1px solid #e8f5e9", borderLeft:"3px solid #10b981" }}
+                          onMouseEnter={e=>e.currentTarget.style.background="#f0fdf4"}
+                          onMouseLeave={e=>e.currentTarget.style.background="#f8fafc"}>
+                          <svg viewBox="0 0 24 24" fill="#10b981" stroke="none" className="w-5 h-5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9" stroke="white" strokeWidth="2.5" fill="none"/></svg>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color:"#374151", textDecoration:"line-through", textDecorationColor:"#10b98180" }}>{task.title}</p>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {ctx && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background:`${ctx.color}15`, color:ctx.color }}>{ctx.name}</span>}
+                              {cat && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
+                            </div>
+                          </div>
+                          {/* Botão Desfazer */}
+                          <button onClick={()=>toggleTaskCompletion(task.id)}
+                            className="opacity-0 group-hover/done:opacity-100 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex-shrink-0"
+                            style={{ background:"rgba(249,115,22,0.08)", color:"#f97316", border:"1px solid rgba(249,115,22,0.2)" }}>
+                            ↩ Desfazer
+                          </button>
+                          <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color:"#9ca3af" }}>#{idx+1}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-
-              {/* Footer */}
-              <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-                style={{ borderTop:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.5)" }}>
-                <p className="text-xs" style={{ color:"#94a3b8" }}>
-                  {doneTasks.length > 0 && `${doneTasks.length} concluída${doneTasks.length!==1?"s":""}`}
-                  {pendingTasks.length > 0 && ` · ${pendingTasks.length} pendente${pendingTasks.length!==1?"s":""}`}
-                </p>
-                <p className="text-xs font-bold" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>
-                  {rate>=70?"🎯 Ótimo desempenho!":rate>=40?"📈 Em andamento":"⚡ Atenção necessária"}
-                </p>
-              </div>
+              {doneTasks.length > 0 && (
+                <div className="px-6 py-4 flex-shrink-0" style={{ borderTop:"1px solid #f0f4f8", background:"#fafcff" }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color:"#6b7280" }}>
+                      {doneTasks.filter(t => t.isRecurring).length > 0 && `${doneTasks.filter(t => t.isRecurring).length} recorrente(s)`}
+                    </p>
+                    <p className="text-xs font-bold" style={{ color:"#16a34a" }}>🎯 Ótimo trabalho!</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
       })()}
+
+      {/* ── RELATÓRIO (componente separado) ── */}
+      {showRelatorio && (
+        <RelatorioPanel
+          tasks={tasks}
+          categories={categories}
+          teamUsers={teamUsers}
+          toggleTaskCompletion={toggleTaskCompletion}
+          onClose={() => setShowRelatorio(false)}
+        />
+      )}
+
     </div>
   );
 }
