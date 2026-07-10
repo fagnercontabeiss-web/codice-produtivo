@@ -10,16 +10,16 @@ const defaultCategories = [
   { id: "fiscal", name: "Fiscal", color: "#ef4444" },
   { id: "contabil", name: "Contábil", color: "#3b82f6" },
   { id: "dp", name: "DP", color: "#10b981" },
-  { id: "societario", name: "Societário", color: "#f59e0b" },
+  { id: "societario", name: "Societário", color: "#B8965A" },
   { id: "administrativo", name: "Administrativo", color: "#6366f1" },
   { id: "pessoal", name: "Pessoal", color: "#ec4899" },
   { id: "outro", name: "Outro", color: "#64748b" },
 ];
 const defaultContexts = [
   { id: "pessoal", name: "Pessoal", color: "#ec4899" },
-  { id: "codice-contabilidade", name: "Códice Contabilidade", color: "#3b82f6" },
-  { id: "codice-start", name: "Códice Start", color: "#10b981" },
-  { id: "iabv", name: "IABV", color: "#f59e0b" },
+  { id: "codice-contabilidade", name: "YOETZ Inteligência Empresarial", color: "#3b82f6" },
+  { id: "codice-start", name: "YOETZ Start", color: "#10b981" },
+  { id: "iabv", name: "IABV", color: "#B8965A" },
   { id: "direito", name: "Direito (Faculdade)", color: "#6366f1" },
 ];
 const defaultState = {
@@ -35,7 +35,7 @@ const defaultState = {
   aiAnalyses: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
-  settings: { appName: "Códice Produtivo", loginEmail: "Fagner", loginPassword: "Codice", logoUrl: null }
+  settings: { appName: "YOETZ Inteligência Empresarial", loginEmail: "Fagner", loginPassword: "Codice", logoUrl: null }
 };
 
 // ============================================================
@@ -70,8 +70,8 @@ function AppProvider({ children }) {
 
   const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all", parentId:r.parent_id||null });
   const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null });
-  const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2b8be8", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
-  const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2b8be8", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
+  const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2B5E46", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
+  const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
   const clientToDb   = c => ({ id:c.id, name:c.name||"", document:c.document||"", type:c.type||"pj", monthly_fee:parseFloat(c.monthlyFee)||0, payment_status:c.paymentStatus||"pending", payment_method:c.paymentMethod||"pix", notes:c.notes||"", due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active", billing_sent:c.billingSent||false, operational_status:c.operationalStatus||"healthy", priority:c.priority||"medium", responsible_id:c.responsibleId||null, tags:c.tags||[], last_interaction:c.lastInteraction||null, observations:c.observations||"" });
   const goalFromDb = r => ({ id:r.id, title:r.title, completed:r.completed, createdAt:r.created_at });
@@ -122,7 +122,7 @@ function AppProvider({ children }) {
             clientName:p.client_name||"", responsibleId:p.responsible_id||null,
             teamIds:p.team_ids||[], dueDate:p.due_date||"", startDate:p.start_date||"",
             completedAt:p.completed_at||"", checklist:p.checklist||[], tags:p.tags||[],
-            notes:p.notes||"", color:p.color||"#2b8be8", orderIndex:p.order_index||0,
+            notes:p.notes||"", color:p.color||"#2B5E46", orderIndex:p.order_index||0,
             createdAt:p.created_at||new Date().toISOString()
           })),
           onboardings: (onboardRaw||[]).map(o => ({ id:o.id, title:o.title, type:o.type, status:o.status, clientId:o.client_id||"", clientName:o.client_name||"", responsibleId:o.responsible_id||null, notes:o.notes||"", startDate:o.start_date||"", targetDate:o.target_date||"", completedAt:o.completed_at||"" })),
@@ -263,11 +263,11 @@ function AppProvider({ children }) {
   // Team user management — DEVE ficar antes do if(loading) return
   const addTeamUser = useCallback(async (profile) => {
     setState(s => ({ ...s, teamUsers: [...s.teamUsers, profile] }));
-    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:true, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2B5E46", active:true, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
   }, []);
   const updateTeamUser = useCallback(async (profile) => {
     setState(s => ({ ...s, teamUsers: s.teamUsers.map(u => u.id===profile.id ? profile : u) }));
-    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2b8be8", active:profile.active, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
+    await db.upsert("user_profiles", { id:profile.id, name:profile.name, role:profile.role, owner_id:profile.ownerId, avatar_color:profile.avatarColor||"#2B5E46", active:profile.active, allowed_tabs:profile.allowedTabs||null, can_create_tasks:profile.canCreateTasks!==false }).catch(console.error);
   }, []);
   const removeTeamUser = useCallback(async (id) => {
     setState(s => ({ ...s, teamUsers: s.teamUsers.filter(u => u.id !== id) }));
@@ -277,11 +277,11 @@ function AppProvider({ children }) {
   // Project actions
   const addProject = useCallback(async p => {
     setState(s => ({ ...s, projects:[...s.projects, p] }));
-    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2b8be8", order_index:p.orderIndex||0 }).catch(console.error);
+    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2B5E46", order_index:p.orderIndex||0 }).catch(console.error);
   }, []);
   const updateProject = useCallback(async p => {
     setState(s => ({ ...s, projects:s.projects.map(x => x.id===p.id?p:x) }));
-    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, completed_at:p.completedAt||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2b8be8", order_index:p.orderIndex||0 }).catch(console.error);
+    await db.upsert("projects", { id:p.id, title:p.title, description:p.description||"", status:p.status, priority:p.priority, category:p.category||"", client_id:p.clientId||null, client_name:p.clientName||"", responsible_id:p.responsibleId||null, team_ids:p.teamIds||[], due_date:p.dueDate||null, start_date:p.startDate||null, completed_at:p.completedAt||null, checklist:p.checklist||[], tags:p.tags||[], notes:p.notes||"", color:p.color||"#2B5E46", order_index:p.orderIndex||0 }).catch(console.error);
   }, []);
   const deleteProject = useCallback(async id => {
     setState(s => ({ ...s, projects:s.projects.filter(p => p.id!==id) }));
@@ -352,10 +352,10 @@ function AppProvider({ children }) {
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
-      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1A3829,#2B5E46)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4A7454" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
-      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando Códice Produtivo...</p>
+      <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando YOETZ Inteligência Empresarial...</p>
       {dbError && <p style={{ color:"#ef4444", fontSize:12 }}>Erro ao conectar — usando dados locais</p>}
     </div>
   );
@@ -439,10 +439,10 @@ const Icon = {
 // ============================================================
 function Modal({ title, onClose, children, maxWidth = "max-w-md" }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(26,29,35,0.6)", backdropFilter: "blur(6px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(17,17,16,0.6)", backdropFilter: "blur(6px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden`} style={{ maxHeight: "90vh", overflowY: "auto", border: "1px solid #e2eaf3" }}>
         <div className="px-6 py-4 flex justify-between items-center sticky top-0 bg-white z-10" style={{ borderBottom: "1px solid #dde3ed" }}>
-          <h3 className="text-base font-bold" style={{ color: "#1a1d23" }}>{title}</h3>
+          <h3 className="text-base font-bold" style={{ color: "#111110" }}>{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: "#94a3b8" }}
             onMouseEnter={e => { e.currentTarget.style.background="#f0f4f8"; e.currentTarget.style.color="#0f2644"; }}
             onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94a3b8"; }}
@@ -481,17 +481,17 @@ function Login({ onLogin, settings }) {
               <label className="block text-sm font-medium text-slate-700 mb-1">Login</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Icon.User /></div>
-                <input type="text" required value={u} onChange={e => setU(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400" placeholder="Seu usuário" />
+                <input type="text" required value={u} onChange={e => setU(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-700 focus:border-blue-400" placeholder="Seu usuário" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Icon.Lock /></div>
-                <input type="password" required value={p} onChange={e => setP(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400" placeholder="Sua senha" />
+                <input type="password" required value={p} onChange={e => setP(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-700 focus:border-blue-400" placeholder="Sua senha" />
               </div>
             </div>
-            <button type="button" onClick={() => { if (u === settings.loginEmail && p === settings.loginPassword) onLogin(); else setErr('Login ou senha incorretos.'); }} className="w-full py-2.5 px-4 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}>Entrar</button>
+            <button type="button" onClick={() => { if (u === settings.loginEmail && p === settings.loginPassword) onLogin(); else setErr('Login ou senha incorretos.'); }} className="w-full py-2.5 px-4 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px #2B5E4640" }}>Entrar</button>
           </div>
         </div>
       </div>
@@ -529,8 +529,8 @@ function GlobalSearchResults({ query, onSelect, setActiveTab }) {
           {matchTasks.map(t => (
             <button key={t.id} onClick={() => { setActiveTab("tasks"); onSelect(); }}
               className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
-              <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : "#f59e0b" }} />
-              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{t.title}</span>
+              <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : "#B8965A" }} />
+              <span className="text-xs font-medium truncate" style={{ color:"#111110" }}>{t.title}</span>
               {t.dueDate && <span className="text-[10px] ml-auto flex-shrink-0" style={{ color:"#94a3b8" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
             </button>
           ))}
@@ -542,8 +542,8 @@ function GlobalSearchResults({ query, onSelect, setActiveTab }) {
           {matchClients.map(c => (
             <button key={c.id} onClick={() => { setActiveTab("clients"); onSelect(); }}
               className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0" style={{ background:"#eff6ff", color:"#2b8be8" }}>{c.name.charAt(0)}</div>
-              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{c.name}</span>
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0" style={{ background:"#eff6ff", color:"#2B5E46" }}>{c.name.charAt(0)}</div>
+              <span className="text-xs font-medium truncate" style={{ color:"#111110" }}>{c.name}</span>
               <span className="text-[10px] ml-auto flex-shrink-0" style={{ color:"#94a3b8" }}>{fmtCurrency(c.monthlyFee||0)}</span>
             </button>
           ))}
@@ -556,7 +556,7 @@ function GlobalSearchResults({ query, onSelect, setActiveTab }) {
             <button key={r.id} onClick={() => { setActiveTab("relationship"); onSelect(); }}
               className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors">
               <span className="text-base flex-shrink-0">💝</span>
-              <span className="text-xs font-medium truncate" style={{ color:"#1a1d23" }}>{r.name}</span>
+              <span className="text-xs font-medium truncate" style={{ color:"#111110" }}>{r.name}</span>
             </button>
           ))}
         </div>
@@ -602,7 +602,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       label: "Análise",
       items: [
         { id: "projects",  label: "Projetos",     icon: Icon.Tasks },
-        { id: "codiceai",  label: "Códice IA",    icon: Icon.Sparkles },
+        { id: "codiceai",  label: "YOETZ IA",    icon: Icon.Sparkles },
         { id: "sops",      label: "SOPs & Playbooks", icon: Icon.Tasks },
         { id: "reports",   label: "Relatórios",   icon: Icon.Reports },
         { id: "workload", label: "Workload",       icon: Icon.Tasks },
@@ -631,16 +631,25 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
 
       {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-30 w-60 flex flex-col transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ background: "linear-gradient(180deg, #1c1f26 0%, #1e2330 60%, #1a2038 100%)" }}>
+        style={{ background: "linear-gradient(180deg, #111110 0%, #1e2330 60%, #1a2038 100%)" }}>
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center py-7 px-4 relative" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           {settings.logoUrl
             ? <img src={settings.logoUrl} alt="Logo" style={{ height:120, width:"auto", maxWidth:200, objectFit:"contain", marginBottom:8 }} />
-            : <div className="rounded-xl mb-3 flex items-center justify-center text-white font-black shadow-lg"
-                style={{ width:120, height:120, fontSize:48, background:"linear-gradient(135deg,#5aaff5 0%,#2b8be8 100%)" }}>
-                {settings.appName?.[0] || "C"}
-              </div>
+            : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" style={{ height:72, width:"auto", maxWidth:180, marginBottom:8 }}>
+                <g transform="translate(10, 5) scale(0.475)">
+                  <path d="M165.5,91 A110,110 0 1 1 134.5,91" stroke="#B8965A" strokeWidth="11" strokeLinecap="round"/>
+                  <path d="M150,20 C178,30 180,75 150,91 C120,75 122,30 150,20 Z" fill="#B8965A"/>
+                  <line x1="150" y1="91" x2="150" y2="310" stroke="#B8965A" strokeWidth="6"/>
+                  <line x1="150" y1="310" x2="112" y2="362" stroke="#B8965A" strokeWidth="7.5" strokeLinecap="round"/>
+                  <line x1="150" y1="310" x2="150" y2="380" stroke="#B8965A" strokeWidth="7.5" strokeLinecap="round"/>
+                  <line x1="150" y1="310" x2="188" y2="362" stroke="#B8965A" strokeWidth="7.5" strokeLinecap="round"/>
+                </g>
+                <line x1="160" y1="32" x2="160" y2="168" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+                <text x="182" y="130" fontFamily="Georgia,serif" fontWeight="600" fontSize="108" letterSpacing="22" fill="#FFFFFF">YOETZ</text>
+                <text x="184" y="168" fontFamily="system-ui,sans-serif" fontWeight="300" fontSize="18" letterSpacing="7" fill="#B8965A">INTELIGÊNCIA EMPRESARIAL</text>
+              </svg>
           }
           <h1 className="text-xs font-bold text-center tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.85)" }}>{settings.appName}</h1>
           <button className="lg:hidden absolute top-4 right-4" style={{ color: "rgba(255,255,255,0.5)" }} onClick={() => setSidebarOpen(false)}><Icon.X /></button>
@@ -659,13 +668,13 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
                     <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
                       className="flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150"
                       style={active
-                        ? { background: "linear-gradient(90deg, #2b8be822 0%, #2b8be808 100%)", color: "#7ec8f8", borderLeft: "2px solid #2b8be8" }
+                        ? { background: "linear-gradient(90deg, #2B5E4622 0%, #2B5E4608 100%)", color: "#7ec8f8", borderLeft: "2px solid #2B5E46" }
                         : { color: "rgba(255,255,255,0.55)", borderLeft: "2px solid transparent" }
                       }
                       onMouseEnter={e => { if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.85)"; }}
                       onMouseLeave={e => { if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
                     >
-                      <span className="mr-3 flex-shrink-0" style={active ? { color: "#5aaff5" } : {}}><I /></span>
+                      <span className="mr-3 flex-shrink-0" style={active ? { color: "#4A7454" } : {}}><I /></span>
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -679,7 +688,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #5aaff5, #2b8be8)", color: "#fff" }}>
+              style={{ background: "linear-gradient(135deg, #4A7454, #2B5E46)", color: "#fff" }}>
               {(currentProfile?.name?.[0] || auth.getUserEmail()?.[0] || "U").toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
@@ -703,7 +712,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         <header className="flex items-center h-14 px-4 sm:px-6 flex-shrink-0" style={{ background: "#fff", borderBottom: "1px solid #dde3ed" }}>
           <button className="mr-4 lg:hidden" style={{ color: "#64748b" }} onClick={() => setSidebarOpen(true)}><Icon.Menu /></button>
           <div>
-            <h1 className="text-base font-bold" style={{ color: "#1a1d23" }}>{currentLabel}</h1>
+            <h1 className="text-base font-bold" style={{ color: "#111110" }}>{currentLabel}</h1>
           </div>
           <div className="ml-auto flex items-center gap-3">
             {/* ITEM 9 — Busca Global */}
@@ -713,12 +722,12 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
               </svg>
               <input value={globalSearch} onChange={e=>{ setGlobalSearch(e.target.value); setSearchOpen(e.target.value.length > 0); }}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
-                placeholder="Buscar..." className="border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs w-44 focus:w-56 transition-all focus:ring-2 focus:ring-blue-300" />
+                placeholder="Buscar..." className="border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs w-44 focus:w-56 transition-all focus:ring-2 focus:ring-green-700" />
               {searchOpen && globalSearch.length > 0 && (
                 <GlobalSearchResults query={globalSearch} onSelect={() => { setGlobalSearch(""); setSearchOpen(false); }} setActiveTab={setActiveTab} />
               )}
             </div>
-            <div className="text-xs font-medium px-3 py-1 rounded-full" style={{ background: "#dbeafe", color: "#2b8be8" }}>
+            <div className="text-xs font-medium px-3 py-1 rounded-full" style={{ background: "#dbeafe", color: "#2B5E46" }}>
               {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
             </div>
           </div>
@@ -744,7 +753,7 @@ function StatCard({ title, value, icon, trend, trendColor, accent = "#3b82f6" })
         <div className="p-2 rounded-xl" style={{ background: `${accent}15` }}>{icon}</div>
       </div>
       <p className="text-3xl font-black mb-1" style={{ color: "#1c1917", letterSpacing: "-0.5px" }}>{value}</p>
-      <p className="text-xs font-medium" style={{ color: trendColor?.includes("red") ? "#ef4444" : trendColor?.includes("emerald") ? "#10b981" : trendColor?.includes("amber") ? "#f59e0b" : "#64748b" }}>{trend}</p>
+      <p className="text-xs font-medium" style={{ color: trendColor?.includes("red") ? "#ef4444" : trendColor?.includes("emerald") ? "#10b981" : trendColor?.includes("amber") ? "#B8965A" : "#64748b" }}>{trend}</p>
     </div>
   );
 }
@@ -818,7 +827,7 @@ function Dashboard() {
   }, [overdue, dueToday, rate, tasks, activeOnb, relationships, spark7, mrr, clients]);
 
   // ── Sparkline SVG helper ───────────────────────────────────
-  const Sparkline = ({ data, color="#2b8be8", height=32 }) => {
+  const Sparkline = ({ data, color="#2B5E46", height=32 }) => {
     if (!data || data.length < 2) return null;
     const max = Math.max(...data, 1);
     const w = 80, h = height;
@@ -849,7 +858,7 @@ function Dashboard() {
         background: urgent
           ? "linear-gradient(135deg,rgba(239,68,68,0.06) 0%,rgba(255,255,255,0.98) 100%)"
           : "rgba(255,255,255,0.98)",
-        border: urgent ? "1.5px solid rgba(239,68,68,0.25)" : "1px solid rgba(221,227,237,0.8)",
+        border: urgent ? "1.5px solid rgba(239,68,68,0.25)" : "1px solid rgba(206,186,150,0.8)",
         boxShadow: urgent
           ? "0 4px 24px rgba(239,68,68,0.08), 0 1px 4px rgba(0,0,0,0.04)"
           : "0 4px 24px rgba(26,29,35,0.05), 0 1px 4px rgba(0,0,0,0.03)",
@@ -863,7 +872,7 @@ function Dashboard() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8", letterSpacing:"0.1em" }}>{label}</p>
-          <p className="text-2xl font-black leading-none mb-1" style={{ color: urgent ? "#ef4444" : "#1a1d23", fontVariantNumeric:"tabular-nums" }}>{value}</p>
+          <p className="text-2xl font-black leading-none mb-1" style={{ color: urgent ? "#ef4444" : "#111110", fontVariantNumeric:"tabular-nums" }}>{value}</p>
           {sub && <p className="text-xs mt-1" style={{ color: urgent ? "#f87171" : "#94a3b8" }}>{sub}</p>}
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -898,7 +907,7 @@ function Dashboard() {
       {/* ═══ TICKER CENTRAL OPERACIONAL ══════════════════════ */}
       <div className="rounded-2xl overflow-hidden" style={{
         background:"linear-gradient(135deg,#0f1117 0%,#1a1d26 50%,#0f1723 100%)",
-        border:"1px solid rgba(91,170,255,0.15)",
+        border:"1px solid rgba(184,150,90,0.15)",
         boxShadow:"0 4px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
       }}>
         {/* Header */}
@@ -908,11 +917,11 @@ function Dashboard() {
               <div className="w-2 h-2 rounded-full animate-pulse" style={{ background:"#10b981", boxShadow:"0 0 6px #10b981" }}/>
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#10b981" }}>LIVE</span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color:"rgba(255,255,255,0.3)" }}>Central Operacional · Códice Contabilidade</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color:"rgba(255,255,255,0.3)" }}>Central Operacional · YOETZ Inteligência Empresarial</span>
           </div>
           <div className="flex items-center gap-4 text-[10px] font-mono" style={{ color:"rgba(255,255,255,0.4)" }}>
             <span>{now.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</span>
-            <span style={{ color:"#5aaff5" }}>{now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span>
+            <span style={{ color:"#4A7454" }}>{now.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span>
           </div>
         </div>
 
@@ -941,9 +950,9 @@ function Dashboard() {
               </div>
             )}
             {activeOnb > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(43,139,232,0.15)", border:"1px solid rgba(43,139,232,0.3)" }}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(43,94,70,0.15)", border:"1px solid rgba(43,94,70,0.3)" }}>
                 <span className="text-sm">🚀</span>
-                <span className="text-xs font-black" style={{ color:"#5aaff5" }}>{activeOnb} onboarding</span>
+                <span className="text-xs font-black" style={{ color:"#4A7454" }}>{activeOnb} onboarding</span>
               </div>
             )}
           </div>
@@ -998,8 +1007,8 @@ function Dashboard() {
           value={mrr > 0 ? fmtCurrency(mrr) : "—"}
           sub={`${clients.length} cliente${clients.length!==1?"s":""} ativo${clients.length!==1?"s":""}`}
           spark={[mrr*0.7, mrr*0.8, mrr*0.75, mrr*0.9, mrr*0.85, mrr*0.95, mrr].map(v=>v||0)}
-          sparkColor="#2b8be8"
-          accent="#2b8be8"
+          sparkColor="#2B5E46"
+          accent="#2B5E46"
           icon="💰"
         />
         <KPICard
@@ -1019,18 +1028,18 @@ function Dashboard() {
         {/* Gráfico principal aprimorado */}
         <div className="lg:col-span-2 rounded-2xl p-6" style={{
           background:"rgba(255,255,255,0.98)",
-          border:"1px solid rgba(221,227,237,0.7)",
+          border:"1px solid rgba(206,186,150,0.7)",
           boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
           backdropFilter:"blur(8px)",
         }}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-sm font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Produtividade Semanal</h3>
+              <h3 className="text-sm font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Produtividade Semanal</h3>
               <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Tarefas concluídas vs pendentes — últimos 7 dias</p>
             </div>
             <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
-              <span className="flex items-center gap-1.5" style={{ color:"#2b8be8" }}>
-                <span style={{ width:8,height:8,borderRadius:2,background:"#2b8be8",display:"inline-block" }}/>Concluídas
+              <span className="flex items-center gap-1.5" style={{ color:"#2B5E46" }}>
+                <span style={{ width:8,height:8,borderRadius:2,background:"#2B5E46",display:"inline-block" }}/>Concluídas
               </span>
               <span className="flex items-center gap-1.5" style={{ color:"#e2e8f0" }}>
                 <span style={{ width:8,height:8,borderRadius:2,background:"#cbd5e1",display:"inline-block" }}/>Pendentes
@@ -1042,7 +1051,7 @@ function Dashboard() {
               <BarChart data={spark7} barGap={2} barCategoryGap="35%">
                 <defs>
                   <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2b8be8" stopOpacity="1"/>
+                    <stop offset="0%" stopColor="#2B5E46" stopOpacity="1"/>
                     <stop offset="100%" stopColor="#1d6fd4" stopOpacity="0.85"/>
                   </linearGradient>
                   <linearGradient id="barGradP" x1="0" y1="0" x2="0" y2="1">
@@ -1050,20 +1059,20 @@ function Dashboard() {
                     <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.7"/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(226,232,240,0.5)" />
+                <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(206,186,150,0.5)" />
                 <XAxis dataKey="day" axisLine={false} tickLine={false}
                   tick={({ x,y,payload,index }) => (
                     <text x={x} y={y+12} textAnchor="middle" fontSize={11} fontWeight={spark7[index]?.date===t?700:400}
-                      fill={spark7[index]?.date===t?"#2b8be8":"#94a3b8"}>
+                      fill={spark7[index]?.date===t?"#2B5E46":"#94a3b8"}>
                       {spark7[index]?.date===t?"Hoje":payload.value}
                     </text>
                   )}
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
                 <Tooltip
-                  cursor={{ fill:"rgba(43,139,232,0.04)", radius:8 }}
-                  contentStyle={{ borderRadius:14, border:"1px solid rgba(221,227,237,0.8)", boxShadow:"0 8px 32px rgba(26,29,35,0.12)", padding:"10px 14px", fontSize:12, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
-                  labelStyle={{ fontWeight:700, color:"#1a1d23", marginBottom:4 }}
+                  cursor={{ fill:"rgba(43,94,70,0.04)", radius:8 }}
+                  contentStyle={{ borderRadius:14, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 32px rgba(26,29,35,0.12)", padding:"10px 14px", fontSize:12, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                  labelStyle={{ fontWeight:700, color:"#111110", marginBottom:4 }}
                   formatter={(val,name) => [`${val} tarefa${val!==1?"s":""}`, name]}
                 />
                 <Bar dataKey="done" name="Concluídas" fill="url(#barGrad)" radius={[6,6,0,0]} stackId="a" maxBarSize={36}/>
@@ -1072,9 +1081,9 @@ function Dashboard() {
             </ResponsiveContainer>
           </div>
           {/* Mini KPIs internos */}
-          <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop:"1px solid rgba(226,232,240,0.6)" }}>
+          <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop:"1px solid rgba(206,186,150,0.6)" }}>
             {[
-              { label:"Concluídas semana", value:spark7.reduce((s,d)=>s+d.done,0), color:"#2b8be8" },
+              { label:"Concluídas semana", value:spark7.reduce((s,d)=>s+d.done,0), color:"#2B5E46" },
               { label:"Pendentes semana",  value:spark7.reduce((s,d)=>s+d.pending,0), color:"#94a3b8" },
               { label:"Taxa da semana",    value:`${spark7.reduce((s,d)=>s+d.done,0)+spark7.reduce((s,d)=>s+d.pending,0)>0?Math.round(spark7.reduce((s,d)=>s+d.done,0)/(spark7.reduce((s,d)=>s+d.done,0)+spark7.reduce((s,d)=>s+d.pending,0))*100):0}%`, color:"#10b981" },
             ].map(k => (
@@ -1089,26 +1098,26 @@ function Dashboard() {
         {/* Alertas inteligentes */}
         <div className="rounded-2xl p-5 flex flex-col gap-3" style={{
           background:"rgba(255,255,255,0.98)",
-          border:"1px solid rgba(221,227,237,0.7)",
+          border:"1px solid rgba(206,186,150,0.7)",
           boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
         }}>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#5aaff5,#2b8be8)" }}/>
-            <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Insights do Escritório</h3>
+            <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#4A7454,#2B5E46)" }}/>
+            <h3 className="text-sm font-black" style={{ color:"#111110" }}>Insights do Escritório</h3>
           </div>
           {insights.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8 gap-3">
               <div className="text-4xl">🎯</div>
-              <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>Tudo sob controle!</p>
+              <p className="text-sm font-semibold" style={{ color:"#111110" }}>Tudo sob controle!</p>
               <p className="text-xs" style={{ color:"#94a3b8" }}>Nenhum alerta no momento</p>
             </div>
           ) : (
             <div className="space-y-2.5">
               {insights.map((ins,i) => {
-                const colors = { danger:"#ef4444",warning:"#f59e0b",success:"#10b981",info:"#2b8be8",special:"#a855f7" };
-                const bgs    = { danger:"rgba(239,68,68,0.06)",warning:"rgba(245,158,11,0.06)",success:"rgba(16,185,129,0.06)",info:"rgba(43,139,232,0.06)",special:"rgba(168,85,247,0.06)" };
+                const colors = { danger:"#ef4444",warning:"#B8965A",success:"#10b981",info:"#2B5E46",special:"#a855f7" };
+                const bgs    = { danger:"rgba(239,68,68,0.06)",warning:"rgba(245,158,11,0.06)",success:"rgba(16,185,129,0.06)",info:"rgba(43,94,70,0.06)",special:"rgba(168,85,247,0.06)" };
                 const c = colors[ins.type]||"#64748b";
-                const bg = bgs[ins.type]||"#f8fafc";
+                const bg = bgs[ins.type]||"#F8F4EE";
                 return (
                   <div key={i} className="p-3 rounded-xl transition-all cursor-default"
                     style={{ background:bg, border:`1px solid ${c}18` }}
@@ -1136,31 +1145,31 @@ function Dashboard() {
         {teamSummary.length > 0 && (
           <div className="rounded-2xl p-5" style={{
             background:"rgba(255,255,255,0.98)",
-            border:"1px solid rgba(221,227,237,0.7)",
+            border:"1px solid rgba(206,186,150,0.7)",
             boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
           }}>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#10b981,#059669)" }}/>
-              <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Resumo da Equipe</h3>
+              <h3 className="text-sm font-black" style={{ color:"#111110" }}>Resumo da Equipe</h3>
               <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#f0fdf4", color:"#10b981" }}>{teamSummary.length} membro{teamSummary.length!==1?"s":""}</span>
             </div>
             <div className="space-y-3">
               {teamSummary.map(u => {
                 const pct = u.total>0?Math.round(u.done/u.total*100):0;
-                const pctColor = pct>=70?"#10b981":pct>=40?"#f59e0b":"#ef4444";
+                const pctColor = pct>=70?"#10b981":pct>=40?"#B8965A":"#ef4444";
                 return (
                   <div key={u.id} className="p-3 rounded-xl transition-all"
-                    style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#dde3ed";e.currentTarget.style.background="#f0f4f8";}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8edf5";e.currentTarget.style.background="#f8fafc";}}>
+                    style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#CEBA96";e.currentTarget.style.background="#f0f4f8";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8edf5";e.currentTarget.style.background="#F8F4EE";}}>
                     <div className="flex items-center gap-2.5 mb-2">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0"
-                        style={{ background:u.avatarColor||"#2b8be8", boxShadow:`0 2px 8px ${u.avatarColor||"#2b8be8"}44` }}>
+                        style={{ background:u.avatarColor||"#2B5E46", boxShadow:`0 2px 8px ${u.avatarColor||"#2B5E46"}44` }}>
                         {u.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-black" style={{ color:"#1a1d23" }}>{u.name.split(" ")[0]}</p>
+                          <p className="text-xs font-black" style={{ color:"#111110" }}>{u.name.split(" ")[0]}</p>
                           <p className="text-xs font-black" style={{ color:pctColor }}>{pct}%</p>
                         </div>
                         <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.done} feitas · {u.pending} pendentes{u.overdue>0?` · ${u.overdue} atrasadas`:""}</p>
@@ -1180,17 +1189,17 @@ function Dashboard() {
         {/* Próximas tarefas urgentes */}
         <div className="rounded-2xl p-5" style={{
           background:"rgba(255,255,255,0.98)",
-          border:"1px solid rgba(221,227,237,0.7)",
+          border:"1px solid rgba(206,186,150,0.7)",
           boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
         }}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#f59e0b,#d97706)" }}/>
-            <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Foco Imediato</h3>
+            <h3 className="text-sm font-black" style={{ color:"#111110" }}>Foco Imediato</h3>
           </div>
           {[...overdue, ...dueToday].length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
               <div className="text-3xl">✅</div>
-              <p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>Sem urgências!</p>
+              <p className="text-sm font-semibold" style={{ color:"#111110" }}>Sem urgências!</p>
               <p className="text-xs" style={{ color:"#94a3b8" }}>Nenhuma tarefa atrasada ou vencendo hoje</p>
             </div>
           ) : (
@@ -1202,13 +1211,13 @@ function Dashboard() {
                 return (
                   <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl transition-all"
                     style={{ background: isOv?"rgba(239,68,68,0.04)":"rgba(245,158,11,0.04)", border:`1px solid ${isOv?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.15)"}` }}>
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isOv?"#ef4444":"#f59e0b" }}/>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isOv?"#ef4444":"#B8965A" }}/>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color:"#1a1d23" }}>{task.title}</p>
+                      <p className="text-xs font-semibold truncate" style={{ color:"#111110" }}>{task.title}</p>
                       {assignedUser && <p className="text-[10px]" style={{ color:"#94a3b8" }}>👤 {assignedUser.name.split(" ")[0]}</p>}
                     </div>
                     <span className="text-[10px] font-black flex-shrink-0 px-2 py-0.5 rounded-full"
-                      style={{ background: isOv?"rgba(239,68,68,0.1)":"rgba(245,158,11,0.1)", color: isOv?"#ef4444":"#f59e0b" }}>
+                      style={{ background: isOv?"rgba(239,68,68,0.1)":"rgba(245,158,11,0.1)", color: isOv?"#ef4444":"#B8965A" }}>
                       {isOv ? `${days}d atraso` : "Hoje"}
                     </span>
                   </div>
@@ -1284,16 +1293,16 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background:"rgba(26,29,35,0.65)", backdropFilter:"blur(8px)" }}
+      style={{ background:"rgba(17,17,16,0.65)", backdropFilter:"blur(8px)" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
-        style={{ background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.8)", maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
+        style={{ background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.8)", maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
 
         {/* Header */}
         <div className="px-6 py-5 flex items-center justify-between flex-shrink-0"
-          style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", borderBottom:"1px solid rgba(91,170,255,0.12)" }}>
+          style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", borderBottom:"1px solid rgba(184,150,90,0.12)" }}>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(91,170,255,0.7)" }}>📊 Relatório de Tarefas</p>
+            <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(184,150,90,0.7)" }}>📊 Relatório de Tarefas</p>
             <h2 className="text-lg font-black" style={{ color:"#fff" }}>{periodLabel}</h2>
             <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.4)" }}>
               {periodTasks.length} tarefa{periodTasks.length!==1?"s":""} no período
@@ -1307,14 +1316,14 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
         </div>
 
         {/* Tabs + date picker */}
-        <div className="flex items-center gap-2 px-6 pt-4 pb-3 flex-shrink-0" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)" }}>
+        <div className="flex items-center gap-2 px-6 pt-4 pb-3 flex-shrink-0" style={{ borderBottom:"1px solid rgba(206,186,150,0.5)" }}>
           {[["daily","☀️ Diário"],["weekly","📅 Semanal"],["monthly","🗓 Mensal"]].map(([id,label])=>(
             <button key={id} onClick={()=>setTab(id)}
               className="px-4 py-1.5 rounded-xl text-xs font-black transition-all"
               style={{
-                background:tab===id?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(241,245,249,0.8)",
-                color:tab===id?"#5aaff5":"#64748b",
-                border:tab===id?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.6)"
+                background:tab===id?"linear-gradient(135deg,#111110,#1A3829)":"rgba(241,245,249,0.8)",
+                color:tab===id?"#4A7454":"#64748b",
+                border:tab===id?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.6)"
               }}>
               {label}
             </button>
@@ -1322,10 +1331,10 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
           {tab === "daily" && (
             <div className="flex items-center gap-2 ml-auto">
               <input type="date" value={diaData} onChange={e=>setDiaData(e.target.value)}
-                className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.7)", color:"#374151", background:"rgba(255,255,255,0.98)" }}/>
+                className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.7)", color:"#374151", background:"rgba(255,255,255,0.98)" }}/>
               <button onClick={()=>setDiaData(today())} className="text-xs font-bold px-2.5 py-1.5 rounded-lg"
-                style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.2)" }}>
+                style={{ background:"rgba(43,94,70,0.08)", color:"#2B5E46", border:"1px solid rgba(43,94,70,0.2)" }}>
                 Hoje
               </button>
             </div>
@@ -1338,13 +1347,13 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
           {/* KPIs */}
           <div className="grid grid-cols-4 gap-3">
             {[
-              { label:"Total",      value:periodTasks.length, color:"#2b8be8" },
+              { label:"Total",      value:periodTasks.length, color:"#2B5E46" },
               { label:"Concluídas", value:doneTasks.length,   color:"#10b981" },
-              { label:"Pendentes",  value:pendingTasks.length, color:pendingTasks.length>0?"#f59e0b":"#94a3b8" },
-              { label:"Taxa",       value:`${rate}%`,         color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" },
+              { label:"Pendentes",  value:pendingTasks.length, color:pendingTasks.length>0?"#B8965A":"#94a3b8" },
+              { label:"Taxa",       value:`${rate}%`,         color:rate>=70?"#10b981":rate>=40?"#B8965A":"#ef4444" },
             ].map(k=>(
               <div key={k.label} className="rounded-2xl p-4 text-center"
-                style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
+                style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(206,186,150,0.6)" }}>
                 <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
                 <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color:"#94a3b8" }}>{k.label}</p>
               </div>
@@ -1353,12 +1362,12 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
 
           {/* Progresso geral */}
           {periodTasks.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(226,232,240,0.6)" }}>
+            <div className="rounded-2xl p-4" style={{ background:"rgba(248,250,252,0.8)", border:"1px solid rgba(206,186,150,0.6)" }}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-black" style={{ color:"#374151" }}>Progresso geral do período</p>
-                <p className="text-xs font-black" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>{rate}%</p>
+                <p className="text-xs font-black" style={{ color:rate>=70?"#10b981":rate>=40?"#B8965A":"#ef4444" }}>{rate}%</p>
               </div>
-              <div className="w-full h-3 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+              <div className="w-full h-3 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                 <div className="h-3 rounded-full transition-all duration-700"
                   style={{ width:rate+"%", background:rate>=70?"linear-gradient(90deg,#10b981,#059669)":rate>=40?"linear-gradient(90deg,#f59e0b,#d97706)":"linear-gradient(90deg,#ef4444,#dc2626)" }}/>
               </div>
@@ -1372,15 +1381,15 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
               <div className="space-y-2">
                 {byCategory.map(c=>(
                   <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl"
-                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background:c.color }}/>
                     <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{c.name}</span>
                     <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.done}/{c.total}</span>
-                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                       <div className="h-1.5 rounded-full" style={{ width:c.rate+"%", background:c.color }}/>
                     </div>
                     <span className="text-[10px] font-bold w-8 text-right"
-                      style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#f59e0b":"#ef4444" }}>
+                      style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#B8965A":"#ef4444" }}>
                       {c.rate}%
                     </span>
                   </div>
@@ -1396,16 +1405,16 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
               <div className="space-y-2">
                 {byUser.map(u=>(
                   <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl"
-                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
-                      style={{ background:u.avatarColor||"#2b8be8" }}>{u.name.charAt(0)}</div>
+                      style={{ background:u.avatarColor||"#2B5E46" }}>{u.name.charAt(0)}</div>
                     <span className="text-xs font-semibold flex-1" style={{ color:"#374151" }}>{u.name.split(" ")[0]}</span>
                     <span className="text-[10px]" style={{ color:"#94a3b8" }}>{u.done}/{u.total}</span>
-                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
-                      <div className="h-1.5 rounded-full" style={{ width:u.rate+"%", background:u.avatarColor||"#2b8be8" }}/>
+                    <div className="w-24 h-1.5 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
+                      <div className="h-1.5 rounded-full" style={{ width:u.rate+"%", background:u.avatarColor||"#2B5E46" }}/>
                     </div>
                     <span className="text-[10px] font-bold w-8 text-right"
-                      style={{ color:u.rate>=70?"#10b981":u.rate>=40?"#f59e0b":"#ef4444" }}>
+                      style={{ color:u.rate>=70?"#10b981":u.rate>=40?"#B8965A":"#ef4444" }}>
                       {u.rate}%
                     </span>
                   </div>
@@ -1450,7 +1459,7 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
           {pendingTasks.length > 0 && (
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
-                <span style={{ color:"#f59e0b" }}>○</span> Pendentes ({pendingTasks.length})
+                <span style={{ color:"#B8965A" }}>○</span> Pendentes ({pendingTasks.length})
               </p>
               <div className="space-y-1.5">
                 {pendingTasks.map(task => {
@@ -1458,7 +1467,7 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
                   const od = task.dueDate < today();
                   return (
                     <div key={task.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                      style={{ background:od?"rgba(239,68,68,0.04)":"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.12)":"rgba(226,232,240,0.5)"}` }}>
+                      style={{ background:od?"rgba(239,68,68,0.04)":"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.12)":"rgba(206,186,150,0.5)"}` }}>
                       <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor:od?"#ef4444":"#d1d5db" }}/>
                       <p className="flex-1 text-xs font-medium truncate" style={{ color:od?"#dc2626":"#374151" }}>{task.title}</p>
                       {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}15`, color:cat.color }}>{cat.name}</span>}
@@ -1474,7 +1483,7 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
           {periodTasks.length === 0 && (
             <div className="text-center py-12">
               <p className="text-4xl mb-3">📋</p>
-              <p className="text-sm font-bold" style={{ color:"#1a1d23" }}>Nenhuma tarefa no período</p>
+              <p className="text-sm font-bold" style={{ color:"#111110" }}>Nenhuma tarefa no período</p>
               <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>
                 {tab === "daily" ? "Selecione outra data acima" : "Não há tarefas registradas neste período"}
               </p>
@@ -1484,12 +1493,12 @@ function RelatorioPanel({ tasks, categories, teamUsers, toggleTaskCompletion, on
 
         {/* Footer */}
         <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-          style={{ borderTop:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.5)" }}>
+          style={{ borderTop:"1px solid rgba(206,186,150,0.5)", background:"rgba(248,250,252,0.5)" }}>
           <p className="text-xs" style={{ color:"#94a3b8" }}>
             {doneTasks.length > 0 && `${doneTasks.length} concluída${doneTasks.length!==1?"s":""}`}
             {pendingTasks.length > 0 && ` · ${pendingTasks.length} pendente${pendingTasks.length!==1?"s":""}`}
           </p>
-          <p className="text-xs font-bold" style={{ color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444" }}>
+          <p className="text-xs font-bold" style={{ color:rate>=70?"#10b981":rate>=40?"#B8965A":"#ef4444" }}>
             {rate>=70?"🎯 Ótimo desempenho!":rate>=40?"📈 Em andamento":"⚡ Atenção necessária"}
           </p>
         </div>
@@ -1625,7 +1634,7 @@ function Tasks() {
 
   const saveMulti = () => {
     const lines = multiText.split("\n").map(l => l.trim()).filter(Boolean);
-    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "Códice Contabilidade") || contexts[0])?.id, dueDate: new Date().toISOString().split("T")[0], completed: false, isRecurring: false, checklist: [] }));
+    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "YOETZ Inteligência Empresarial") || contexts[0])?.id, dueDate: new Date().toISOString().split("T")[0], completed: false, isRecurring: false, checklist: [] }));
     setMultiText(""); setIsMultiOpen(false);
   };
 
@@ -1644,9 +1653,9 @@ function Tasks() {
           {viewMode === "list" ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold text-slate-700">Período:</span>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-400" />
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-green-700" />
               <span className="text-slate-500 text-sm">até</span>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-400" />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-green-700" />
             </div>
           ) : (
             <div className="flex items-center gap-3">
@@ -1657,13 +1666,13 @@ function Tasks() {
           )}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex p-1 rounded-xl" style={{ background:"#e8edf5" }}>
-              <button onClick={() => setViewMode("list")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "list" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="list"?{color:"#2b8be8"}:{}}><Icon.List />Lista</button>
-              <button onClick={() => setViewMode("calendar")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "calendar" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="calendar"?{color:"#2b8be8"}:{}}><Icon.Calendar />Calendário</button>
+              <button onClick={() => setViewMode("list")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "list" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="list"?{color:"#2B5E46"}:{}}><Icon.List />Lista</button>
+              <button onClick={() => setViewMode("calendar")} className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md gap-1.5 transition-colors ${viewMode === "calendar" ? "bg-white shadow-sm" : "text-stone-500"}`} style={viewMode==="calendar"?{color:"#2B5E46"}:{}}><Icon.Calendar />Calendário</button>
             </div>
             {/* Modo Compacto */}
             <button onClick={() => setCompactMode(v=>!v)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-              style={{ background: compactMode ? "linear-gradient(135deg,#1a1d26,#1e2e4a)" : "#f0f4f8", color: compactMode ? "#5aaff5" : "#64748b", border: compactMode ? "1px solid rgba(91,170,255,0.2)" : "1px solid #e2e8f0" }}
+              style={{ background: compactMode ? "linear-gradient(135deg,#1a1d26,#1A3829)" : "#f0f4f8", color: compactMode ? "#4A7454" : "#64748b", border: compactMode ? "1px solid rgba(184,150,90,0.2)" : "1px solid #e2e8f0" }}
               title="Alternar modo compacto">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
               {compactMode ? "Compacto" : "Compacto"}
@@ -1685,7 +1694,7 @@ function Tasks() {
             {/* Botão Relatório — novo */}
             <button onClick={() => setShowRelatorio(true)}
               className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all"
-              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5", border:"1px solid rgba(91,170,255,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.15)" }}
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#4A7454", border:"1px solid rgba(184,150,90,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.15)" }}
               onMouseEnter={e=>{e.currentTarget.style.opacity="0.9";}}
               onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}>
@@ -1694,11 +1703,11 @@ function Tasks() {
               📊 Relatório
             </button>
             {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
-              <button onClick={() => setIsMultiOpen(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-colors" style={{ background:"#f0f4f8", color:"#1a1d23" }}><Icon.List />Em Lote</button>
+              <button onClick={() => setIsMultiOpen(true)} className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-colors" style={{ background:"#f0f4f8", color:"#111110" }}><Icon.List />Em Lote</button>
             )}
             <button onClick={isListening ? stopVoice : startVoice}
               className="flex items-center px-4 py-2 rounded-xl text-sm font-bold gap-1.5 transition-all"
-              style={{ background: isListening ? "linear-gradient(135deg,#ef4444,#dc2626)" : "#f0f4f8", color: isListening ? "#fff" : "#1a1d23", boxShadow: isListening ? "0 0 0 4px rgba(239,68,68,0.2)" : "none", animation: isListening ? "pulse 1.5s infinite" : "none" }}
+              style={{ background: isListening ? "linear-gradient(135deg,#ef4444,#dc2626)" : "#f0f4f8", color: isListening ? "#fff" : "#111110", boxShadow: isListening ? "0 0 0 4px rgba(239,68,68,0.2)" : "none", animation: isListening ? "pulse 1.5s infinite" : "none" }}
               title={isListening ? "Parar gravação" : "Criar tarefa por voz"}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}>
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -1709,13 +1718,13 @@ function Tasks() {
               {isListening ? "Gravando..." : "Voz"}
             </button>
             {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
-              <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}><Icon.Plus />Nova Tarefa</button>
+              <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px #2B5E4640" }}><Icon.Plus />Nova Tarefa</button>
             )}
           </div>
         </div>
 
         {viewMode === "list" && (
-          <div className="px-4 py-3 flex flex-wrap gap-2 items-center" style={{ borderBottom:"1px solid rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }}>
+          <div className="px-4 py-3 flex flex-wrap gap-2 items-center" style={{ borderBottom:"1px solid rgba(206,186,150,0.7)", background:"rgba(248,250,252,0.8)" }}>
             {/* ── Botões HOJE e TODAS ── */}
             <button
               onClick={() => { setFilterStatus("pending"); setStartDate(today()); setEndDate(today()); }}
@@ -1737,23 +1746,23 @@ function Tasks() {
               }}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
               style={{
-                background: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "rgba(43,139,232,0.09)",
-                color: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "#fff" : "#2b8be8",
-                border: "1.5px solid rgba(43,139,232,0.25)",
-                boxShadow: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "0 2px 8px rgba(43,139,232,0.25)" : "none",
+                background: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "rgba(43,94,70,0.09)",
+                color: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "#fff" : "#2B5E46",
+                border: "1.5px solid rgba(43,94,70,0.25)",
+                boxShadow: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "0 2px 8px rgba(43,94,70,0.25)" : "none",
               }}>
               📋 Todas
             </button>
             <div className="w-px h-5 self-center" style={{ background:"rgba(203,213,225,0.6)" }}/>
-            <input placeholder="🔍 Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-40" style={{ background:"rgba(255,255,255,0.9)" }}/>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-slate-200 rounded-xl px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-300" style={{ background:"rgba(255,255,255,0.9)" }}>
+            <input placeholder="🔍 Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700 w-40" style={{ background:"rgba(255,255,255,0.9)" }}/>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-slate-200 rounded-xl px-2 py-1.5 text-sm focus:ring-2 focus:ring-green-700" style={{ background:"rgba(255,255,255,0.9)" }}>
               <option value="all">Todos</option><option value="pending">Pendentes</option><option value="completed">Concluídos</option>
             </select>
-            <select value={filterCat} onChange={e => setFilterCat(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400">
+            <select value={filterCat} onChange={e => setFilterCat(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-green-700">
               <option value="all">Todas Categorias</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <select value={filterCtx} onChange={e => setFilterCtx(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400">
+            <select value={filterCtx} onChange={e => setFilterCtx(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-green-700">
               <option value="all">Todos Contextos</option>
               {contexts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -1799,7 +1808,7 @@ function Tasks() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Título</label>
               <div className="flex gap-2">
-                <input value={tf.title} onChange={e=>setTf(p=>({...p,title:e.target.value}))} placeholder="Nome da tarefa..." className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                <input value={tf.title} onChange={e=>setTf(p=>({...p,title:e.target.value}))} placeholder="Nome da tarefa..." className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
                 <button type="button" onClick={isListening ? stopVoice : startVoice} title={isListening ? "Parar" : "Falar o título"}
                   className="flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{ background: isListening ? "linear-gradient(135deg,#ef4444,#dc2626)" : "#f0f4f8", color: isListening ? "#fff" : "#475569", minWidth:42, boxShadow: isListening ? "0 0 0 3px rgba(239,68,68,0.25)" : "none" }}>
@@ -1813,34 +1822,34 @@ function Tasks() {
               </div>
               {isListening && <p className="text-xs text-red-500 mt-1 animate-pulse">🎙️ Ouvindo... fale o título da tarefa</p>}
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label><textarea value={tf.description} onChange={e=>setTf(p=>({...p,description:e.target.value}))} rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label><textarea value={tf.description} onChange={e=>setTf(p=>({...p,description:e.target.value}))} rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Contexto</label>
-                <select value={tf.contextId} onChange={e=>setTf(p=>({...p,contextId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                <select value={tf.contextId} onChange={e=>setTf(p=>({...p,contextId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                   {contexts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                <select value={tf.categoryId} onChange={e=>setTf(p=>({...p,categoryId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                <select value={tf.categoryId} onChange={e=>setTf(p=>({...p,categoryId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data de Vencimento</label><input type="date" value={tf.dueDate} onChange={e=>setTf(p=>({...p,dueDate:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data de Vencimento</label><input type="date" value={tf.dueDate} onChange={e=>setTf(p=>({...p,dueDate:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Cliente (Opcional)</label>
-                <select value={tf.clientId} onChange={e=>setTf(p=>({...p,clientId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                <select value={tf.clientId} onChange={e=>setTf(p=>({...p,clientId:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                   <option value="">Nenhum</option>
                   {(clients || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
             {/* ── RECORRÊNCIA ── */}
-            <div className="rounded-2xl overflow-hidden" style={{ border:"1px solid rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.5)" }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border:"1px solid rgba(206,186,150,0.7)", background:"rgba(248,250,252,0.5)" }}>
               <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
                 <button type="button" onClick={()=>setTf(p=>({...p,isRecurring:!p.isRecurring,recurrenceType:!p.isRecurring?"weekly":null}))}
                   className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                  style={{ background:tf.isRecurring?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(226,232,240,0.8)" }}>
+                  style={{ background:tf.isRecurring?"linear-gradient(135deg,#4A7454,#2B5E46)":"rgba(206,186,150,0.8)" }}>
                   <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
                     style={{ left:tf.isRecurring?"calc(100% - 18px)":"2px" }}/>
                 </button>
@@ -1858,9 +1867,9 @@ function Tasks() {
                         <button key={v} type="button" onClick={()=>setTf(p=>({...p,recurrenceType:v}))}
                           className="py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all"
                           style={{
-                            background:tf.recurrenceType===v?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(255,255,255,0.8)",
+                            background:tf.recurrenceType===v?"linear-gradient(135deg,#4A7454,#2B5E46)":"rgba(255,255,255,0.8)",
                             color:tf.recurrenceType===v?"#fff":"#64748b",
-                            border:tf.recurrenceType===v?"none":"1px solid rgba(226,232,240,0.7)"
+                            border:tf.recurrenceType===v?"none":"1px solid rgba(206,186,150,0.7)"
                           }}>
                           {l}
                         </button>
@@ -1870,8 +1879,8 @@ function Tasks() {
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Repetir até (opcional)</label>
                     <input type="date" value={tf.recurrenceEndDate||""} onChange={e=>setTf(p=>({...p,recurrenceEndDate:e.target.value||null}))}
-                      className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
-                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.9)" }}/>
+                      className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700"
+                      style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.9)" }}/>
                   </div>
                   <p className="text-[10px]" style={{ color:"#94a3b8" }}>
                     ✓ Ao concluir, a próxima ocorrência é criada automaticamente
@@ -1885,14 +1894,14 @@ function Tasks() {
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">👤 Responsável</label>
-                  <select value={tf.assignedTo} onChange={e=>setTf(p=>({...p,assignedTo:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                  <select value={tf.assignedTo} onChange={e=>setTf(p=>({...p,assignedTo:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                     <option value="">Todos / Sem responsável</option>
                     {teamUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">👁️ Visibilidade</label>
-                  <select value={tf.visibility} onChange={e=>setTf(p=>({...p,visibility:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                  <select value={tf.visibility} onChange={e=>setTf(p=>({...p,visibility:e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                     <option value="all">Todos veem</option>
                     <option value="assigned">Somente responsável</option>
                   </select>
@@ -1900,7 +1909,7 @@ function Tasks() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveTask} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button></div>
+            <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveTask} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar</button></div>
           </div>
         </Modal>
       )}
@@ -1913,7 +1922,7 @@ function Tasks() {
                 <button type="button"
                   onClick={() => isListening ? stopVoice() : startVoice("multi")}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ background: isListening && voiceTarget==="multi" ? "linear-gradient(135deg,#ef4444,#dc2626)" : "linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff", boxShadow: isListening && voiceTarget==="multi" ? "0 0 0 3px rgba(239,68,68,0.3)" : "0 2px 8px #2b8be840" }}>
+                  style={{ background: isListening && voiceTarget==="multi" ? "linear-gradient(135deg,#ef4444,#dc2626)" : "linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff", boxShadow: isListening && voiceTarget==="multi" ? "0 0 0 3px rgba(239,68,68,0.3)" : "0 2px 8px #2B5E4640" }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}>
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -1931,7 +1940,7 @@ function Tasks() {
               )}
               <textarea value={multiText} onChange={e=>setMultiText(e.target.value)} rows={6}
                 placeholder={"Enviar e-mail para cliente\nRevisar folha de pagamento\nLigar para fornecedor"}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
               <p className="text-xs text-slate-500 mt-1">
                 {multiText.split("\n").filter(l=>l.trim()).length > 0
                   ? `${multiText.split("\n").filter(l=>l.trim()).length} tarefa(s) para adicionar`
@@ -1940,7 +1949,7 @@ function Tasks() {
             </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => { setIsMultiOpen(false); stopVoice(); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
-              <button type="button" onClick={saveMulti} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Adicionar</button>
+              <button type="button" onClick={saveMulti} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Adicionar</button>
             </div>
           </div>
         </Modal>
@@ -1952,7 +1961,7 @@ function Tasks() {
         const doneTasks = tasks.filter(t => t.completed && t.dueDate === doneFilterDate);
         const byCategory = categories.map(c => ({ ...c, count: doneTasks.filter(t => t.categoryId === c.id).length })).filter(c => c.count > 0);
         return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background:"rgba(26,29,35,0.6)", backdropFilter:"blur(6px)" }} onClick={e => e.target === e.currentTarget && setShowDonePanel(false)}>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background:"rgba(17,17,16,0.6)", backdropFilter:"blur(6px)" }} onClick={e => e.target === e.currentTarget && setShowDonePanel(false)}>
             <div className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl" style={{ background:"#fff", border:"1px solid #dde3ed", maxHeight:"85vh", display:"flex", flexDirection:"column" }}>
               <div className="px-6 py-5 flex items-center justify-between flex-shrink-0" style={{ background:"linear-gradient(135deg,#f0fdf4,#dcfce7)", borderBottom:"1px solid #bbf7d0" }}>
                 <div>
@@ -1974,7 +1983,7 @@ function Tasks() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <input type="date" value={doneFilterDate} onChange={e => setDoneFilterDate(e.target.value)}
                   className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-400 outline-none"
-                  style={{ borderColor:"#dde3ed", color:"#374151" }} />
+                  style={{ borderColor:"#CEBA96", color:"#374151" }} />
                 <button onClick={() => setDoneFilterDate(today())} className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style={{ background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0" }}>Hoje</button>
                 {doneTasks.length > 0 && (
                   <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full" style={{ background:"#dcfce7", color:"#15803d" }}>
@@ -2005,9 +2014,9 @@ function Tasks() {
                       const ctx = contexts.find(c => c.id === task.contextId);
                       return (
                         <div key={task.id} className="flex items-center gap-3 px-4 py-3 rounded-xl group/done transition-all"
-                          style={{ background:"#f8fafc", border:"1px solid #e8f5e9", borderLeft:"3px solid #10b981" }}
+                          style={{ background:"#F8F4EE", border:"1px solid #e8f5e9", borderLeft:"3px solid #10b981" }}
                           onMouseEnter={e=>e.currentTarget.style.background="#f0fdf4"}
-                          onMouseLeave={e=>e.currentTarget.style.background="#f8fafc"}>
+                          onMouseLeave={e=>e.currentTarget.style.background="#F8F4EE"}>
                           <svg viewBox="0 0 24 24" fill="#10b981" stroke="none" className="w-5 h-5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9" stroke="white" strokeWidth="2.5" fill="none"/></svg>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate" style={{ color:"#374151", textDecoration:"line-through", textDecorationColor:"#10b98180" }}>{task.title}</p>
@@ -2106,7 +2115,7 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
         style={{
           color: color || "#64748b",
-          background: color ? color + "18" : "#f1f5f9",
+          background: color ? color + "18" : "#F8F4EE",
           border: "1px solid " + (color ? color + "30" : "#e2e8f0")
         }}>
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color || "#64748b" }} />
@@ -2131,11 +2140,11 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
             maxHeight: 260,
             overflowY: "auto",
             background: "rgba(255,255,255,0.99)",
-            border: "1px solid rgba(221,227,237,0.9)",
+            border: "1px solid rgba(206,186,150,0.9)",
             borderRadius: 12,
             boxShadow: "0 8px 32px rgba(26,29,35,0.18)",
           }}>
-          <div style={{ padding:"8px 12px 6px", borderBottom:"1px solid rgba(226,232,240,0.7)", position:"sticky", top:0, background:"rgba(255,255,255,0.99)" }}>
+          <div style={{ padding:"8px 12px 6px", borderBottom:"1px solid rgba(206,186,150,0.7)", position:"sticky", top:0, background:"rgba(255,255,255,0.99)" }}>
             <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8" }}>{menuTitle}</p>
           </div>
           {items.map(item => (
@@ -2148,11 +2157,11 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
                 width:"100%", textAlign:"left", padding:"9px 12px",
                 fontSize:12, display:"flex", alignItems:"center", gap:10,
                 cursor:"pointer", border:"none", outline:"none",
-                background: selectedId===item.id ? (item.color||"#2b8be8")+"18" : "transparent",
-                color: selectedId===item.id ? (item.color||"#2b8be8") : "#374151",
+                background: selectedId===item.id ? (item.color||"#2B5E46")+"18" : "transparent",
+                color: selectedId===item.id ? (item.color||"#2B5E46") : "#374151",
                 fontWeight: selectedId===item.id ? 700 : 400,
               }}
-              onMouseEnter={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="#f8fafc"; }}
+              onMouseEnter={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="#F8F4EE"; }}
               onMouseLeave={e=>{ if(selectedId!==item.id) e.currentTarget.style.background="transparent"; }}>
               <span style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:item.color||"#64748b" }}/>
               <span style={{ flex:1 }}>{item.name}</span>
@@ -2259,7 +2268,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
     setSubTitle(""); setShowSubForm(false);
   };
 
-  const borderColor = od && !task.completed ? "rgba(254,202,202,0.9)" : task.completed ? "rgba(226,232,240,0.5)" : "rgba(221,227,237,0.7)";
+  const borderColor = od && !task.completed ? "rgba(254,202,202,0.9)" : task.completed ? "rgba(206,186,150,0.5)" : "rgba(206,186,150,0.7)";
   const bg = od && !task.completed ? "rgba(255,245,245,0.95)" : task.completed ? "rgba(248,250,252,0.7)" : "rgba(255,255,255,0.98)";
 
   // ── MODO COMPACTO ──────────────────────────────────────
@@ -2272,13 +2281,13 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
           {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
         </button>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
-        <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
+        <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
         {subtasks.length > 0 && <span className="text-[10px]" style={{ color:"#94a3b8" }}>{subtasksDone}/{subtasks.length}</span>}
         {task.dueDate && <span className="text-[10px] font-medium flex-shrink-0" style={{ color:od&&!task.completed?"#ef4444":"#94a3b8" }}>{new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
-        {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2b8be8" }}>{assignedUser.name.charAt(0)}</div>}
+        {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2B5E46" }}>{assignedUser.name.charAt(0)}</div>}
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
           {!task.completed && <button onClick={()=>onToggle(task.id)} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#10b981"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:11,height:11}}><polyline points="20 6 9 17 4 12"/></svg></button>}
-          <button onClick={onEdit} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
+          <button onClick={onEdit} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#2B5E46"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Edit /></button>
           <button onClick={onDelete} className="p-1 rounded" style={{ color:"#94a3b8" }} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#94a3b8"}><Icon.Trash /></button>
         </div>
       </div>
@@ -2306,12 +2315,12 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
 
             {/* Título */}
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
-              style={{ color:od&&!task.completed?"#dc2626":"#1a1d23" }}>{task.title}</p>
+              style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
 
             {/* Badge subtarefas */}
             {subtasks.length > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                style={{ background:subtasksDone===subtasks.length?"rgba(16,185,129,0.12)":"rgba(226,232,240,0.6)", color:subtasksDone===subtasks.length?"#10b981":"#94a3b8" }}>
+                style={{ background:subtasksDone===subtasks.length?"rgba(16,185,129,0.12)":"rgba(206,186,150,0.6)", color:subtasksDone===subtasks.length?"#10b981":"#94a3b8" }}>
                 {subtasksDone}/{subtasks.length}
               </span>
             )}
@@ -2328,18 +2337,18 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             <div ref={dateRef} className="relative flex-shrink-0">
               <button onMouseDown={e=>e.stopPropagation()} onClick={handleDateOpen}
                 className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-all"
-                style={{ background:"rgba(226,232,240,0.5)", color:od&&!task.completed?"#dc2626":"#64748b", border:"1px solid rgba(203,213,225,0.4)" }}>
+                style={{ background:"rgba(206,186,150,0.5)", color:od&&!task.completed?"#dc2626":"#64748b", border:"1px solid rgba(203,213,225,0.4)" }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 {task.dueDate ? new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) : "Prazo"}
               </button>
               {editingDate && createPortal(
                 <div id={"date-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
-                  style={{ position:"fixed", zIndex:9999, left:datePos.left, top:datePos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", padding:14, minWidth:210 }}>
+                  style={{ position:"fixed", zIndex:9999, left:datePos.left, top:datePos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", padding:14, minWidth:210 }}>
                   <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:8 }}>Alterar prazo</p>
                   <input type="date" defaultValue={task.dueDate||""}
                     autoFocus
                     onChange={e=>{ safeUpdate({dueDate:e.target.value}); setEditingDate(false); }}
-                    style={{ width:"100%", border:"1px solid rgba(221,227,237,0.8)", borderRadius:8, padding:"6px 10px", fontSize:13, outline:"none" }}/>
+                    style={{ width:"100%", border:"1px solid rgba(206,186,150,0.8)", borderRadius:8, padding:"6px 10px", fontSize:13, outline:"none" }}/>
                   <button onMouseDown={e=>{e.stopPropagation(); safeUpdate({dueDate:""}); setEditingDate(false);}}
                     style={{ marginTop:8, width:"100%", fontSize:11, color:"#ef4444", background:"transparent", border:"none", cursor:"pointer" }}>
                     Remover prazo
@@ -2355,29 +2364,29 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                   className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full transition-all"
                   style={assignedUser
                     ? { background:assignedUser.avatarColor+"18", color:assignedUser.avatarColor, border:"1px solid "+assignedUser.avatarColor+"30", cursor:canAssign?"pointer":"default" }
-                    : { background:"rgba(241,245,249,0.7)", color:"#94a3b8", border:"1px solid rgba(226,232,240,0.6)", cursor:canAssign?"pointer":"default" }}>
+                    : { background:"rgba(241,245,249,0.7)", color:"#94a3b8", border:"1px solid rgba(206,186,150,0.6)", cursor:canAssign?"pointer":"default" }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   {assignedUser ? assignedUser.name.split(" ")[0] : "Atribuir"}
                   {canAssign && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:7,height:7,opacity:0.4}}><polyline points="6 9 12 15 18 9"/></svg>}
                 </button>
                 {showAssign && canAssign && createPortal(
                   <div id={"assign-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
-                    style={{ position:"fixed", zIndex:9999, left:assignPos.left, top:assignPos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(221,227,237,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", minWidth:200, overflow:"hidden" }}>
+                    style={{ position:"fixed", zIndex:9999, left:assignPos.left, top:assignPos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", minWidth:200, overflow:"hidden" }}>
                     <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"10px 14px 6px" }}>Atribuir responsável</p>
                     <button type="button" onMouseDown={e=>e.stopPropagation()}
                       onClick={()=>{ safeUpdate({assignedTo:null}); setShowAssign(false); }}
                       style={{ width:"100%", textAlign:"left", padding:"9px 14px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:"transparent", border:"none", color:"#94a3b8" }}
-                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      onMouseEnter={e=>e.currentTarget.style.background="#F8F4EE"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <div style={{ width:22, height:22, borderRadius:"50%", border:"2px dashed #cbd5e1", flexShrink:0 }}/>
                       Sem responsável
                     </button>
                     {(teamUsers||[]).filter(u=>u.active!==false).map(u=>(
                       <button key={u.id} type="button" onMouseDown={e=>e.stopPropagation()}
                         onClick={()=>{ safeUpdate({assignedTo:u.id}); setShowAssign(false); }}
-                        style={{ width:"100%", textAlign:"left", padding:"9px 14px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2b8be8")+"15":"transparent", border:"none" }}
-                        onMouseEnter={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="#f8fafc"; }}
+                        style={{ width:"100%", textAlign:"left", padding:"9px 14px", fontSize:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:u.id===task.assignedTo?(u.avatarColor||"#2B5E46")+"15":"transparent", border:"none" }}
+                        onMouseEnter={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="#F8F4EE"; }}
                         onMouseLeave={e=>{ if(u.id!==task.assignedTo) e.currentTarget.style.background="transparent"; }}>
-                        <div style={{ width:22, height:22, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, color:"#fff", background:u.avatarColor||"#2b8be8", flexShrink:0 }}>{u.name.charAt(0)}</div>
+                        <div style={{ width:22, height:22, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, color:"#fff", background:u.avatarColor||"#2B5E46", flexShrink:0 }}>{u.name.charAt(0)}</div>
                         <span style={{ color:"#374151", fontWeight:u.id===task.assignedTo?700:400, flex:1 }}>{u.name}</span>
                         {u.id===task.assignedTo && <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
                       </button>
@@ -2387,7 +2396,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </div>
             )}
 
-            {task.isRecurring && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2b8be8" }}>↻</span>}
+            {task.isRecurring && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(219,234,254,0.6)", color:"#2B5E46" }}>↻</span>}
             <div className="flex-1"/>
 
             {/* Quick actions */}
@@ -2417,8 +2426,8 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </button>
               <button onClick={()=>{setShowDetail(v=>!v);setShowComment(false);}} title="Detalhes"
                 className="p-1.5 rounded-lg transition-all"
-                style={{ color:showDetail?"#2b8be8":"#94a3b8", background:showDetail?"rgba(43,139,232,0.08)":"transparent" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                style={{ color:showDetail?"#2B5E46":"#94a3b8", background:showDetail?"rgba(43,94,70,0.08)":"transparent" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
                 onMouseLeave={e=>{ if(!showDetail){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </button>
@@ -2430,7 +2439,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                 </button>
               )}
               <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
                 onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
                 <Icon.Edit />
               </button>
@@ -2489,7 +2498,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               ))}
               {/* Progresso das subtarefas */}
               <div className="flex items-center gap-2 pl-5 pt-0.5">
-                <div className="flex-1 h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                <div className="flex-1 h-1 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                   <div className="h-1 rounded-full transition-all" style={{ width:`${subtasks.length>0?Math.round(subtasksDone/subtasks.length*100):0}%`, background:"#10b981" }}/>
                 </div>
                 <span className="text-[9px] font-bold" style={{ color:"#94a3b8" }}>{subtasksDone}/{subtasks.length}</span>
@@ -2499,15 +2508,15 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
 
           {/* ── ÁREA EXPANDÍVEL ── */}
           {showDetail && (
-            <div className="mt-2.5 pt-2.5 space-y-2" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
+            <div className="mt-2.5 pt-2.5 space-y-2" style={{ borderTop:"1px solid rgba(206,186,150,0.5)" }}>
               {showComment ? (
                 <div className="space-y-2">
                   <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} rows={2} autoFocus
                     placeholder="Descrição ou anotação..."
-                    className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-                    style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(248,250,252,0.8)" }}/>
+                    className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-green-700"
+                    style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(248,250,252,0.8)" }}/>
                   <div className="flex gap-2">
-                    <button onClick={()=>{ safeUpdate({description:commentText}); setShowComment(false); }} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+                    <button onClick={()=>{ safeUpdate({description:commentText}); setShowComment(false); }} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar</button>
                     <button onClick={()=>setShowComment(false)} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
                   </div>
                 </div>
@@ -2596,12 +2605,12 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
   const rate = expectedInMonth > 0 ? Math.round((monthDone / expectedInMonth) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(26,29,35,0.6)", backdropFilter:"blur(6px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(17,17,16,0.6)", backdropFilter:"blur(6px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between" style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", borderBottom:"1px solid #bfdbfe" }}>
           <div>
-            <p className="text-base font-black" style={{ color:"#1a1d23" }}>{habit.title}</p>
+            <p className="text-base font-black" style={{ color:"#111110" }}>{habit.title}</p>
             {cat && <p className="text-xs font-semibold mt-0.5" style={{ color: cat.color }}>{cat.name}</p>}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color:"#64748b" }}><Icon.X /></button>
@@ -2609,22 +2618,22 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x" style={{ borderBottom:"1px solid #e8edf5" }}>
           <div className="py-3 text-center">
-            <p className="text-xl font-black" style={{ color: streak >= 7 ? "#f59e0b" : "#1a1d23" }}>{streak >= 1 ? "🔥" : ""} {streak}</p>
+            <p className="text-xl font-black" style={{ color: streak >= 7 ? "#B8965A" : "#111110" }}>{streak >= 1 ? "🔥" : ""} {streak}</p>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color:"#94a3b8" }}>Streak</p>
           </div>
           <div className="py-3 text-center">
-            <p className="text-xl font-black" style={{ color:"#2b8be8" }}>{monthDone}</p>
+            <p className="text-xl font-black" style={{ color:"#2B5E46" }}>{monthDone}</p>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color:"#94a3b8" }}>Este mês</p>
           </div>
           <div className="py-3 text-center">
-            <p className="text-xl font-black" style={{ color: rate >= 80 ? "#10b981" : rate >= 50 ? "#f59e0b" : "#ef4444" }}>{rate}%</p>
+            <p className="text-xl font-black" style={{ color: rate >= 80 ? "#10b981" : rate >= 50 ? "#B8965A" : "#ef4444" }}>{rate}%</p>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color:"#94a3b8" }}>Taxa</p>
           </div>
         </div>
         {/* Month nav */}
         <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom:"1px solid #f0f4f8" }}>
           <button onClick={() => { const d = new Date(month); d.setMonth(d.getMonth()-1); setMonth(d); }} className="p-1.5 rounded-lg hover:bg-slate-100"><Icon.ChevronLeft /></button>
-          <span className="text-sm font-bold capitalize" style={{ color:"#1a1d23" }}>{month.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</span>
+          <span className="text-sm font-bold capitalize" style={{ color:"#111110" }}>{month.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</span>
           <button onClick={() => { const d = new Date(month); d.setMonth(d.getMonth()+1); setMonth(d); }} className="p-1.5 rounded-lg hover:bg-slate-100"><Icon.ChevronRight /></button>
         </div>
         {/* Calendar grid */}
@@ -2644,9 +2653,9 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
                 <button key={day} type="button" disabled={isFuture} onClick={() => onToggle(habit.id, ds)}
                   className="aspect-square rounded-lg flex items-center justify-center text-xs font-semibold transition-all"
                   style={{
-                    background: done ? "#2b8be8" : isToday ? "#dbeafe" : expected && !isFuture ? "#f5f7fb" : "transparent",
-                    color: done ? "#fff" : isToday ? "#2b8be8" : isFuture ? "#d1d5db" : expected ? "#374151" : "#cbd5e1",
-                    border: isToday && !done ? "2px solid #2b8be8" : "2px solid transparent",
+                    background: done ? "#2B5E46" : isToday ? "#dbeafe" : expected && !isFuture ? "#F8F4EE" : "transparent",
+                    color: done ? "#fff" : isToday ? "#2B5E46" : isFuture ? "#d1d5db" : expected ? "#374151" : "#cbd5e1",
+                    border: isToday && !done ? "2px solid #2B5E46" : "2px solid transparent",
                     opacity: isFuture ? 0.4 : 1,
                     cursor: isFuture ? "default" : "pointer",
                   }}>
@@ -2658,9 +2667,9 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
         </div>
         {/* Legend */}
         <div className="px-4 pb-4 flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#2b8be8" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Feito</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#f5f7fb", border:"1px solid #dde3ed" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Esperado</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#dbeafe", border:"2px solid #2b8be8" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Hoje</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#2B5E46" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Feito</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#F8F4EE", border:"1px solid #dde3ed" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Esperado</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#dbeafe", border:"2px solid #2B5E46" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Hoje</span></div>
         </div>
       </div>
     </div>
@@ -2722,7 +2731,7 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
   const best = getBestStreak();
   const consistency = getConsistency();
   const done = (h.completedDates||[]).includes(t);
-  const diffColors = { 1:"#10b981", 2:"#f59e0b", 3:"#ef4444" };
+  const diffColors = { 1:"#10b981", 2:"#B8965A", 3:"#ef4444" };
 
   const last7 = Array.from({length:7}, (_,i) => {
     const d = new Date(); d.setDate(d.getDate()-6+i);
@@ -2742,15 +2751,15 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
     <div className="rounded-2xl overflow-hidden transition-all duration-300 group"
       style={{
         background: done ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.95)",
-        border: done ? `1.5px solid ${h.color||"#2b8be8"}30` : "1px solid rgba(221,227,237,0.7)",
-        boxShadow: done ? `0 4px 24px ${h.color||"#2b8be8"}12` : "0 4px 16px rgba(26,29,35,0.04)",
+        border: done ? `1.5px solid ${h.color||"#2B5E46"}30` : "1px solid rgba(206,186,150,0.7)",
+        boxShadow: done ? `0 4px 24px ${h.color||"#2B5E46"}12` : "0 4px 16px rgba(26,29,35,0.04)",
         backdropFilter: "blur(8px)",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2b8be8"}18`:"0 8px 28px rgba(26,29,35,0.08)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2b8be8"}12`:"0 4px 16px rgba(26,29,35,0.04)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2B5E46"}18`:"0 8px 28px rgba(26,29,35,0.08)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2B5E46"}12`:"0 4px 16px rgba(26,29,35,0.04)";}}>
 
       {/* Barra de progresso streak */}
-      <div className="h-0.5" style={{ background:`linear-gradient(90deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}66)`, width:`${Math.min(streak/Math.max(h.targetStreak||21,1)*100,100)}%`, transition:"width 0.6s ease" }}/>
+      <div className="h-0.5" style={{ background:`linear-gradient(90deg,${h.color||"#2B5E46"},${h.color||"#2B5E46"}66)`, width:`${Math.min(streak/Math.max(h.targetStreak||21,1)*100,100)}%`, transition:"width 0.6s ease" }}/>
 
       <div className="p-5">
         <div className="flex items-start gap-4">
@@ -2759,9 +2768,9 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
             onClick={() => onToggle(h.id)}
             className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-200"
             style={{
-              background: done ? `linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)` : `${h.color||"#2b8be8"}12`,
-              border: done ? "none" : `1.5px solid ${h.color||"#2b8be8"}30`,
-              boxShadow: done ? `0 4px 12px ${h.color||"#2b8be8"}40` : "none",
+              background: done ? `linear-gradient(135deg,${h.color||"#2B5E46"},${h.color||"#2B5E46"}cc)` : `${h.color||"#2B5E46"}12`,
+              border: done ? "none" : `1.5px solid ${h.color||"#2B5E46"}30`,
+              boxShadow: done ? `0 4px 12px ${h.color||"#2B5E46"}40` : "none",
               transform: done ? "scale(1.08)" : "scale(1)",
             }}>
             {done
@@ -2771,17 +2780,17 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{h.title}</p>
-              {h.isFavorite && <span style={{ color:"#f59e0b" }}>★</span>}
+              <p className="text-sm font-black" style={{ color:"#111110" }}>{h.title}</p>
+              {h.isFavorite && <span style={{ color:"#B8965A" }}>★</span>}
               {h.identity && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background:`${h.color||"#2b8be8"}15`, color:h.color||"#2b8be8", border:`1px solid ${h.color||"#2b8be8"}25` }}>
+                  style={{ background:`${h.color||"#2B5E46"}15`, color:h.color||"#2B5E46", border:`1px solid ${h.color||"#2B5E46"}25` }}>
                   {h.identity}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs flex-wrap">
-              {streak > 0 && <span className="flex items-center gap-1 font-bold" style={{ color:streak>=7?"#f59e0b":"#94a3b8" }}>🔥 {streak} {streak===1?"dia":"dias"}</span>}
+              {streak > 0 && <span className="flex items-center gap-1 font-bold" style={{ color:streak>=7?"#B8965A":"#94a3b8" }}>🔥 {streak} {streak===1?"dia":"dias"}</span>}
               <span className="flex items-center gap-1" style={{ color:"#94a3b8" }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:10,height:10}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 {consistency}%
@@ -2791,7 +2800,7 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
                 <span className="flex items-center gap-0.5 text-[10px]" style={{ color:"#94a3b8" }}>
                   {["D","S","T","Q","Q","S","S"].map((d,i) => (
                     <span key={i} className="w-3.5 h-3.5 rounded-sm flex items-center justify-center font-bold"
-                      style={{ background:h.freqDays.includes(i)?(h.color||"#2b8be8")+"22":"transparent", color:h.freqDays.includes(i)?(h.color||"#2b8be8"):"#d1d5db", fontSize:8 }}>
+                      style={{ background:h.freqDays.includes(i)?(h.color||"#2B5E46")+"22":"transparent", color:h.freqDays.includes(i)?(h.color||"#2B5E46"):"#d1d5db", fontSize:8 }}>
                       {d}
                     </span>
                   ))}
@@ -2812,16 +2821,16 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
                     className="w-5 h-5 rounded-md transition-all"
                     style={{
                       background: d.done
-                        ? (d.isToday ? `linear-gradient(135deg,${h.color||"#2b8be8"},${h.color||"#2b8be8"}cc)` : h.color||"#2b8be8")
-                        : d.isToday ? `${h.color||"#2b8be8"}18` : "rgba(226,232,240,0.5)",
-                      border: d.isToday ? `1.5px solid ${h.color||"#2b8be8"}60` : "1px solid transparent",
+                        ? (d.isToday ? `linear-gradient(135deg,${h.color||"#2B5E46"},${h.color||"#2B5E46"}cc)` : h.color||"#2B5E46")
+                        : d.isToday ? `${h.color||"#2B5E46"}18` : "rgba(206,186,150,0.5)",
+                      border: d.isToday ? `1.5px solid ${h.color||"#2B5E46"}60` : "1px solid transparent",
                       cursor: "pointer",
-                      boxShadow: d.done ? `0 1px 4px ${h.color||"#2b8be8"}40` : "none",
+                      boxShadow: d.done ? `0 1px 4px ${h.color||"#2B5E46"}40` : "none",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform="scale(1.2)"; e.currentTarget.style.borderColor=h.color||"#2b8be8"; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.borderColor=d.isToday?`${h.color||"#2b8be8"}60`:"transparent"; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform="scale(1.2)"; e.currentTarget.style.borderColor=h.color||"#2B5E46"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.borderColor=d.isToday?`${h.color||"#2B5E46"}60`:"transparent"; }}
                   />
-                  <span className="text-[8px]" style={{ color:d.isToday?"#1a1d23":"#cbd5e1", fontWeight:d.isToday?700:400 }}>
+                  <span className="text-[8px]" style={{ color:d.isToday?"#111110":"#cbd5e1", fontWeight:d.isToday?700:400 }}>
                     {d.day}
                   </span>
                 </div>
@@ -2832,12 +2841,12 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
           {/* Quick actions */}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
             <button onClick={()=>setExpanded(v=>!v)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><polyline points={expanded?"18 15 12 9 6 15":"6 9 12 15 18 9"}/></svg>
             </button>
             <button onClick={()=>onEdit(h)} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
               <Icon.Edit />
             </button>
@@ -2851,7 +2860,7 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
 
         {/* Expandido: heatmap */}
         {expanded && (
-          <div className="mt-4 pt-4" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
+          <div className="mt-4 pt-4" style={{ borderTop:"1px solid rgba(206,186,150,0.5)" }}>
             {h.description && <p className="text-xs mb-3" style={{ color:"#64748b" }}>{h.description}</p>}
             <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Mapa de calor — 12 semanas</p>
             <div className="flex gap-1 overflow-x-auto pb-1">
@@ -2861,7 +2870,7 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
                     const cell = heatmap[w*7+d];
                     return cell ? (
                       <div key={d} className="w-3 h-3 rounded-sm"
-                        style={{ background:cell.done?h.color||"#2b8be8":"rgba(226,232,240,0.5)", opacity:cell.done?1:0.6 }}
+                        style={{ background:cell.done?h.color||"#2B5E46":"rgba(206,186,150,0.5)", opacity:cell.done?1:0.6 }}
                         title={cell.date}/>
                     ) : null;
                   })}
@@ -2990,14 +2999,14 @@ function Habits() {
   const EMOJIS = ["⭐","📚","💪","🧘","💧","🏃","✍️","🎯","🧠","🌱","💊","🎵","🍎","😴","🧹","📝","💰","🤝","🎨","⚡"];
   const IDENTITIES_PRESETS = ["Tornar-me leitor","Tornar-me disciplinado","Tornar-me saudável","Tornar-me produtivo","Tornar-me atleta","Tornar-me calmo","Tornar-me criativo","Tornar-me organizado"];
   const TIME_OPTIONS = [{ v:"morning", l:"☀️ Manhã", sub:"6h–12h" },{ v:"afternoon", l:"🌤 Tarde", sub:"12h–18h" },{ v:"evening", l:"🌙 Noite", sub:"18h–22h" },{ v:"anytime", l:"🔄 Qualquer hora", sub:"" }];
-  const DIFF_OPTIONS = [{ v:1,l:"Fácil",c:"#10b981" },{ v:2,l:"Médio",c:"#f59e0b" },{ v:3,l:"Difícil",c:"#ef4444" }];
+  const DIFF_OPTIONS = [{ v:1,l:"Fácil",c:"#10b981" },{ v:2,l:"Médio",c:"#B8965A" },{ v:3,l:"Difícil",c:"#ef4444" }];
 
-  const emptyForm = { title:"", emoji:"⭐", color:"#2b8be8", freq:"daily", identity:"", difficulty:2, timeOfDay:"morning", description:"", targetStreak:21, isFavorite:false, completedDates:[] };
+  const emptyForm = { title:"", emoji:"⭐", color:"#2B5E46", freq:"daily", identity:"", difficulty:2, timeOfDay:"morning", description:"", targetStreak:21, isFavorite:false, completedDates:[] };
   const [hf, setHf] = useState(emptyForm);
 
   const openForm = (h=null) => {
     setEditingHabit(h);
-    setHf(h ? { title:h.title, emoji:h.emoji||"⭐", color:h.color||"#2b8be8", freq:h.freq||"daily", identity:h.identity||"", difficulty:h.difficulty||2, timeOfDay:h.timeOfDay||"morning", description:h.description||"", targetStreak:h.targetStreak||21, isFavorite:h.isFavorite||false, completedDates:h.completedDates||[] } : emptyForm);
+    setHf(h ? { title:h.title, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", freq:h.freq||"daily", identity:h.identity||"", difficulty:h.difficulty||2, timeOfDay:h.timeOfDay||"morning", description:h.description||"", targetStreak:h.targetStreak||21, isFavorite:h.isFavorite||false, completedDates:h.completedDates||[] } : emptyForm);
     setIsFormOpen(true);
   };
 
@@ -3021,7 +3030,7 @@ function Habits() {
     await updateHabit({ ...current, completedDates: newDates });
   };
 
-  const COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#64748b","#1a1d23"];
+  const COLORS = ["#2B5E46","#10b981","#a855f7","#f97316","#ef4444","#B8965A","#ec4899","#06b6d4","#64748b","#111110"];
 
   // ── Análise IA ────────────────────────────────────────────
   const generateInsight = async () => {
@@ -3093,18 +3102,18 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Hábitos & Rotina</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Hábitos & Rotina</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Sistema inteligente de construção de identidade</p>
         </div>
         <button onClick={()=>openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
           <Icon.Plus />Novo Hábito
         </button>
       </div>
 
       {/* Frase do dia */}
       <div className="rounded-2xl px-5 py-3 flex items-center gap-3"
-        style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", border:"1px solid rgba(91,170,255,0.1)" }}>
+        style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.1)" }}>
         <span className="text-lg flex-shrink-0">💡</span>
         <p className="text-xs italic" style={{ color:"rgba(255,255,255,0.7)", fontStyle:"italic" }}>{dailyPhrase}</p>
       </div>
@@ -3114,7 +3123,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
         {TABS.map(([id,label]) => (
           <button key={id} onClick={()=>setView(id)}
             className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background:view===id?"rgba(255,255,255,0.98)":"transparent", color:view===id?"#1a1d23":"#94a3b8",
+            style={{ background:view===id?"rgba(255,255,255,0.98)":"transparent", color:view===id?"#111110":"#94a3b8",
               boxShadow:view===id?"0 2px 8px rgba(26,29,35,0.08)":"none" }}>
             {label}
           </button>
@@ -3127,13 +3136,13 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label:"Hoje", value:`${stats.doneToday}/${stats.total}`, sub:"concluídos", color:"#2b8be8", icon:"📋" },
-              { label:"Streak combinado", value:stats.totalStreak, sub:"dias totais", color:"#f59e0b", icon:"🔥" },
-              { label:"Consistência", value:`${stats.avgConsistency}%`, sub:"últimos 30 dias", color:stats.avgConsistency>=70?"#10b981":stats.avgConsistency>=40?"#f59e0b":"#ef4444", icon:"📈" },
+              { label:"Hoje", value:`${stats.doneToday}/${stats.total}`, sub:"concluídos", color:"#2B5E46", icon:"📋" },
+              { label:"Streak combinado", value:stats.totalStreak, sub:"dias totais", color:"#B8965A", icon:"🔥" },
+              { label:"Consistência", value:`${stats.avgConsistency}%`, sub:"últimos 30 dias", color:stats.avgConsistency>=70?"#10b981":stats.avgConsistency>=40?"#B8965A":"#ef4444", icon:"📈" },
               { label:"Melhor sequência", value:stats.bestOverall, sub:"dias consecutivos", color:"#a855f7", icon:"🏆" },
             ].map(k => (
               <div key={k.label} className="rounded-2xl p-4 transition-all"
-                style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+                style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
                 onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
                 onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
                 <div className="flex items-start justify-between">
@@ -3150,11 +3159,11 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
 
           {/* Lista rápida hoje */}
           {visibleHabits.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <p className="text-5xl mb-4">🌱</p>
-              <p className="font-bold text-lg" style={{ color:"#1a1d23" }}>Nenhum hábito ainda</p>
+              <p className="font-bold text-lg" style={{ color:"#111110" }}>Nenhum hábito ainda</p>
               <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Crie seu primeiro hábito para começar a construir sua identidade</p>
-              <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>Criar primeiro hábito</button>
+              <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Criar primeiro hábito</button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3170,22 +3179,22 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
           {/* Filtros */}
           <div className="flex gap-2 flex-wrap">
             <select value={filterIdentity} onChange={e=>setFilterIdentity(e.target.value)}
-              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
               <option value="all">Todas identidades</option>
               {identities.map(id => <option key={id.name} value={id.name}>{id.name}</option>)}
             </select>
             <select value={filterTime} onChange={e=>setFilterTime(e.target.value)}
-              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
               <option value="all">Todos horários</option>
               {TIME_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
           </div>
           {visibleHabits.length === 0 ? (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <p className="text-3xl mb-2">🔍</p>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum hábito encontrado</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Nenhum hábito encontrado</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -3198,31 +3207,31 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
       {/* ── IDENTIDADE ── */}
       {view === "identity" && (
         <div className="space-y-4">
-          <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", border:"1px solid rgba(91,170,255,0.1)" }}>
+          <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.1)" }}>
             <h3 className="text-sm font-black mb-1" style={{ color:"#fff" }}>Sistema de Identidade</h3>
             <p className="text-xs" style={{ color:"rgba(255,255,255,0.5)" }}>
               "Cada ação é um voto para o tipo de pessoa que você deseja se tornar." — James Clear
             </p>
           </div>
           {identities.length === 0 ? (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <p className="text-4xl mb-3">🧠</p>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhuma identidade definida</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Nenhuma identidade definida</p>
               <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Ao criar hábitos, defina uma identidade para agrupá-los</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {identities.map(id => {
                 const pct = id.consistency;
-                const color = pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#ef4444";
+                const color = pct >= 70 ? "#10b981" : pct >= 40 ? "#B8965A" : "#ef4444";
                 return (
                   <div key={id.name} className="rounded-2xl p-5 transition-all"
-                    style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
+                    style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
                     onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=`0 8px 24px ${color}15`;}}
                     onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{id.name}</p>
+                        <p className="text-sm font-black" style={{ color:"#111110" }}>{id.name}</p>
                         <p className="text-[10px]" style={{ color:"#94a3b8" }}>{id.habits.length} hábito{id.habits.length!==1?"s":""} vinculado{id.habits.length!==1?"s":""}</p>
                       </div>
                       <div className="text-right">
@@ -3230,12 +3239,12 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                         <p className="text-[9px]" style={{ color:"#94a3b8" }}>consistência</p>
                       </div>
                     </div>
-                    <div className="w-full h-1.5 rounded-full mb-3" style={{ background:"rgba(226,232,240,0.5)" }}>
+                    <div className="w-full h-1.5 rounded-full mb-3" style={{ background:"rgba(206,186,150,0.5)" }}>
                       <div className="h-1.5 rounded-full transition-all duration-700" style={{ width:pct+"%", background:`linear-gradient(90deg,${color},${color}cc)` }}/>
                     </div>
                     <div className="space-y-1.5">
                       {id.habits.map(h => (
-                        <div key={h.id} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                        <div key={h.id} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                           <span className="text-base flex-shrink-0">{h.emoji||"⭐"}</span>
                           <span className="text-xs font-medium flex-1 truncate" style={{ color:"#374151" }}>{h.title}</span>
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background:isCompletedToday(h)?"#10b981":"rgba(203,213,225,0.7)" }}/>
@@ -3255,26 +3264,26 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>Análise Comportamental com IA</h3>
+              <h3 className="text-sm font-black" style={{ color:"#111110" }}>Análise Comportamental com IA</h3>
               <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Baseada em neurociência e Hábitos Atômicos</p>
             </div>
             <button onClick={generateInsight} disabled={aiLoading || habits.length===0}
               className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px rgba(43,94,70,0.25)" }}>
               {aiLoading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Gerar Análise</>}
             </button>
           </div>
 
           {!aiInsight && !aiLoading && (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <div className="text-5xl mb-4">🧠</div>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Análise Inteligente de Hábitos</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Análise Inteligente de Hábitos</p>
               <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color:"#94a3b8" }}>
                 A IA analisa seus padrões comportamentais e gera insights personalizados baseados em neurociência e Hábitos Atômicos.
               </p>
               <button onClick={generateInsight} disabled={habits.length===0}
                 className="mt-4 px-6 py-2.5 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
                 {habits.length===0?"Crie hábitos primeiro":"Iniciar análise →"}
               </button>
             </div>
@@ -3283,8 +3292,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
           {aiInsight && (
             <div className="space-y-4">
               {/* Manchete */}
-              <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,29,35,0.97),rgba(30,46,74,0.97))", border:"1px solid rgba(91,170,255,0.12)" }}>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(91,170,255,0.7)" }}>Diagnóstico atual</p>
+              <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.12)" }}>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(184,150,90,0.7)" }}>Diagnóstico atual</p>
                 <p className="text-lg font-black leading-tight" style={{ color:"#fff" }}>{aiInsight.manchete}</p>
                 <p className="text-xs mt-2" style={{ color:"rgba(255,255,255,0.5)" }}>{aiInsight.diagnostico}</p>
               </div>
@@ -3293,8 +3302,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
                   { icon:"💪", title:"Hábito mais forte", content:aiInsight.habito_mais_forte, color:"#10b981" },
-                  { icon:"⚠️", title:"Em risco", content:aiInsight.habito_em_risco, color:"#f59e0b" },
-                  { icon:"⚡", title:"Insight Atômico", content:aiInsight.insight_atomico, color:"#2b8be8" },
+                  { icon:"⚠️", title:"Em risco", content:aiInsight.habito_em_risco, color:"#B8965A" },
+                  { icon:"⚡", title:"Insight Atômico", content:aiInsight.insight_atomico, color:"#2B5E46" },
                   { icon:"🎯", title:"Ação para hoje", content:aiInsight.acao_hoje, color:"#a855f7" },
                 ].map(c => (
                   <div key={c.title} className="rounded-2xl p-4 transition-all"
@@ -3339,7 +3348,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {EMOJIS.map(e => (
                   <button key={e} type="button" onClick={()=>setHf(p=>({...p,emoji:e}))}
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all"
-                    style={{ background:hf.emoji===e?"rgba(43,139,232,0.15)":"rgba(248,250,252,0.8)", border:hf.emoji===e?"1.5px solid rgba(43,139,232,0.4)":"1px solid rgba(226,232,240,0.6)", transform:hf.emoji===e?"scale(1.15)":"scale(1)" }}>
+                    style={{ background:hf.emoji===e?"rgba(43,94,70,0.15)":"rgba(248,250,252,0.8)", border:hf.emoji===e?"1.5px solid rgba(43,94,70,0.4)":"1px solid rgba(206,186,150,0.6)", transform:hf.emoji===e?"scale(1.15)":"scale(1)" }}>
                     {e}
                   </button>
                 ))}
@@ -3350,8 +3359,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             <div>
               <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Nome do hábito *</label>
               <input value={hf.title} onChange={e=>setHf(p=>({...p,title:e.target.value}))} placeholder="Ex: Leitura de 20 minutos..."
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }} />
+                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }} />
             </div>
 
             {/* Identidade */}
@@ -3359,8 +3368,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
               <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Identidade vinculada</label>
               <input value={hf.identity} onChange={e=>setHf(p=>({...p,identity:e.target.value}))} list="identities-list"
                 placeholder="Ex: Tornar-me leitor"
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }} />
+                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }} />
               <datalist id="identities-list">
                 {IDENTITIES_PRESETS.map(i => <option key={i} value={i}/>)}
                 {identities.map(i => <option key={i.name} value={i.name}/>)}
@@ -3375,7 +3384,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                   {COLORS.map(c => (
                     <button key={c} type="button" onClick={()=>setHf(p=>({...p,color:c}))}
                       className="w-6 h-6 rounded-lg transition-all"
-                      style={{ background:c, border:hf.color===c?"2.5px solid #1a1d23":"2px solid transparent", transform:hf.color===c?"scale(1.2)":"scale(1)" }}/>
+                      style={{ background:c, border:hf.color===c?"2.5px solid #111110":"2px solid transparent", transform:hf.color===c?"scale(1.2)":"scale(1)" }}/>
                   ))}
                 </div>
               </div>
@@ -3385,7 +3394,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                   {DIFF_OPTIONS.map(d => (
                     <button key={d.v} type="button" onClick={()=>setHf(p=>({...p,difficulty:d.v}))}
                       className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
-                      style={{ background:hf.difficulty===d.v?d.c+"20":"rgba(248,250,252,0.8)", color:hf.difficulty===d.v?d.c:"#94a3b8", border:hf.difficulty===d.v?`1.5px solid ${d.c}50`:"1px solid rgba(226,232,240,0.6)" }}>
+                      style={{ background:hf.difficulty===d.v?d.c+"20":"rgba(248,250,252,0.8)", color:hf.difficulty===d.v?d.c:"#94a3b8", border:hf.difficulty===d.v?`1.5px solid ${d.c}50`:"1px solid rgba(206,186,150,0.6)" }}>
                       {d.l}
                     </button>
                   ))}
@@ -3400,7 +3409,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {[["daily","Todos os dias"],["weekly","Dias específicos"]].map(([v,l]) => (
                   <button key={v} type="button" onClick={()=>setHf(p=>({...p,freq:v,freqDays:v==="daily"?[1,2,3,4,5,6,7]:p.freqDays?.length?p.freqDays:[1,2,3,4,5]}))}
                     className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:hf.freq===v?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#5aaff5":"#64748b", border:hf.freq===v?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.6)" }}>
+                    style={{ background:hf.freq===v?"linear-gradient(135deg,#111110,#1A3829)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#4A7454":"#64748b", border:hf.freq===v?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.6)" }}>
                     {l}
                   </button>
                 ))}
@@ -3415,7 +3424,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                         <button key={val} type="button"
                           onClick={()=>setHf(p=>({ ...p, freqDays: sel ? (p.freqDays||[]).filter(d=>d!==val) : [...(p.freqDays||[]),val].sort() }))}
                           className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
-                          style={{ background:sel?(hf.color||"#2b8be8"):"rgba(248,250,252,0.7)", color:sel?"#fff":"#94a3b8", border:sel?"none":"1px solid rgba(226,232,240,0.6)", boxShadow:sel?`0 2px 8px ${hf.color||"#2b8be8"}40`:"none" }}>
+                          style={{ background:sel?(hf.color||"#2B5E46"):"rgba(248,250,252,0.7)", color:sel?"#fff":"#94a3b8", border:sel?"none":"1px solid rgba(206,186,150,0.6)", boxShadow:sel?`0 2px 8px ${hf.color||"#2B5E46"}40`:"none" }}>
                           {label}
                         </button>
                       );
@@ -3438,8 +3447,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {TIME_OPTIONS.map(o => (
                   <button key={o.v} type="button" onClick={()=>setHf(p=>({...p,timeOfDay:o.v}))}
                     className="p-2.5 rounded-xl text-left transition-all"
-                    style={{ background:hf.timeOfDay===o.v?"rgba(43,139,232,0.08)":"rgba(248,250,252,0.7)", border:hf.timeOfDay===o.v?"1.5px solid rgba(43,139,232,0.3)":"1px solid rgba(226,232,240,0.6)" }}>
-                    <p className="text-sm font-semibold" style={{ color:hf.timeOfDay===o.v?"#2b8be8":"#374151" }}>{o.l}</p>
+                    style={{ background:hf.timeOfDay===o.v?"rgba(43,94,70,0.08)":"rgba(248,250,252,0.7)", border:hf.timeOfDay===o.v?"1.5px solid rgba(43,94,70,0.3)":"1px solid rgba(206,186,150,0.6)" }}>
+                    <p className="text-sm font-semibold" style={{ color:hf.timeOfDay===o.v?"#2B5E46":"#374151" }}>{o.l}</p>
                     {o.sub && <p className="text-[10px]" style={{ color:"#94a3b8" }}>{o.sub}</p>}
                   </button>
                 ))}
@@ -3452,15 +3461,15 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Descrição (opcional)</label>
                 <textarea value={hf.description} onChange={e=>setHf(p=>({...p,description:e.target.value}))}
                   placeholder="Por que este hábito importa..." rows={2}
-                  className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+                  className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Meta de streak</label>
                 <div className="flex items-center gap-2">
                   <input type="number" min={1} max={365} value={hf.targetStreak} onChange={e=>setHf(p=>({...p,targetStreak:Number(e.target.value)}))}
-                    className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                    style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+                    className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                    style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
                   <span className="text-xs" style={{ color:"#94a3b8" }}>dias</span>
                 </div>
                 <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>21 dias = formação básica</p>
@@ -3471,7 +3480,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
             <label className="flex items-center gap-3 cursor-pointer">
               <button type="button" onClick={()=>setHf(p=>({...p,isFavorite:!p.isFavorite}))}
                 className="relative w-10 h-5 rounded-full transition-all"
-                style={{ background:hf.isFavorite?"linear-gradient(135deg,#f59e0b,#d97706)":"rgba(226,232,240,0.8)" }}>
+                style={{ background:hf.isFavorite?"linear-gradient(135deg,#f59e0b,#d97706)":"rgba(206,186,150,0.8)" }}>
                 <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
                   style={{ left:hf.isFavorite?"calc(100% - 18px)":"2px" }}/>
               </button>
@@ -3482,7 +3491,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
               <button onClick={()=>{setIsFormOpen(false);setEditingHabit(null);}} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
               <button onClick={saveHabit} disabled={!hf.title.trim()}
                 className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
                 {editingHabit ? "Salvar" : "Criar Hábito"}
               </button>
             </div>
@@ -3682,12 +3691,12 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
   const stepIdx = ["upload","mapping","preview","conflicts","done"].indexOf(step);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(26,29,35,0.65)", backdropFilter:"blur(8px)" }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(17,17,16,0.65)", backdropFilter:"blur(8px)" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col" style={{ background:"#fff", border:"1px solid #dde3ed", maxWidth:680, maxHeight:"90vh" }}>
 
         {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#fff" }}>
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#fff" }}>
           <div>
             <p className="font-black text-base">Importar Clientes</p>
             <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.45)" }}>CSV ou Excel (.xlsx)</p>
@@ -3700,15 +3709,15 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
 
         {/* Steps indicator */}
         {step !== "done" && (
-          <div className="px-6 py-3 flex items-center gap-1 flex-shrink-0" style={{ borderBottom:"1px solid #e8edf5", background:"#f8fafc" }}>
+          <div className="px-6 py-3 flex items-center gap-1 flex-shrink-0" style={{ borderBottom:"1px solid #e8edf5", background:"#F8F4EE" }}>
             {["Upload","Mapeamento","Revisão","Conflitos"].map((l, i) => (
               <div key={l} className="flex items-center gap-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all"
-                    style={i < stepIdx ? { background:"#10b981", color:"#fff" } : i === stepIdx ? { background:"#2b8be8", color:"#fff" } : { background:"#e8edf5", color:"#94a3b8" }}>
+                    style={i < stepIdx ? { background:"#10b981", color:"#fff" } : i === stepIdx ? { background:"#2B5E46", color:"#fff" } : { background:"#e8edf5", color:"#94a3b8" }}>
                     {i < stepIdx ? "✓" : i+1}
                   </div>
-                  <span className="text-xs font-semibold" style={{ color: i === stepIdx ? "#2b8be8" : i < stepIdx ? "#10b981" : "#94a3b8" }}>{l}</span>
+                  <span className="text-xs font-semibold" style={{ color: i === stepIdx ? "#2B5E46" : i < stepIdx ? "#10b981" : "#94a3b8" }}>{l}</span>
                 </div>
                 {i < 3 && <div className="w-6 h-px mx-1" style={{ background:"#e8edf5" }} />}
               </div>
@@ -3727,23 +3736,23 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                 onDragOver={e=>e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileRef.current?.click()}
-                onMouseEnter={e=>{e.currentTarget.style.background="#dbeafe";e.currentTarget.style.borderColor="#2b8be8";}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#dbeafe";e.currentTarget.style.borderColor="#2B5E46";}}
                 onMouseLeave={e=>{e.currentTarget.style.background="#f0f7ff";e.currentTarget.style.borderColor="#bfdbfe";}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="#2b8be8" strokeWidth="1.5" className="w-12 h-12 mx-auto mb-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#2B5E46" strokeWidth="1.5" className="w-12 h-12 mx-auto mb-3">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <p className="font-bold text-sm" style={{ color:"#1a1d23" }}>Arraste o arquivo aqui</p>
+                <p className="font-bold text-sm" style={{ color:"#111110" }}>Arraste o arquivo aqui</p>
                 <p className="text-xs mt-1" style={{ color:"#64748b" }}>ou clique para selecionar — CSV ou Excel (.xlsx, .xls)</p>
                 <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => handleFile(e.target.files[0])} />
               </div>
-              {loading && <p className="text-center text-sm" style={{ color:"#2b8be8" }}>Lendo arquivo...</p>}
+              {loading && <p className="text-center text-sm" style={{ color:"#2B5E46" }}>Lendo arquivo...</p>}
               {error && <p className="text-center text-sm px-4 py-2 rounded-xl" style={{ color:"#dc2626", background:"#fff5f5", border:"1px solid #fca5a5" }}>{error}</p>}
               {/* Template hint */}
-              <div className="rounded-xl p-4" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+              <div className="rounded-xl p-4" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
                 <p className="text-xs font-bold mb-2" style={{ color:"#374151" }}>📋 Colunas reconhecidas automaticamente:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {["Nome","CNPJ/CPF","Tipo","Honorários","Forma de Pagamento","Status","Obs"].map(c => (
-                    <span key={c} className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2b8be8" }}>{c}</span>
+                    <span key={c} className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2B5E46" }}>{c}</span>
                   ))}
                 </div>
                 <p className="text-[10px] mt-2" style={{ color:"#94a3b8" }}>Nomes de coluna flexíveis — o sistema tenta identificar automaticamente.</p>
@@ -3765,8 +3774,8 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                       {f.required && <span className="text-[10px] font-semibold" style={{ color:"#ef4444" }}>obrigatório</span>}
                     </div>
                     <select value={mapping[f.key] || ""} onChange={e => setMapping(p => ({ ...p, [f.key]: e.target.value || undefined }))}
-                      className="flex-1 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
-                      style={{ borderColor: !mapping[f.key] && f.required ? "#fca5a5" : "#dde3ed", color:"#374151" }}>
+                      className="flex-1 border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700"
+                      style={{ borderColor: !mapping[f.key] && f.required ? "#fca5a5" : "#CEBA96", color:"#374151" }}>
                       <option value="">— não importar —</option>
                       {headers.map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
@@ -3784,7 +3793,7 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                 <p className="text-xs font-bold mb-2" style={{ color:"#94a3b8" }}>PRÉVIA (primeiras 2 linhas)</p>
                 <div className="overflow-x-auto rounded-xl" style={{ border:"1px solid #e8edf5" }}>
                   <table className="w-full text-left text-xs" style={{ minWidth: 400 }}>
-                    <thead style={{ background:"#f8fafc", borderBottom:"1px solid #e8edf5" }}>
+                    <thead style={{ background:"#F8F4EE", borderBottom:"1px solid #e8edf5" }}>
                       <tr>{headers.map(h => <th key={h} className="px-3 py-2 font-semibold truncate max-w-[120px]" style={{ color:"#64748b" }}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
@@ -3806,14 +3815,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl p-3 text-center" style={{ background:"#eff6ff", border:"1px solid #bfdbfe" }}>
-                  <p className="text-xl font-black" style={{ color:"#2b8be8" }}>{parsed.length}</p>
+                  <p className="text-xl font-black" style={{ color:"#2B5E46" }}>{parsed.length}</p>
                   <p className="text-[10px] font-bold uppercase" style={{ color:"#64748b" }}>Total</p>
                 </div>
                 <div className="rounded-xl p-3 text-center" style={{ background:"#f0fdf4", border:"1px solid #bbf7d0" }}>
                   <p className="text-xl font-black" style={{ color:"#16a34a" }}>{parsed.length - conflicts.length}</p>
                   <p className="text-[10px] font-bold uppercase" style={{ color:"#64748b" }}>Novos</p>
                 </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: conflicts.length > 0 ? "#fffbeb":"#f8fafc", border:`1px solid ${conflicts.length > 0 ? "#fde68a":"#e8edf5"}` }}>
+                <div className="rounded-xl p-3 text-center" style={{ background: conflicts.length > 0 ? "#fffbeb":"#F8F4EE", border:`1px solid ${conflicts.length > 0 ? "#fde68a":"#e8edf5"}` }}>
                   <p className="text-xl font-black" style={{ color: conflicts.length > 0 ? "#d97706":"#94a3b8" }}>{conflicts.length}</p>
                   <p className="text-[10px] font-bold uppercase" style={{ color:"#64748b" }}>Conflitos</p>
                 </div>
@@ -3821,7 +3830,7 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
               <div className="overflow-hidden rounded-xl" style={{ border:"1px solid #e8edf5" }}>
                 <div className="overflow-y-auto" style={{ maxHeight: 280 }}>
                   <table className="w-full text-left text-xs">
-                    <thead style={{ background:"#f8fafc", borderBottom:"1px solid #e8edf5", position:"sticky", top:0 }}>
+                    <thead style={{ background:"#F8F4EE", borderBottom:"1px solid #e8edf5", position:"sticky", top:0 }}>
                       <tr>
                         <th className="px-3 py-2 font-bold" style={{ color:"#94a3b8" }}>Nome</th>
                         <th className="px-3 py-2 font-bold" style={{ color:"#94a3b8" }}>CNPJ/CPF</th>
@@ -3834,14 +3843,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                     <tbody>
                       {parsed.map((r, i) => {
                         const isCfl = conflicts.find(c => c.incoming.id === r.id);
-                        const typeCfgMap = { pj:{label:"PJ",color:"#2b8be8",bg:"#eff6ff"}, pf:{label:"PF",color:"#16a34a",bg:"#f0fdf4"}, mei:{label:"MEI",color:"#d97706",bg:"#fffbeb"} };
+                        const typeCfgMap = { pj:{label:"PJ",color:"#2B5E46",bg:"#eff6ff"}, pf:{label:"PF",color:"#16a34a",bg:"#f0fdf4"}, mei:{label:"MEI",color:"#d97706",bg:"#fffbeb"} };
                         const tp = typeCfgMap[r.type] || typeCfgMap.pj;
                         return (
                           <tr key={r.id} style={{ borderTop:"1px solid #f0f4f8", background: isCfl ? "#fffbeb" : "transparent" }}>
-                            <td className="px-3 py-2 font-semibold" style={{ color:"#1a1d23" }}>{r.name}</td>
+                            <td className="px-3 py-2 font-semibold" style={{ color:"#111110" }}>{r.name}</td>
                             <td className="px-3 py-2" style={{ color:"#64748b" }}>{r.document || "—"}</td>
                             <td className="px-3 py-2"><span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:tp.bg, color:tp.color }}>{tp.label}</span></td>
-                            <td className="px-3 py-2 font-semibold" style={{ color:"#1a1d23" }}>{fmtCurrency(r.monthlyFee)}</td>
+                            <td className="px-3 py-2 font-semibold" style={{ color:"#111110" }}>{fmtCurrency(r.monthlyFee)}</td>
                             <td className="px-3 py-2" style={{ color:"#64748b" }}>{r.paymentStatus}</td>
                             <td className="px-3 py-2">{isCfl && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#fef3c7", color:"#d97706" }}>⚠ conflito</span>}</td>
                           </tr>
@@ -3863,14 +3872,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
               <div className="space-y-4">
                 {conflicts.map((cfl, i) => (
                   <div key={i} className="rounded-2xl overflow-hidden" style={{ border:"1px solid #e8edf5" }}>
-                    <div className="px-4 py-2 text-xs font-black uppercase tracking-wide" style={{ background:"#f8fafc", color:"#94a3b8", borderBottom:"1px solid #e8edf5" }}>
+                    <div className="px-4 py-2 text-xs font-black uppercase tracking-wide" style={{ background:"#F8F4EE", color:"#94a3b8", borderBottom:"1px solid #e8edf5" }}>
                       Conflito {i+1}
                     </div>
                     <div className="p-4 grid grid-cols-2 gap-4">
                       {/* Existente */}
-                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="keep" ? "#f0fdf4":"#f8fafc", border:`2px solid ${resolutions[i]==="keep"?"#10b981":"#e8edf5"}` }}>
+                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="keep" ? "#f0fdf4":"#F8F4EE", border:`2px solid ${resolutions[i]==="keep"?"#10b981":"#e8edf5"}` }}>
                         <p className="text-[10px] font-black uppercase mb-2" style={{ color:"#94a3b8" }}>📁 Cadastrado</p>
-                        <p className="font-bold text-sm" style={{ color:"#1a1d23" }}>{cfl.existing.name}</p>
+                        <p className="font-bold text-sm" style={{ color:"#111110" }}>{cfl.existing.name}</p>
                         <p className="text-xs mt-0.5" style={{ color:"#64748b" }}>{cfl.existing.document || "—"}</p>
                         <p className="text-xs mt-1 font-semibold" style={{ color:"#374151" }}>{fmtCurrency(cfl.existing.monthlyFee)}</p>
                         <button onClick={() => setResolutions(p => ({...p,[i]:"keep"}))}
@@ -3880,14 +3889,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                         </button>
                       </div>
                       {/* Novo */}
-                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="replace" ? "#eff6ff":"#f8fafc", border:`2px solid ${resolutions[i]==="replace"?"#2b8be8":"#e8edf5"}` }}>
+                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="replace" ? "#eff6ff":"#F8F4EE", border:`2px solid ${resolutions[i]==="replace"?"#2B5E46":"#e8edf5"}` }}>
                         <p className="text-[10px] font-black uppercase mb-2" style={{ color:"#94a3b8" }}>📥 Importando</p>
-                        <p className="font-bold text-sm" style={{ color:"#1a1d23" }}>{cfl.incoming.name}</p>
+                        <p className="font-bold text-sm" style={{ color:"#111110" }}>{cfl.incoming.name}</p>
                         <p className="text-xs mt-0.5" style={{ color:"#64748b" }}>{cfl.incoming.document || "—"}</p>
                         <p className="text-xs mt-1 font-semibold" style={{ color:"#374151" }}>{fmtCurrency(cfl.incoming.monthlyFee)}</p>
                         <button onClick={() => setResolutions(p => ({...p,[i]:"replace"}))}
                           className="mt-3 w-full py-1.5 rounded-xl text-xs font-bold transition-all"
-                          style={resolutions[i]==="replace" ? {background:"#2b8be8",color:"#fff"} : {background:"#e8edf5",color:"#64748b"}}>
+                          style={resolutions[i]==="replace" ? {background:"#2B5E46",color:"#fff"} : {background:"#e8edf5",color:"#64748b"}}>
                           ↑ Substituir
                         </button>
                       </div>
@@ -3904,14 +3913,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background:"#f0fdf4", border:"2px solid #bbf7d0" }}>
                 <svg viewBox="0 0 24 24" fill="#10b981" className="w-8 h-8"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9" stroke="white" strokeWidth="2.5" fill="none"/></svg>
               </div>
-              <p className="text-xl font-black mb-1" style={{ color:"#1a1d23" }}>Importação concluída!</p>
+              <p className="text-xl font-black mb-1" style={{ color:"#111110" }}>Importação concluída!</p>
               <p className="text-sm" style={{ color:"#64748b" }}>
                 {newCount > 0 && <span><strong style={{ color:"#16a34a" }}>{newCount}</strong> cliente(s) adicionado(s). </span>}
-                {replaceCount > 0 && <span><strong style={{ color:"#2b8be8" }}>{replaceCount}</strong> atualizado(s). </span>}
+                {replaceCount > 0 && <span><strong style={{ color:"#2B5E46" }}>{replaceCount}</strong> atualizado(s). </span>}
                 {skipCount > 0 && <span><strong style={{ color:"#94a3b8" }}>{skipCount}</strong> ignorado(s).</span>}
               </p>
               <button onClick={onClose} className="mt-6 px-6 py-2.5 text-white rounded-xl font-bold text-sm"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                 Ver clientes
               </button>
             </div>
@@ -3920,7 +3929,7 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
 
         {/* Footer */}
         {step !== "done" && step !== "upload" && (
-          <div className="px-6 py-4 flex justify-between flex-shrink-0" style={{ borderTop:"1px solid #e8edf5", background:"#f8fafc" }}>
+          <div className="px-6 py-4 flex justify-between flex-shrink-0" style={{ borderTop:"1px solid #e8edf5", background:"#F8F4EE" }}>
             <button onClick={() => {
               if (step==="mapping") setStep("upload");
               else if (step==="preview") setStep("mapping");
@@ -3930,19 +3939,19 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
             </button>
             {step === "mapping" && (
               <button onClick={applyMapping} className="px-5 py-2 text-white rounded-xl text-sm font-bold"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                 Pré-visualizar →
               </button>
             )}
             {step === "preview" && (
               <button onClick={confirmImport} className="px-5 py-2 text-white rounded-xl text-sm font-bold"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                 {conflicts.length > 0 ? `Resolver ${conflicts.length} conflito(s) →` : "Importar agora →"}
               </button>
             )}
             {step === "conflicts" && (
               <button onClick={doImport} disabled={!conflictResolved} className="px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                 Confirmar importação →
               </button>
             )}
@@ -3968,7 +3977,7 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
   const pending = clientTasks.filter(t => !t.completed).length;
   const overdue = clientTasks.filter(t => !t.completed && t.dueDate < today()).length;
 
-  const statusColors = { paid:"#10b981", pending:"#f59e0b", overdue:"#ef4444" };
+  const statusColors = { paid:"#10b981", pending:"#B8965A", overdue:"#ef4444" };
   const statusLabels = { paid:"Pago", pending:"Pendente", overdue:"Atrasado" };
 
   return (
@@ -3977,15 +3986,15 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#5aaff5" }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#4A7454" }}>
               {c.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="font-black" style={{ color:"#1a1d23" }}>{c.name}</p>
+              <p className="font-black" style={{ color:"#111110" }}>{c.name}</p>
               <p className="text-xs" style={{ color:"#94a3b8" }}>{c.document || "Sem documento"} · {c.type === "pj" ? "Pessoa Jurídica" : "Pessoa Física"}</p>
             </div>
           </div>
-          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:"#eff6ff", color:"#2b8be8" }}>
+          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:"#eff6ff", color:"#2B5E46" }}>
             <Icon.Edit />Editar
           </button>
         </div>
@@ -3995,10 +4004,10 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
           {[
             { label:"Mensalidade", value: fmtCurrency(c.monthlyFee||0), color:"#10b981" },
             { label:"Status Pgto", value: statusLabels[c.paymentStatus]||"—", color: statusColors[c.paymentStatus]||"#94a3b8" },
-            { label:"Tarefas", value: clientTasks.length + " total", color:"#2b8be8" },
+            { label:"Tarefas", value: clientTasks.length + " total", color:"#2B5E46" },
             { label:"Atrasadas", value: overdue > 0 ? overdue + " ⚠️" : "Nenhuma ✅", color: overdue > 0 ? "#ef4444" : "#10b981" },
           ].map(k => (
-            <div key={k.label} className="rounded-xl p-3 text-center" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+            <div key={k.label} className="rounded-xl p-3 text-center" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
               <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color:"#94a3b8" }}>{k.label}</p>
               <p className="text-sm font-black" style={{ color:k.color }}>{k.value}</p>
             </div>
@@ -4013,10 +4022,10 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
           ) : (
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {clientTasks.sort((a,b) => (a.dueDate||"") > (b.dueDate||"") ? 1 : -1).map(t => (
-                <div key={t.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+                <div key={t.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : (!t.completed && t.dueDate < today()) ? "#ef4444" : "#f59e0b" }} />
-                    <span className={"text-xs font-medium truncate " + (t.completed ? "line-through" : "")} style={{ color: t.completed ? "#94a3b8" : "#1a1d23" }}>{t.title}</span>
+                    <div className={"w-2 h-2 rounded-full flex-shrink-0"} style={{ background: t.completed ? "#10b981" : (!t.completed && t.dueDate < today()) ? "#ef4444" : "#B8965A" }} />
+                    <span className={"text-xs font-medium truncate " + (t.completed ? "line-through" : "")} style={{ color: t.completed ? "#94a3b8" : "#111110" }}>{t.title}</span>
                   </div>
                   {t.dueDate && <span className="text-[10px] flex-shrink-0 ml-2" style={{ color:"#94a3b8" }}>{new Date(t.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
                 </div>
@@ -4031,8 +4040,8 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
             <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Simulações rescisórias</p>
             <div className="space-y-1.5">
               {clientSims.map(s => (
-                <div key={s.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
-                  <span className="text-xs font-medium" style={{ color:"#1a1d23" }}>{s.employeeName}</span>
+                <div key={s.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
+                  <span className="text-xs font-medium" style={{ color:"#111110" }}>{s.employeeName}</span>
                   <span className="text-xs font-black" style={{ color:"#10b981" }}>{fmtCurrency(s.netAmount||0)}</span>
                 </div>
               ))}
@@ -4044,7 +4053,7 @@ function ClientDetailModal({ client: c, onClose, onEdit }) {
         {c.notes && (
           <div>
             <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Notas</p>
-            <p className="text-sm rounded-xl p-3" style={{ background:"#f8fafc", border:"1px solid #e8edf5", color:"#374151" }}>{c.notes}</p>
+            <p className="text-sm rounded-xl p-3" style={{ background:"#F8F4EE", border:"1px solid #e8edf5", color:"#374151" }}>{c.notes}</p>
           </div>
         )}
       </div>
@@ -4065,8 +4074,8 @@ function ClientTimeline({ client, onClose }) {
 
   const EVENT_TYPES = {
     note:     { label:"Anotação",   emoji:"📝", color:"#64748b", bg:"rgba(100,116,139,0.1)" },
-    meeting:  { label:"Reunião",    emoji:"🤝", color:"#2b8be8", bg:"rgba(43,139,232,0.1)" },
-    pending:  { label:"Pendência",  emoji:"⚠️", color:"#f59e0b", bg:"rgba(245,158,11,0.1)" },
+    meeting:  { label:"Reunião",    emoji:"🤝", color:"#2B5E46", bg:"rgba(43,94,70,0.1)" },
+    pending:  { label:"Pendência",  emoji:"⚠️", color:"#B8965A", bg:"rgba(245,158,11,0.1)" },
     email:    { label:"E-mail",     emoji:"📧", color:"#8b5cf6", bg:"rgba(139,92,246,0.1)" },
     call:     { label:"Ligação",    emoji:"📞", color:"#10b981", bg:"rgba(16,185,129,0.1)" },
     document: { label:"Documento",  emoji:"📄", color:"#06b6d4", bg:"rgba(6,182,212,0.1)" },
@@ -4094,47 +4103,47 @@ function ClientTimeline({ client, onClose }) {
     <Modal title="" onClose={onClose} maxWidth="max-w-xl">
       <div style={{ maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
         {/* Header */}
-        <div className="p-5 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.6)", background:"linear-gradient(135deg,rgba(43,139,232,0.04),rgba(255,255,255,0.98))" }}>
+        <div className="p-5 pb-4" style={{ borderBottom:"1px solid rgba(206,186,150,0.6)", background:"linear-gradient(135deg,rgba(43,94,70,0.04),rgba(255,255,255,0.98))" }}>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg font-black text-white"
-              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 4px 12px rgba(26,29,35,0.2)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 4px 12px rgba(26,29,35,0.2)" }}>
               {client.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-base font-black" style={{ color:"#1a1d23" }}>{client.name}</h2>
+              <h2 className="text-base font-black" style={{ color:"#111110" }}>{client.name}</h2>
               <p className="text-xs" style={{ color:"#94a3b8" }}>{allItems.length} registros · {clientTasks.filter(t=>!t.completed).length} tarefas pendentes</p>
             </div>
             <button onClick={()=>setShowAdd(v=>!v)}
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-xs font-bold"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px rgba(43,94,70,0.25)" }}>
               <Icon.Plus />Registrar
             </button>
           </div>
           {/* Form de novo evento */}
           {showAdd && (
-            <div className="mt-4 p-4 rounded-2xl space-y-3" style={{ background:"rgba(248,250,252,0.9)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="mt-4 p-4 rounded-2xl space-y-3" style={{ background:"rgba(248,250,252,0.9)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <div className="grid grid-cols-4 gap-2">
                 {Object.entries(EVENT_TYPES).map(([k,v]) => (
                   <button key={k} type="button" onClick={()=>setForm(p=>({...p,type:k}))}
                     className="p-2 rounded-xl text-center transition-all"
-                    style={{ background:form.type===k?v.bg:"transparent", border:form.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.7)", fontSize:18 }}
+                    style={{ background:form.type===k?v.bg:"transparent", border:form.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(206,186,150,0.7)", fontSize:18 }}
                     title={v.label}>{v.emoji}
                   </button>
                 ))}
               </div>
               <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))}
                 placeholder={`Título do ${EVENT_TYPES[form.type]?.label.toLowerCase()}...`}
-                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.9)" }} />
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.9)" }} />
               <textarea value={form.content} onChange={e=>setForm(p=>({...p,content:e.target.value}))}
-                placeholder="Detalhes (opcional)..." rows={2} className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.9)" }} />
+                placeholder="Detalhes (opcional)..." rows={2} className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.9)" }} />
               <div className="flex items-center gap-2">
                 <input type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}
-                  className="border rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)" }} />
+                  className="border rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)" }} />
                 <button onClick={save} disabled={!form.title.trim()} className="flex-1 py-1.5 text-white rounded-xl text-xs font-bold disabled:opacity-50"
-                  style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar registro</button>
+                  style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar registro</button>
                 <button onClick={()=>setShowAdd(false)} className="px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-100 rounded-xl">✕</button>
               </div>
             </div>
@@ -4146,13 +4155,13 @@ function ClientTimeline({ client, onClose }) {
           {allItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
               <div className="text-5xl">📋</div>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum registro ainda</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Nenhum registro ainda</p>
               <p className="text-sm" style={{ color:"#94a3b8" }}>Registre reuniões, anotações, e-mails e pendências</p>
             </div>
           ) : (
             <div className="relative">
               {/* Linha vertical */}
-              <div className="absolute left-5 top-0 bottom-0 w-0.5" style={{ background:"linear-gradient(180deg,rgba(43,139,232,0.2),rgba(226,232,240,0.3))" }}/>
+              <div className="absolute left-5 top-0 bottom-0 w-0.5" style={{ background:"linear-gradient(180deg,rgba(43,94,70,0.2),rgba(206,186,150,0.3))" }}/>
               <div className="space-y-3 pl-12">
                 {allItems.map((item, idx) => {
                   if (item._kind === "task") {
@@ -4160,13 +4169,13 @@ function ClientTimeline({ client, onClose }) {
                       <div key={item.id} className="relative -ml-12 pl-12">
                         {/* Dot */}
                         <div className="absolute left-3.5 top-3.5 w-3 h-3 rounded-full border-2 flex-shrink-0"
-                          style={{ background:item.completed?"#10b981":"rgba(245,158,11,0.3)", borderColor:item.completed?"#10b981":"#f59e0b", zIndex:1 }}/>
+                          style={{ background:item.completed?"#10b981":"rgba(245,158,11,0.3)", borderColor:item.completed?"#10b981":"#B8965A", zIndex:1 }}/>
                         <div className="p-3 rounded-xl transition-all"
                           style={{ background: item.completed?"rgba(240,253,244,0.7)":"rgba(255,251,235,0.8)", border:`1px solid ${item.completed?"rgba(187,247,208,0.6)":"rgba(253,230,138,0.6)"}` }}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-sm">{item.completed?"✅":"📌"}</span>
-                              <p className={"text-xs font-semibold truncate "+(item.completed?"line-through opacity-50":"")} style={{ color:"#1a1d23" }}>{item.title}</p>
+                              <p className={"text-xs font-semibold truncate "+(item.completed?"line-through opacity-50":"")} style={{ color:"#111110" }}>{item.title}</p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"rgba(245,158,11,0.15)", color:"#d97706" }}>Tarefa</span>
@@ -4182,11 +4191,11 @@ function ClientTimeline({ client, onClose }) {
                     <div key={item.id} className="relative -ml-12 pl-12 group">
                       {/* Dot */}
                       <div className="absolute left-3 top-3.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px]"
-                        style={{ background:item.resolved?"rgba(226,232,240,0.8)":et.bg, border:`1.5px solid ${item.resolved?"rgba(203,213,225,0.7)":et.color+"40"}`, zIndex:1 }}>
+                        style={{ background:item.resolved?"rgba(206,186,150,0.8)":et.bg, border:`1.5px solid ${item.resolved?"rgba(203,213,225,0.7)":et.color+"40"}`, zIndex:1 }}>
                         {et.emoji}
                       </div>
                       <div className="p-3 rounded-xl transition-all"
-                        style={{ background: item.resolved?"rgba(248,250,252,0.7)":"rgba(255,255,255,0.95)", border:`1px solid ${item.resolved?"rgba(226,232,240,0.5)":et.color+"20"}`, boxShadow:item.resolved?"none":"0 2px 8px rgba(26,29,35,0.04)" }}>
+                        style={{ background: item.resolved?"rgba(248,250,252,0.7)":"rgba(255,255,255,0.95)", border:`1px solid ${item.resolved?"rgba(206,186,150,0.5)":et.color+"20"}`, boxShadow:item.resolved?"none":"0 2px 8px rgba(26,29,35,0.04)" }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -4201,7 +4210,7 @@ function ClientTimeline({ client, onClose }) {
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
                             {item.type === "pending" && (
                               <button onClick={()=>toggleResolved(item)} className="p-1 rounded-lg transition-all text-[10px] font-bold px-2"
-                                style={{ background:item.resolved?"rgba(16,185,129,0.1)":"rgba(245,158,11,0.1)", color:item.resolved?"#10b981":"#f59e0b" }}>
+                                style={{ background:item.resolved?"rgba(16,185,129,0.1)":"rgba(245,158,11,0.1)", color:item.resolved?"#10b981":"#B8965A" }}>
                                 {item.resolved?"✓ Ok":"Pendente"}
                               </button>
                             )}
@@ -4242,8 +4251,8 @@ function Clients() {
   // ── Status operacional config ─────────────────────────
   const OP_STATUS = {
     healthy:   { label:"Operação saudável",  color:"#10b981", bg:"rgba(16,185,129,0.1)",  dot:"#10b981",  icon:"🟢" },
-    onboarding:{ label:"Em onboarding",      color:"#2b8be8", bg:"rgba(43,139,232,0.1)",  dot:"#2b8be8",  icon:"🚀" },
-    attention: { label:"Atenção",            color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  dot:"#f59e0b",  icon:"🟡" },
+    onboarding:{ label:"Em onboarding",      color:"#2B5E46", bg:"rgba(43,94,70,0.1)",  dot:"#2B5E46",  icon:"🚀" },
+    attention: { label:"Atenção",            color:"#B8965A", bg:"rgba(245,158,11,0.1)",  dot:"#B8965A",  icon:"🟡" },
     stopped:   { label:"Processo parado",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316",  icon:"⚠️" },
     critical:  { label:"Crítico",            color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444",  icon:"🔴" },
     waiting:   { label:"Aguardando cliente", color:"#a855f7", bg:"rgba(168,85,247,0.1)",  dot:"#a855f7",  icon:"⏳" },
@@ -4251,7 +4260,7 @@ function Clients() {
   };
   const PRIORITY = {
     low:      { label:"Baixa",   color:"#94a3b8" },
-    medium:   { label:"Média",   color:"#f59e0b" },
+    medium:   { label:"Média",   color:"#B8965A" },
     high:     { label:"Alta",    color:"#f97316" },
     critical: { label:"Crítica", color:"#ef4444" },
   };
@@ -4311,10 +4320,10 @@ function Clients() {
 
     return (
       <div className="rounded-2xl overflow-hidden transition-all duration-300 group cursor-pointer"
-        style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+        style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
         onClick={()=>setSelectedClient(c)}
-        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,139,232,0.2)";}}
-        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
+        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.7)";}}>
 
         {/* Barra de saúde no topo */}
         <div className="h-0.5" style={{ background:`linear-gradient(90deg,${opConf.color},${opConf.color}44)`, width:`${health}%`, transition:"width 0.8s ease" }}/>
@@ -4329,16 +4338,16 @@ function Clients() {
                 {c.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-black truncate" style={{ color:"#1a1d23" }}>{c.name}</p>
+                <p className="text-sm font-black truncate" style={{ color:"#111110" }}>{c.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase" style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>{c.type==="pf"?"PF":"PJ"}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase" style={{ background:"rgba(206,186,150,0.6)", color:"#64748b" }}>{c.type==="pf"?"PF":"PJ"}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
                 </div>
               </div>
             </div>
             {/* Health score */}
             <div className="text-right flex-shrink-0">
-              <p className="text-lg font-black" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</p>
+              <p className="text-lg font-black" style={{ color:health>=70?"#10b981":health>=40?"#B8965A":"#ef4444" }}>{health}%</p>
               <p className="text-[9px]" style={{ color:"#94a3b8" }}>saúde</p>
             </div>
           </div>
@@ -4350,7 +4359,7 @@ function Clients() {
               { label:"Atrasadas", value:m.overdueTasks, warn:m.overdueTasks>0, icon:"⚠️" },
               { label:"Projetos", value:m.activeProjects, warn:false, icon:"🚀" },
             ].map(k=>(
-              <div key={k.label} className="rounded-xl p-2 text-center" style={{ background: k.warn?"rgba(239,68,68,0.06)":"rgba(248,250,252,0.7)", border:`1px solid ${k.warn?"rgba(239,68,68,0.15)":"rgba(226,232,240,0.5)"}` }}>
+              <div key={k.label} className="rounded-xl p-2 text-center" style={{ background: k.warn?"rgba(239,68,68,0.06)":"rgba(248,250,252,0.7)", border:`1px solid ${k.warn?"rgba(239,68,68,0.15)":"rgba(206,186,150,0.5)"}` }}>
                 <p className="text-base font-black" style={{ color:k.warn?"#ef4444":"#374151" }}>{k.value}</p>
                 <p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.label}</p>
               </div>
@@ -4359,9 +4368,9 @@ function Clients() {
 
           {/* Onboarding progress */}
           {m.clientOnboarding && (
-            <div className="mb-3 p-2.5 rounded-xl" style={{ background:"rgba(43,139,232,0.06)", border:"1px solid rgba(43,139,232,0.15)" }}>
+            <div className="mb-3 p-2.5 rounded-xl" style={{ background:"rgba(43,94,70,0.06)", border:"1px solid rgba(43,94,70,0.15)" }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold" style={{ color:"#2b8be8" }}>🚀 Onboarding em andamento</span>
+                <span className="text-[10px] font-bold" style={{ color:"#2B5E46" }}>🚀 Onboarding em andamento</span>
               </div>
             </div>
           )}
@@ -4370,7 +4379,7 @@ function Clients() {
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
               {responsible && (
-                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white" style={{ background:responsible.avatarColor||"#2b8be8" }} title={responsible.name}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white" style={{ background:responsible.avatarColor||"#2B5E46" }} title={responsible.name}>
                   {responsible.name.charAt(0)}
                 </div>
               )}
@@ -4379,7 +4388,7 @@ function Clients() {
             {c.tags?.length > 0 && (
               <div className="flex gap-1">
                 {c.tags.slice(0,2).map(tag=>(
-                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md font-medium" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{tag}</span>
+                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md font-medium" style={{ background:"rgba(43,94,70,0.08)", color:"#2B5E46" }}>#{tag}</span>
                 ))}
               </div>
             )}
@@ -4404,14 +4413,14 @@ function Clients() {
       <Modal title="" onClose={()=>setSelectedClient(null)} maxWidth="max-w-3xl">
         <div style={{ maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
           {/* Hero */}
-          <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:`linear-gradient(135deg,${opConf.bg},rgba(255,255,255,0.98))` }}>
+          <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(206,186,150,0.5)", background:`linear-gradient(135deg,${opConf.bg},rgba(255,255,255,0.98))` }}>
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0"
                 style={{ background:`linear-gradient(135deg,${opConf.color},${opConf.color}cc)`, boxShadow:`0 4px 16px ${opConf.color}30` }}>
                 {c.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-black" style={{ color:"#1a1d23" }}>{c.name}</h2>
+                <h2 className="text-lg font-black" style={{ color:"#111110" }}>{c.name}</h2>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
                   {c.document && <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.document}</span>}
@@ -4419,7 +4428,7 @@ function Clients() {
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-2xl font-black" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</p>
+                <p className="text-2xl font-black" style={{ color:health>=70?"#10b981":health>=40?"#B8965A":"#ef4444" }}>{health}%</p>
                 <p className="text-[10px]" style={{ color:"#94a3b8" }}>saúde operacional</p>
               </div>
             </div>
@@ -4427,12 +4436,12 @@ function Clients() {
             {/* KPIs rápidos */}
             <div className="grid grid-cols-4 gap-3 mt-4">
               {[
-                { label:"Tarefas abertas", value:m.openTasks, color:"#2b8be8" },
+                { label:"Tarefas abertas", value:m.openTasks, color:"#2B5E46" },
                 { label:"Atrasadas", value:m.overdueTasks, color:m.overdueTasks>0?"#ef4444":"#10b981" },
                 { label:"Projetos ativos", value:m.activeProjects, color:"#a855f7" },
-                { label:"Onboarding", value:m.clientOnboarding?"Ativo":"—", color:m.clientOnboarding?"#2b8be8":"#94a3b8" },
+                { label:"Onboarding", value:m.clientOnboarding?"Ativo":"—", color:m.clientOnboarding?"#2B5E46":"#94a3b8" },
               ].map(k=>(
-                <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                   <p className="text-lg font-black" style={{ color:k.color }}>{k.value}</p>
                   <p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.label}</p>
                 </div>
@@ -4441,11 +4450,11 @@ function Clients() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 px-5 pt-3" style={{ borderBottom:"1px solid rgba(226,232,240,0.5)" }}>
+          <div className="flex gap-1 px-5 pt-3" style={{ borderBottom:"1px solid rgba(206,186,150,0.5)" }}>
             {tabs.map(([id,label])=>(
               <button key={id} onClick={()=>setActiveTab(id)}
                 className="px-3 py-2 text-xs font-bold rounded-t-xl transition-all"
-                style={{ background:activeTab===id?"rgba(43,139,232,0.08)":"transparent", color:activeTab===id?"#2b8be8":"#94a3b8", borderBottom:activeTab===id?"2px solid #2b8be8":"2px solid transparent" }}>
+                style={{ background:activeTab===id?"rgba(43,94,70,0.08)":"transparent", color:activeTab===id?"#2B5E46":"#94a3b8", borderBottom:activeTab===id?"2px solid #2B5E46":"2px solid transparent" }}>
                 {label}
               </button>
             ))}
@@ -4461,8 +4470,8 @@ function Clients() {
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Status Operacional</label>
                     <select value={c.operationalStatus||"healthy"}
                       onChange={e=>updateClient({...c, operationalStatus:e.target.value})}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}>
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                      style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}>
                       {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
                     </select>
                   </div>
@@ -4470,8 +4479,8 @@ function Clients() {
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Prioridade</label>
                     <select value={c.priority||"medium"}
                       onChange={e=>updateClient({...c, priority:e.target.value})}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                      style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}>
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                      style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}>
                       {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k} style={{ color:v.color }}>{v.label}</option>)}
                     </select>
                   </div>
@@ -4487,7 +4496,7 @@ function Clients() {
                 {c.notes && (
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Notas</label>
-                    <p className="text-sm p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(226,232,240,0.5)" }}>{c.notes}</p>
+                    <p className="text-sm p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(206,186,150,0.5)" }}>{c.notes}</p>
                   </div>
                 )}
               </>
@@ -4501,11 +4510,11 @@ function Clients() {
                   : clientTasks.map(tk => {
                       const od = tk.dueDate && tk.dueDate < t && !tk.completed;
                       return (
-                        <div key={tk.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.2)":"rgba(226,232,240,0.5)"}` }}>
+                        <div key={tk.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:`1px solid ${od?"rgba(239,68,68,0.2)":"rgba(206,186,150,0.5)"}` }}>
                           <div className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0" style={{ borderColor:tk.completed?"#10b981":od?"#ef4444":"#d1d5db", background:tk.completed?"#10b981":"transparent" }}/>
                           <span className="flex-1 text-xs font-medium" style={{ color:tk.completed?"#94a3b8":"#374151", textDecoration:tk.completed?"line-through":"none" }}>{tk.title}</span>
                           {tk.dueDate && <span className="text-[10px]" style={{ color:od?"#ef4444":"#94a3b8" }}>{new Date(tk.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background:tk.completed?"rgba(16,185,129,0.1)":"rgba(226,232,240,0.5)", color:tk.completed?"#10b981":"#94a3b8" }}>{tk.completed?"Concluída":"Aberta"}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background:tk.completed?"rgba(16,185,129,0.1)":"rgba(206,186,150,0.5)", color:tk.completed?"#10b981":"#94a3b8" }}>{tk.completed?"Concluída":"Aberta"}</span>
                         </div>
                       );
                     })
@@ -4521,17 +4530,17 @@ function Clients() {
                   : clientProjects.map(p => {
                       const cl = p.checklist||[];
                       const pct = cl.length>0 ? Math.round(cl.filter(x=>x.done).length/cl.length*100) : 0;
-                      const statusColors = { todo:"#94a3b8", doing:"#2b8be8", done:"#10b981" };
+                      const statusColors = { todo:"#94a3b8", doing:"#2B5E46", done:"#10b981" };
                       return (
-                        <div key={p.id} className="p-4 rounded-2xl" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+                        <div key={p.id} className="p-4 rounded-2xl" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{p.title}</p>
+                            <p className="text-sm font-black" style={{ color:"#111110" }}>{p.title}</p>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:statusColors[p.status]+"18", color:statusColors[p.status] }}>
                               {p.status==="todo"?"Não iniciado":p.status==="doing"?"Em execução":"Concluído"}
                             </span>
                           </div>
                           {cl.length > 0 && (
-                            <div className="w-full h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                            <div className="w-full h-1 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                               <div className="h-1 rounded-full" style={{ width:pct+"%", background:statusColors[p.status] }}/>
                             </div>
                           )}
@@ -4546,10 +4555,10 @@ function Clients() {
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>SOPs relacionados</p>
                 {(sops||[]).filter(s=>s.category==="Contábil"||s.category==="Fiscal"||s.category==="Departamento Pessoal").slice(0,4).map(s=>(
-                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                     <span className="text-lg">{s.type==="playbook"?"📘":"📋"}</span>
                     <div>
-                      <p className="text-xs font-bold" style={{ color:"#1a1d23" }}>{s.title}</p>
+                      <p className="text-xs font-bold" style={{ color:"#111110" }}>{s.title}</p>
                       <p className="text-[10px]" style={{ color:"#94a3b8" }}>{s.category} • {s.estimatedTime}min</p>
                     </div>
                   </div>
@@ -4586,7 +4595,7 @@ function Clients() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Clientes</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Clientes</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Central operacional da carteira do escritório</p>
         </div>
         <div className="flex gap-2">
@@ -4595,7 +4604,7 @@ function Clients() {
             {[["cards","▦"],["list","☰"]].map(([v,icon])=>(
               <button key={v} onClick={()=>setViewMode(v)}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                style={{ background:viewMode===v?"rgba(255,255,255,0.98)":"transparent", color:viewMode===v?"#1a1d23":"#94a3b8", boxShadow:viewMode===v?"0 1px 4px rgba(26,29,35,0.08)":"none" }}>
+                style={{ background:viewMode===v?"rgba(255,255,255,0.98)":"transparent", color:viewMode===v?"#111110":"#94a3b8", boxShadow:viewMode===v?"0 1px 4px rgba(26,29,35,0.08)":"none" }}>
                 {icon}
               </button>
             ))}
@@ -4603,7 +4612,7 @@ function Clients() {
           {isAdmin && (
             <button onClick={()=>openForm()}
               className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
               <Icon.Plus />Novo Cliente
             </button>
           )}
@@ -4615,11 +4624,11 @@ function Clients() {
         {[
           { label:"Clientes Ativos",     value:activeClients.length,   sub:"na carteira",            color:"#10b981", icon:"🟢" },
           { label:"Com Pendências",       value:pendingClients.length,  sub:"atenção necessária",     color:pendingClients.length>0?"#ef4444":"#10b981", icon:"⚠️" },
-          { label:"Onboardings ativos",   value:onboardingClients.length, sub:"em andamento",         color:"#2b8be8", icon:"🚀" },
-          { label:"Saúde da carteira",    value:`${avgHealth}%`,        sub:"score operacional",      color:avgHealth>=70?"#10b981":avgHealth>=40?"#f59e0b":"#ef4444", icon:"🧠" },
+          { label:"Onboardings ativos",   value:onboardingClients.length, sub:"em andamento",         color:"#2B5E46", icon:"🚀" },
+          { label:"Saúde da carteira",    value:`${avgHealth}%`,        sub:"score operacional",      color:avgHealth>=70?"#10b981":avgHealth>=40?"#B8965A":"#ef4444", icon:"🧠" },
         ].map(k=>(
           <div key={k.label} className="rounded-2xl p-4 transition-all"
-            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
+            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
             onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
             onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
             <div className="flex items-start justify-between">
@@ -4641,25 +4650,25 @@ function Clients() {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar clientes..."
-            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todos os status</option>
           {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
         </select>
         <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">PF & PJ</option>
           <option value="pf">Pessoa Física</option>
           <option value="pj">Pessoa Jurídica</option>
         </select>
         <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todas prioridades</option>
           {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -4668,35 +4677,35 @@ function Clients() {
 
       {/* Lista de clientes */}
       {filtered.length === 0 ? (
-        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
           <p className="text-5xl mb-4">👥</p>
-          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>{search ? `Nenhum cliente encontrado para "${search}"` : "Nenhum cliente cadastrado"}</p>
-          {!search && isAdmin && <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>+ Adicionar primeiro cliente</button>}
+          <p className="text-lg font-bold" style={{ color:"#111110" }}>{search ? `Nenhum cliente encontrado para "${search}"` : "Nenhum cliente cadastrado"}</p>
+          {!search && isAdmin && <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>+ Adicionar primeiro cliente</button>}
         </div>
       ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c=><ClientCard key={c.id} c={c}/>)}
         </div>
       ) : (
-        <div className="rounded-2xl overflow-hidden" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
           {filtered.map((c,i)=>{
             const m = getClientMetrics(c);
             const opConf = OP_STATUS[c.operationalStatus||"healthy"]||OP_STATUS.healthy;
             const health = getHealthScore(c);
             return (
               <div key={c.id} className="flex items-center gap-4 px-5 py-3 transition-all cursor-pointer group"
-                style={{ borderTop:i>0?"1px solid rgba(226,232,240,0.5)":"none" }}
+                style={{ borderTop:i>0?"1px solid rgba(206,186,150,0.5)":"none" }}
                 onClick={()=>setSelectedClient(c)}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(248,250,252,0.7)"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white flex-shrink-0" style={{ background:`linear-gradient(135deg,${opConf.color},${opConf.color}cc)` }}>{c.name.charAt(0)}</div>
-                <p className="flex-1 text-sm font-semibold truncate" style={{ color:"#1a1d23" }}>{c.name}</p>
+                <p className="flex-1 text-sm font-semibold truncate" style={{ color:"#111110" }}>{c.name}</p>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:opConf.bg, color:opConf.color }}>{opConf.icon} {opConf.label}</span>
-                <span className="text-xs font-bold w-12 text-right" style={{ color:health>=70?"#10b981":health>=40?"#f59e0b":"#ef4444" }}>{health}%</span>
+                <span className="text-xs font-bold w-12 text-right" style={{ color:health>=70?"#10b981":health>=40?"#B8965A":"#ef4444" }}>{health}%</span>
                 <span className="text-[10px]" style={{ color:m.overdueTasks>0?"#ef4444":"#94a3b8" }}>⚠ {m.overdueTasks} atrasadas</span>
                 {isAdmin && (
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={e=>{e.stopPropagation();openForm(c);}} className="p-1.5 rounded-lg" style={{ color:"#94a3b8" }} onMouseEnter={e=>{e.currentTarget.style.color="#2b8be8";}} onMouseLeave={e=>{e.currentTarget.style.color="#94a3b8";}}><Icon.Edit/></button>
+                    <button onClick={e=>{e.stopPropagation();openForm(c);}} className="p-1.5 rounded-lg" style={{ color:"#94a3b8" }} onMouseEnter={e=>{e.currentTarget.style.color="#2B5E46";}} onMouseLeave={e=>{e.currentTarget.style.color="#94a3b8";}}><Icon.Edit/></button>
                     <button onClick={e=>{e.stopPropagation();deleteClient(c.id);}} className="p-1.5 rounded-lg" style={{ color:"#94a3b8" }} onMouseEnter={e=>{e.currentTarget.style.color="#ef4444";}} onMouseLeave={e=>{e.currentTarget.style.color="#94a3b8";}}><Icon.Trash/></button>
                   </div>
                 )}
@@ -4717,14 +4726,14 @@ function Clients() {
               <div className="col-span-2">
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Nome *</label>
                 <input value={cf.name} onChange={e=>setCf(p=>({...p,name:e.target.value}))} placeholder="Nome do cliente..."
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Tipo</label>
                 <select value={cf.type} onChange={e=>setCf(p=>({...p,type:e.target.value}))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
                   <option value="pj">Pessoa Jurídica</option>
                   <option value="pf">Pessoa Física</option>
                 </select>
@@ -4732,30 +4741,30 @@ function Clients() {
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>CPF / CNPJ</label>
                 <input value={cf.document} onChange={e=>setCf(p=>({...p,document:e.target.value}))} placeholder="00.000.000/0001-00"
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Status operacional</label>
                 <select value={cf.operationalStatus} onChange={e=>setCf(p=>({...p,operationalStatus:e.target.value}))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
                   {Object.entries(OP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Prioridade</label>
                 <select value={cf.priority} onChange={e=>setCf(p=>({...p,priority:e.target.value}))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
                   {Object.entries(PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
                 <select value={cf.responsibleId} onChange={e=>setCf(p=>({...p,responsibleId:e.target.value}))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
                   <option value="">Nenhum</option>
                   {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
@@ -4764,15 +4773,15 @@ function Clients() {
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Notas gerais</label>
               <textarea value={cf.notes} onChange={e=>setCf(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Informações gerais do cliente..."
-                className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+                className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
             </div>
             {/* Tags */}
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Tags</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {cf.tags.map((tg,i)=>(
-                  <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>
+                  <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,94,70,0.1)", color:"#2B5E46" }}>
                     #{tg}<button type="button" onClick={()=>setCf(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
                   </span>
                 ))}
@@ -4780,14 +4789,14 @@ function Clients() {
               <input value={newTag} onChange={e=>setNewTag(e.target.value)}
                 onKeyDown={e=>{ if(e.key==="Enter"&&newTag.trim()){ setCf(p=>({...p,tags:[...p.tags,newTag.trim()]})); setNewTag(""); }}}
                 placeholder="Adicionar tag (Enter)..."
-                className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-                style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+                className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+                style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={()=>{setFormOpen(false);setEditingClient(null);}} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
               <button onClick={saveClient} disabled={!cf.name.trim()}
                 className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
                 <Icon.Plus />{editingClient?"Salvar":"Criar Cliente"}
               </button>
             </div>
@@ -4805,10 +4814,10 @@ function ObsEditor({ client, onSave }) {
   if (editing) return (
     <div className="space-y-2">
       <textarea value={text} onChange={e=>setText(e.target.value)} rows={3} autoFocus
-        className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
-        style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+        className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-green-700"
+        style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
       <div className="flex gap-2">
-        <button onClick={()=>{onSave(text);setEditing(false);}} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+        <button onClick={()=>{onSave(text);setEditing(false);}} className="px-3 py-1.5 text-white rounded-lg text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar</button>
         <button onClick={()=>{setText(client.observations||"");setEditing(false);}} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancelar</button>
       </div>
     </div>
@@ -4856,9 +4865,9 @@ function Obligations() {
   const typeCfg = {
     fiscal:      { label:"Fiscal",      bg:"#fff5f5", color:"#dc2626", border:"#fca5a5" },
     trabalhista: { label:"Trabalhista", bg:"#fffbeb", color:"#d97706", border:"#fde68a" },
-    contabil:    { label:"Contábil",    bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe" },
+    contabil:    { label:"Contábil",    bg:"#eff6ff", color:"#2B5E46", border:"#bfdbfe" },
     societario:  { label:"Societário",  bg:"#f5f3ff", color:"#7c3aed", border:"#ddd6fe" },
-    outro:       { label:"Outro",       bg:"#f8fafc", color:"#64748b", border:"#e2e8f0" },
+    outro:       { label:"Outro",       bg:"#F8F4EE", color:"#64748b", border:"#e2e8f0" },
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
@@ -4878,7 +4887,7 @@ function Obligations() {
 
   const urgencyCfg = {
     overdue: { label:"Vencida",  bg:"#fff5f5", border:"#fca5a5", dot:"#ef4444", text:"#dc2626" },
-    urgent:  { label:"Hoje/Amanhã", bg:"#fffbeb", border:"#fde68a", dot:"#f59e0b", text:"#d97706" },
+    urgent:  { label:"Hoje/Amanhã", bg:"#fffbeb", border:"#fde68a", dot:"#B8965A", text:"#d97706" },
     soon:    { label:"Em breve", bg:"#fffbeb", border:"#fef3c7", dot:"#fbbf24", text:"#92400e" },
     normal:  { label:"",         bg:"transparent", border:"#f0f4f8", dot:"#94a3b8", text:"#374151" },
   };
@@ -4990,8 +4999,8 @@ function Obligations() {
       style={done
         ? { background:"#10b981", border:"2px solid #10b981" }
         : { background:"#fff", border:"2px solid #dde3ed" }}
-      onMouseEnter={e => { if(!done) e.currentTarget.style.borderColor="#2b8be8"; }}
-      onMouseLeave={e => { if(!done) e.currentTarget.style.borderColor="#dde3ed"; }}>
+      onMouseEnter={e => { if(!done) e.currentTarget.style.borderColor="#2B5E46"; }}
+      onMouseLeave={e => { if(!done) e.currentTarget.style.borderColor="#CEBA96"; }}>
       {done && <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" className="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>}
     </button>
   );
@@ -5006,7 +5015,7 @@ function Obligations() {
           {[["overview","📋 Visão Geral"],["by-client","👤 Por Cliente"]].map(([v,l]) => (
             <button key={v} onClick={() => setTab(v)}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={tab===v ? {background:"#fff",color:"#2b8be8",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"} : {color:"#64748b"}}>
+              style={tab===v ? {background:"#fff",color:"#2B5E46",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"} : {color:"#64748b"}}>
               {l}
             </button>
           ))}
@@ -5015,7 +5024,7 @@ function Obligations() {
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
           <button onClick={() => { let m = currentMonth-1, y = currentYear; if(m<0){m=11;y--;} setCurrentMonth(m); setCurrentYear(y); }}
             className="p-0.5 rounded hover:bg-slate-100"><Icon.ChevronLeft /></button>
-          <span className="text-sm font-bold w-32 text-center" style={{ color:"#1a1d23" }}>
+          <span className="text-sm font-bold w-32 text-center" style={{ color:"#111110" }}>
             {months[currentMonth]} {currentYear}
           </span>
           <button onClick={() => { let m = currentMonth+1, y = currentYear; if(m>11){m=0;y++;} setCurrentMonth(m); setCurrentYear(y); }}
@@ -5025,12 +5034,12 @@ function Obligations() {
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#fff" }}>
+        <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#fff" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Taxa de Conclusão</p>
-          <p className="text-3xl font-black" style={{ color: completionPct===100?"#10b981": completionPct>=60?"#5aaff5":"#f59e0b" }}>{completionPct}%</p>
+          <p className="text-3xl font-black" style={{ color: completionPct===100?"#10b981": completionPct>=60?"#4A7454":"#B8965A" }}>{completionPct}%</p>
           <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background:"rgba(255,255,255,0.1)" }}>
             <div className="h-full rounded-full transition-all duration-700"
-              style={{ width:`${completionPct}%`, background: completionPct===100?"#10b981":"#5aaff5" }} />
+              style={{ width:`${completionPct}%`, background: completionPct===100?"#10b981":"#4A7454" }} />
           </div>
           <p className="text-[10px] mt-1.5" style={{ color:"rgba(255,255,255,0.4)" }}>{doneCount} de {totalCount} concluídas</p>
         </div>
@@ -5039,7 +5048,7 @@ function Obligations() {
           <p className="text-2xl font-black" style={{ color:"#d97706" }}>{pendingCount}</p>
           <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>obrigações em aberto</p>
         </div>
-        <div className="rounded-2xl p-5" style={{ background: urgentCount > 0 ? "#fffbeb":"#fff", border:`1px solid ${urgentCount>0?"#fde68a":"#dde3ed"}`, boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+        <div className="rounded-2xl p-5" style={{ background: urgentCount > 0 ? "#fffbeb":"#fff", border:`1px solid ${urgentCount>0?"#fde68a":"#CEBA96"}`, boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Urgentes</p>
           <p className="text-2xl font-black" style={{ color: urgentCount > 0 ? "#d97706":"#94a3b8" }}>{urgentCount}</p>
           <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>vencem em ≤ 2 dias</p>
@@ -5061,7 +5070,7 @@ function Obligations() {
               <div className="relative">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente ou obrigação..."
-                  className="pl-9 pr-3 py-1.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-blue-400"
+                  className="pl-9 pr-3 py-1.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-green-700"
                   style={{ border:"1px solid #dde3ed", width:220, color:"#374151" }} />
               </div>
               {/* Type filter */}
@@ -5071,7 +5080,7 @@ function Obligations() {
                 {obTypes.map(t => <option key={t} value={t}>{typeCfg[t]?.label || t}</option>)}
               </select>
               {filtered.length !== allForMonth.length && (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2b8be8" }}>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background:"#dbeafe", color:"#2B5E46" }}>
                   {filtered.length} de {allForMonth.length}
                 </span>
               )}
@@ -5096,7 +5105,7 @@ function Obligations() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[580px]">
-              <thead style={{ background:"#f8fafc", borderBottom:"2px solid #e8edf5" }}>
+              <thead style={{ background:"#F8F4EE", borderBottom:"2px solid #e8edf5" }}>
                 <tr>
                   {["","Dia","Cliente","Obrigação","Tipo","Status"].map((h,i) => (
                     <th key={i} className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{h}</th>
@@ -5114,7 +5123,7 @@ function Obligations() {
                   const tp = typeCfg[item.ob.type] || typeCfg.outro;
                   return (
                     <tr key={i} className="group" style={{ borderBottom:"1px solid #f0f4f8", background: item.eff.isCompleted ? "#fafafa" : urg !== "normal" ? urgStyle.bg : "transparent", opacity: item.eff.isCompleted ? 0.65 : 1 }}
-                      onMouseEnter={e=>{ if(!item.eff.isCompleted) e.currentTarget.style.background="#f8fafc"; }}
+                      onMouseEnter={e=>{ if(!item.eff.isCompleted) e.currentTarget.style.background="#F8F4EE"; }}
                       onMouseLeave={e=>{ e.currentTarget.style.background = item.eff.isCompleted ? "#fafafa" : urg!=="normal" ? urgStyle.bg : "transparent"; }}>
                       <td className="px-4 py-3">
                         <OblCheckbox done={item.eff.isCompleted} onClick={() => toggle(item.client, item.ob.id)} />
@@ -5124,14 +5133,14 @@ function Obligations() {
                           {urg !== "normal" && !item.eff.isCompleted && (
                             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: urgStyle.dot }} />
                           )}
-                          <span className="text-sm font-bold" style={{ color: urg!=="normal" && !item.eff.isCompleted ? urgStyle.text : "#1a1d23" }}>
+                          <span className="text-sm font-bold" style={{ color: urg!=="normal" && !item.eff.isCompleted ? urgStyle.text : "#111110" }}>
                             {item.eff.dueDate}
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-semibold" style={{ color:"#1a1d23", textDecoration: item.eff.isCompleted?"line-through":"none" }}>{item.client.name}</p>
+                          <p className="text-sm font-semibold" style={{ color:"#111110", textDecoration: item.eff.isCompleted?"line-through":"none" }}>{item.client.name}</p>
                           {item.isGlobal && <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background:"#f5f3ff", color:"#7c3aed" }}>G</span>}
                         </div>
                       </td>
@@ -5181,7 +5190,7 @@ function Obligations() {
         <div className="flex flex-col lg:flex-row gap-5" style={{ minHeight:560 }}>
           {/* Client list with progress */}
           <div className="w-full lg:w-80 flex-shrink-0 rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-            <div className="p-4" style={{ borderBottom:"1px solid #e8edf5", background:"#f8fafc" }}>
+            <div className="p-4" style={{ borderBottom:"1px solid #e8edf5", background:"#F8F4EE" }}>
               <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Clientes</p>
             </div>
             <div className="overflow-y-auto" style={{ maxHeight:520 }}>
@@ -5195,10 +5204,10 @@ function Obligations() {
                   <button key={c.id} onClick={() => setSelectedClientId(c.id)}
                     className="w-full text-left px-4 py-3 transition-all group/btn"
                     style={{ borderBottom:"1px solid #f0f4f8", background: active ? "#eff6ff" : "transparent" }}
-                    onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="#f8fafc"; }}
+                    onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="#F8F4EE"; }}
                     onMouseLeave={e=>{ e.currentTarget.style.background = active ? "#eff6ff" : "transparent"; }}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-sm font-semibold truncate pr-2" style={{ color: active ? "#2b8be8" : "#1a1d23" }}>{c.name}</p>
+                      <p className="text-sm font-semibold truncate pr-2" style={{ color: active ? "#2B5E46" : "#111110" }}>{c.name}</p>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {c.urgent > 0 && (
                           <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background:"#fffbeb", color:"#d97706", border:"1px solid #fde68a" }}>⚠ {c.urgent}</span>
@@ -5209,7 +5218,7 @@ function Obligations() {
                     {c.total > 0 && (
                       <div className="h-1 rounded-full overflow-hidden" style={{ background:"#e8edf5" }}>
                         <div className="h-full rounded-full transition-all"
-                          style={{ width:`${pct}%`, background: pct===100?"#10b981":"#2b8be8" }} />
+                          style={{ width:`${pct}%`, background: pct===100?"#10b981":"#2B5E46" }} />
                       </div>
                     )}
                   </button>
@@ -5228,9 +5237,9 @@ function Obligations() {
             ) : (
               <>
                 {/* Client header */}
-                <div className="p-4 flex items-center justify-between" style={{ borderBottom:"1px solid #e8edf5", background:"#f8fafc" }}>
+                <div className="p-4 flex items-center justify-between" style={{ borderBottom:"1px solid #e8edf5", background:"#F8F4EE" }}>
                   <div>
-                    <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{selectedClient.name}</p>
+                    <p className="font-black text-sm" style={{ color:"#111110" }}>{selectedClient.name}</p>
                     <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>
                       {allForMonth.filter(i=>i.client.id===selectedClient.id && i.eff.isCompleted).length} de {allForMonth.filter(i=>i.client.id===selectedClient.id).length} obrigações concluídas
                     </p>
@@ -5244,7 +5253,7 @@ function Obligations() {
                     </button>
                     <button onClick={() => setIsAddOpen(true)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-xl"
-                      style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                      style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                       <Icon.Plus />Nova
                     </button>
                   </div>
@@ -5261,7 +5270,7 @@ function Obligations() {
                     return (
                       <div key={idx} className="flex items-center gap-3 px-4 py-3 rounded-xl group/ob transition-all"
                         style={{
-                          background: item.eff.isCompleted ? "#f8fafc" : urg!=="normal" ? urgStyle.bg : "#fff",
+                          background: item.eff.isCompleted ? "#F8F4EE" : urg!=="normal" ? urgStyle.bg : "#fff",
                           border: `1px solid ${item.eff.isCompleted ? "#e8edf5" : urg!=="normal" ? urgStyle.border : "#e8edf5"}`,
                           borderLeft: `3px solid ${item.eff.isCompleted ? "#e8edf5" : urg!=="normal" ? urgStyle.dot : tp.color}`,
                           opacity: item.eff.isCompleted ? 0.7 : 1,
@@ -5269,7 +5278,7 @@ function Obligations() {
                         <OblCheckbox done={item.eff.isCompleted} onClick={() => toggle(selectedClient, item.ob.id)} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold" style={{ color:"#1a1d23", textDecoration: item.eff.isCompleted?"line-through":"none" }}>{item.eff.name}</p>
+                            <p className="text-sm font-semibold" style={{ color:"#111110", textDecoration: item.eff.isCompleted?"line-through":"none" }}>{item.eff.name}</p>
                             {item.isGlobal && <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background:"#f5f3ff", color:"#7c3aed" }}>Global</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -5305,7 +5314,7 @@ function Obligations() {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Nome da Obrigação</label>
               <input value={newOb.name} onChange={e => setNewOb({...newOb, name:e.target.value})}
-                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700 outline-none" style={{ borderColor:"#CEBA96" }}
                 placeholder="Ex: Simples Nacional, FGTS, SPED..." />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -5317,7 +5326,7 @@ function Obligations() {
                     return (
                       <button key={t} type="button" onClick={() => setNewOb({...newOb, type:t})}
                         className="px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all"
-                        style={newOb.type===t ? {background:tc.bg,color:tc.color,border:`2px solid ${tc.border}`} : {background:"#f5f7fb",color:"#64748b",border:"1px solid #dde3ed"}}>
+                        style={newOb.type===t ? {background:tc.bg,color:tc.color,border:`2px solid ${tc.border}`} : {background:"#F8F4EE",color:"#64748b",border:"1px solid #dde3ed"}}>
                         {tc.label}
                       </button>
                     );
@@ -5327,7 +5336,7 @@ function Obligations() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Dia do Vencimento</label>
                 <input type="number" min="1" max="31" value={newOb.dueDate} onChange={e => setNewOb({...newOb, dueDate:e.target.value})}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" style={{ borderColor:"#dde3ed" }} />
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700 outline-none" style={{ borderColor:"#CEBA96" }} />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color:"#374151" }}>
@@ -5335,8 +5344,8 @@ function Obligations() {
               Repetir todo mês
             </label>
             <div className="flex justify-end gap-3 pt-2" style={{ borderTop:"1px solid #e8edf5" }}>
-              <button type="button" onClick={() => setIsAddOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ color:"#64748b", background:"#f5f7fb" }}>Cancelar</button>
-              <button type="button" onClick={addObligation} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Salvar</button>
+              <button type="button" onClick={() => setIsAddOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ color:"#64748b", background:"#F8F4EE" }}>Cancelar</button>
+              <button type="button" onClick={addObligation} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar</button>
             </div>
           </div>
         </Modal>
@@ -5364,7 +5373,7 @@ function Obligations() {
                     return (
                       <button key={t} type="button" onClick={() => setNewGlobal({...newGlobal,type:t})}
                         className="px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all"
-                        style={newGlobal.type===t ? {background:tc.bg,color:tc.color,border:`2px solid ${tc.border}`} : {background:"#f5f7fb",color:"#64748b",border:"1px solid #dde3ed"}}>
+                        style={newGlobal.type===t ? {background:tc.bg,color:tc.color,border:`2px solid ${tc.border}`} : {background:"#F8F4EE",color:"#64748b",border:"1px solid #dde3ed"}}>
                         {tc.label}
                       </button>
                     );
@@ -5378,7 +5387,7 @@ function Obligations() {
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-2" style={{ borderTop:"1px solid #e8edf5" }}>
-              <button type="button" onClick={() => setIsGlobalAddOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ color:"#64748b", background:"#f5f7fb" }}>Cancelar</button>
+              <button type="button" onClick={() => setIsGlobalAddOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ color:"#64748b", background:"#F8F4EE" }}>Cancelar</button>
               <button type="button" onClick={addGlobalObligation} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#a78bfa,#7c3aed)" }}>Criar Global</button>
             </div>
           </div>
@@ -5436,7 +5445,7 @@ function Reports() {
     if (pending > avgPerWeek * 2) { signals.push(`${pending} tarefas pendentes acumuladas`); }
 
     if (signals.length >= 3) { risk="alto"; riskColor="#ef4444"; riskBg="rgba(239,68,68,0.08)"; }
-    else if (signals.length >= 1) { risk="médio"; riskColor="#f59e0b"; riskBg="rgba(245,158,11,0.08)"; }
+    else if (signals.length >= 1) { risk="médio"; riskColor="#B8965A"; riskBg="rgba(245,158,11,0.08)"; }
 
     const suggestions = risk === "alto" ? [
       "Redistribuir tarefas para outros membros da equipe",
@@ -5498,20 +5507,20 @@ Responda em JSON puro (sem markdown):
 
   const exportPDF = () => {
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Relatório — Códice</title>
-    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;padding:32px;background:#fff}
-    h1{font-size:20px;font-weight:900;color:#1a1d23}h2{font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px}
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111110;padding:32px;background:#fff}
+    h1{font-size:20px;font-weight:900;color:#111110}h2{font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px}
     .kpi{display:inline-flex;flex-direction:column;padding:12px 18px;border:1px solid #e2e8f0;border-radius:10px;min-width:120px;margin:0 8px 8px 0}
     .kv{font-size:22px;font-weight:900}.kl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-    table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;padding:8px;text-align:left;border-bottom:2px solid #1a1d23}
+    table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;padding:8px;text-align:left;border-bottom:2px solid #111110}
     td{font-size:11px;padding:7px 8px;border-bottom:1px solid #f0f4f8}
     .risk-${burnoutAnalysis.risk}{color:${burnoutAnalysis.riskColor};font-weight:700}
     </style></head><body>
-    <div style="text-align:center;border-bottom:2px solid #1a1d23;padding-bottom:16px;margin-bottom:24px">
-      <h1>Códice Contabilidade</h1><p style="font-size:12px;color:#94a3b8;margin-top:4px">Relatório de Produtividade — Últimos ${period} dias — ${new Date().toLocaleDateString("pt-BR")}</p>
+    <div style="text-align:center;border-bottom:2px solid #111110;padding-bottom:16px;margin-bottom:24px">
+      <h1>YOETZ Inteligência Empresarial</h1><p style="font-size:12px;color:#94a3b8;margin-top:4px">Relatório de Produtividade — Últimos ${period} dias — ${new Date().toLocaleDateString("pt-BR")}</p>
     </div>
     <h2>Resumo executivo</h2>
     <div style="margin-bottom:20px">
-      <div class="kpi"><div class="kl">Tarefas</div><div class="kv" style="color:#2b8be8">${filtered.length}</div></div>
+      <div class="kpi"><div class="kl">Tarefas</div><div class="kv" style="color:#2B5E46">${filtered.length}</div></div>
       <div class="kpi"><div class="kl">Concluídas</div><div class="kv" style="color:#10b981">${done}</div></div>
       <div class="kpi"><div class="kl">Taxa</div><div class="kv" style="color:${rate>=70?'#10b981':rate>=40?'#f59e0b':'#ef4444'}">${rate}%</div></div>
       <div class="kpi"><div class="kl">Atrasadas</div><div class="kv" style="color:#ef4444">${overdue}</div></div>
@@ -5522,7 +5531,7 @@ Responda em JSON puro (sem markdown):
     ${catStats.map(c=>`<tr><td>${c.name}</td><td>${c.total}</td><td>${c.done}</td><td style="font-weight:700;color:${c.rate>=70?'#10b981':'#f59e0b'}">${c.rate}%</td></tr>`).join("")}
     </tbody></table>
     ${burnoutAnalysis.signals.length > 0 ? `<h2 style="margin-top:20px;color:${burnoutAnalysis.riskColor}">⚠ Alertas de burnout</h2><ul style="padding-left:16px">${burnoutAnalysis.signals.map(s=>`<li style="font-size:12px;margin-bottom:4px">${s}</li>`).join("")}</ul>` : ""}
-    <div style="padding-top:20px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;margin-top:24px">Códice Contabilidade · Relatório gerado pelo Códice Produtivo</div>
+    <div style="padding-top:20px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;margin-top:24px">YOETZ Inteligência Empresarial · Relatório gerado pelo YOETZ Inteligência Empresarial</div>
     </body></html>`;
     const w = window.open("","_blank","width=900,height=700");
     w.document.write(html); w.document.close();
@@ -5536,24 +5545,24 @@ Responda em JSON puro (sem markdown):
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Relatórios & Análise Inteligente</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Relatórios & Análise Inteligente</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Insights automáticos com detecção de sobrecarga e previsões</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={period} onChange={e=>setPeriod(Number(e.target.value))}
-            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
             <option value={7}>7 dias</option>
             <option value={14}>14 dias</option>
             <option value={30}>30 dias</option>
             <option value={90}>90 dias</option>
           </select>
           <button onClick={exportPDF} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-            style={{ background:"rgba(248,250,252,0.9)", color:"#374151", border:"1px solid rgba(221,227,237,0.7)" }}>
+            style={{ background:"rgba(248,250,252,0.9)", color:"#374151", border:"1px solid rgba(206,186,150,0.7)" }}>
             <Icon.Download />PDF
           </button>
           <button onClick={generateAI} disabled={aiLoading} className="flex items-center gap-1.5 px-4 py-1.5 text-white rounded-xl text-xs font-bold disabled:opacity-60"
-            style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}>
+            style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px rgba(43,94,70,0.25)" }}>
             {aiLoading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Análise IA</>}
           </button>
         </div>
@@ -5564,7 +5573,7 @@ Responda em JSON puro (sem markdown):
         {TABS.map(([id,label]) => (
           <button key={id} onClick={()=>setActiveTabR(id)}
             className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background:activeTab===id?"rgba(255,255,255,0.98)":"transparent", color:activeTab===id?"#1a1d23":"#94a3b8",
+            style={{ background:activeTab===id?"rgba(255,255,255,0.98)":"transparent", color:activeTab===id?"#111110":"#94a3b8",
               boxShadow:activeTab===id?"0 2px 8px rgba(26,29,35,0.08)":"none" }}>
             {label}
           </button>
@@ -5577,13 +5586,13 @@ Responda em JSON puro (sem markdown):
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label:"Total no período", value:filtered.length, color:"#2b8be8", bg:"rgba(43,139,232,0.06)" },
+              { label:"Total no período", value:filtered.length, color:"#2B5E46", bg:"rgba(43,94,70,0.06)" },
               { label:"Concluídas", value:done, color:"#10b981", bg:"rgba(16,185,129,0.06)" },
-              { label:"Taxa de conclusão", value:`${rate}%`, color:rate>=70?"#10b981":rate>=40?"#f59e0b":"#ef4444", bg:rate>=70?"rgba(16,185,129,0.06)":"rgba(245,158,11,0.06)" },
+              { label:"Taxa de conclusão", value:`${rate}%`, color:rate>=70?"#10b981":rate>=40?"#B8965A":"#ef4444", bg:rate>=70?"rgba(16,185,129,0.06)":"rgba(245,158,11,0.06)" },
               { label:"Em atraso agora", value:overdue, color:overdue>0?"#ef4444":"#10b981", bg:overdue>0?"rgba(239,68,68,0.06)":"rgba(16,185,129,0.06)", sub:overdue===0?"✓ Tudo em dia":undefined },
             ].map(k => (
               <div key={k.label} className="rounded-2xl p-4 transition-all"
-                style={{ background:`rgba(255,255,255,0.98)`, border:`1px solid rgba(221,227,237,0.7)`, boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+                style={{ background:`rgba(255,255,255,0.98)`, border:`1px solid rgba(206,186,150,0.7)`, boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
                 onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
                 onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
                 <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>{k.label}</div>
@@ -5594,15 +5603,15 @@ Responda em JSON puro (sem markdown):
           </div>
 
           {/* Gráfico tendência semanal */}
-          <div className="rounded-2xl p-6" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}>
-            <h3 className="text-sm font-black mb-1" style={{ color:"#1a1d23" }}>Tendência Semanal</h3>
+          <div className="rounded-2xl p-6" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}>
+            <h3 className="text-sm font-black mb-1" style={{ color:"#111110" }}>Tendência Semanal</h3>
             <p className="text-xs mb-4" style={{ color:"#94a3b8" }}>Evolução da taxa de conclusão</p>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeks} barGap={2} barCategoryGap="35%">
                   <defs>
                     <linearGradient id="rg1" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2b8be8" stopOpacity="1"/>
+                      <stop offset="0%" stopColor="#2B5E46" stopOpacity="1"/>
                       <stop offset="100%" stopColor="#1d6fd4" stopOpacity="0.8"/>
                     </linearGradient>
                     <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
@@ -5610,11 +5619,11 @@ Responda em JSON puro (sem markdown):
                       <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.6"/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(226,232,240,0.4)"/>
+                  <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(206,186,150,0.4)"/>
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:10 }}/>
                   <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
-                  <Tooltip contentStyle={{ borderRadius:12, border:"1px solid rgba(221,227,237,0.8)", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:11, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
-                    formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700, color:"#1a1d23" }}/>
+                  <Tooltip contentStyle={{ borderRadius:12, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:11, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                    formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700, color:"#111110" }}/>
                   <Bar dataKey="done" name="Concluídas" fill="url(#rg1)" radius={[5,5,0,0]} maxBarSize={32}/>
                   <Bar dataKey="total" name="Total" fill="url(#rg2)" radius={[5,5,0,0]} maxBarSize={32}/>
                 </BarChart>
@@ -5624,8 +5633,8 @@ Responda em JSON puro (sem markdown):
 
           {/* Por categoria */}
           {catStats.length > 0 && (
-            <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
-              <h3 className="text-sm font-black mb-4" style={{ color:"#1a1d23" }}>Desempenho por Categoria</h3>
+            <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+              <h3 className="text-sm font-black mb-4" style={{ color:"#111110" }}>Desempenho por Categoria</h3>
               <div className="space-y-3">
                 {catStats.map(c => (
                   <div key={c.id}>
@@ -5635,9 +5644,9 @@ Responda em JSON puro (sem markdown):
                         <span className="text-xs font-semibold" style={{ color:"#374151" }}>{c.name}</span>
                         <span className="text-[10px]" style={{ color:"#94a3b8" }}>{c.done}/{c.total}</span>
                       </div>
-                      <span className="text-xs font-black" style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#f59e0b":"#ef4444" }}>{c.rate}%</span>
+                      <span className="text-xs font-black" style={{ color:c.rate>=70?"#10b981":c.rate>=40?"#B8965A":"#ef4444" }}>{c.rate}%</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.6)" }}>
+                    <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(206,186,150,0.6)" }}>
                       <div className="h-1.5 rounded-full transition-all duration-700" style={{ width:c.rate+"%", background:`linear-gradient(90deg,${c.color},${c.color}cc)` }}/>
                     </div>
                   </div>
@@ -5648,10 +5657,10 @@ Responda em JSON puro (sem markdown):
 
           {/* Análise IA */}
           {aiFeedback && (
-            <div className="rounded-2xl p-5 space-y-4" style={{ background:"linear-gradient(135deg,rgba(43,139,232,0.04),rgba(255,255,255,0.98))", border:"1px solid rgba(43,139,232,0.15)", boxShadow:"0 4px 16px rgba(43,139,232,0.08)" }}>
+            <div className="rounded-2xl p-5 space-y-4" style={{ background:"linear-gradient(135deg,rgba(43,94,70,0.04),rgba(255,255,255,0.98))", border:"1px solid rgba(43,94,70,0.15)", boxShadow:"0 4px 16px rgba(43,94,70,0.08)" }}>
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center text-sm" style={{ background:"rgba(43,139,232,0.1)" }}>✨</div>
-                <h3 className="text-sm font-black" style={{ color:"#2b8be8" }}>Análise Inteligente</h3>
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center text-sm" style={{ background:"rgba(43,94,70,0.1)" }}>✨</div>
+                <h3 className="text-sm font-black" style={{ color:"#2B5E46" }}>Análise Inteligente</h3>
               </div>
               <p className="text-sm" style={{ color:"#374151" }}>{aiFeedback.resumo}</p>
               {aiFeedback.pontos_fortes?.length > 0 && (
@@ -5659,14 +5668,14 @@ Responda em JSON puro (sem markdown):
                   <div className="space-y-1">{aiFeedback.pontos_fortes.map((p,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span style={{ color:"#10b981", flexShrink:0 }}>•</span>{p}</div>)}</div></div>
               )}
               {aiFeedback.alertas?.length > 0 && (
-                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#f59e0b" }}>⚠ Atenção</p>
-                  <div className="space-y-1">{aiFeedback.alertas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span style={{ color:"#f59e0b", flexShrink:0 }}>•</span>{a}</div>)}</div></div>
+                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#B8965A" }}>⚠ Atenção</p>
+                  <div className="space-y-1">{aiFeedback.alertas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span style={{ color:"#B8965A", flexShrink:0 }}>•</span>{a}</div>)}</div></div>
               )}
               {aiFeedback.acoes_imediatas?.length > 0 && (
-                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#2b8be8" }}>🎯 Ações Imediatas</p>
-                  <div className="space-y-1">{aiFeedback.acoes_imediatas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span className="font-bold" style={{ color:"#2b8be8", flexShrink:0 }}>{i+1}.</span>{a}</div>)}</div></div>
+                <div><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#2B5E46" }}>🎯 Ações Imediatas</p>
+                  <div className="space-y-1">{aiFeedback.acoes_imediatas.map((a,i) => <div key={i} className="flex gap-2 text-xs" style={{ color:"#374151" }}><span className="font-bold" style={{ color:"#2B5E46", flexShrink:0 }}>{i+1}.</span>{a}</div>)}</div></div>
               )}
-              {aiFeedback.previsao && <p className="text-xs italic p-3 rounded-xl" style={{ background:"rgba(43,139,232,0.06)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.12)" }}>📈 {aiFeedback.previsao}</p>}
+              {aiFeedback.previsao && <p className="text-xs italic p-3 rounded-xl" style={{ background:"rgba(43,94,70,0.06)", color:"#2B5E46", border:"1px solid rgba(43,94,70,0.12)" }}>📈 {aiFeedback.previsao}</p>}
             </div>
           )}
         </div>
@@ -5683,7 +5692,7 @@ Responda em JSON puro (sem markdown):
                 <div className="flex items-center gap-3">
                   <div className="text-4xl font-black uppercase" style={{ color:burnoutAnalysis.riskColor }}>{burnoutAnalysis.risk}</div>
                   <div className="flex flex-col gap-1">
-                    <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background:"rgba(226,232,240,0.5)" }}>
+                    <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.5)" }}>
                       <div className="h-2 rounded-full transition-all"
                         style={{ width:burnoutAnalysis.risk==="baixo"?"25%":burnoutAnalysis.risk==="médio"?"60%":"90%", background:`linear-gradient(90deg,#10b981,${burnoutAnalysis.riskColor})` }}/>
                     </div>
@@ -5695,7 +5704,7 @@ Responda em JSON puro (sem markdown):
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"#94a3b8" }}>Média semanal</p>
-                <p className="text-2xl font-black" style={{ color:"#1a1d23" }}>{burnoutAnalysis.avgPerWeek.toFixed(1)}</p>
+                <p className="text-2xl font-black" style={{ color:"#111110" }}>{burnoutAnalysis.avgPerWeek.toFixed(1)}</p>
                 <p className="text-[10px]" style={{ color:"#94a3b8" }}>tarefas/semana</p>
               </div>
             </div>
@@ -5713,14 +5722,14 @@ Responda em JSON puro (sem markdown):
           </div>
 
           {/* Sugestões */}
-          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
-            <p className="text-sm font-black mb-3" style={{ color:"#1a1d23" }}>💡 Sugestões de Ação</p>
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+            <p className="text-sm font-black mb-3" style={{ color:"#111110" }}>💡 Sugestões de Ação</p>
             <div className="space-y-2">
               {burnoutAnalysis.suggestions.map((s,i) => (
                 <div key={i} className="flex items-start gap-3 p-3 rounded-xl transition-all"
-                  style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                  style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.6)" }}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor=burnoutAnalysis.riskColor+"40";e.currentTarget.style.transform="translateX(3px)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(226,232,240,0.6)";e.currentTarget.style.transform="translateX(0)";}}>
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";e.currentTarget.style.transform="translateX(0)";}}>
                   <span className="font-black text-sm flex-shrink-0" style={{ color:burnoutAnalysis.riskColor }}>{i+1}</span>
                   <span className="text-xs" style={{ color:"#374151" }}>{s}</span>
                 </div>
@@ -5746,9 +5755,9 @@ Responda em JSON puro (sem markdown):
       {activeTab === "team" && (
         <div className="space-y-4">
           {(teamUsers||[]).length <= 1 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <p className="text-3xl mb-3">👥</p>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Sem equipe para analisar</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Sem equipe para analisar</p>
               <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Adicione colaboradores na aba Equipe</p>
             </div>
           ) : (
@@ -5765,26 +5774,26 @@ Responda em JSON puro (sem markdown):
                 return wt.filter(x=>x.completed).length;
               }).reverse();
               const riskU = uOverdue > 3 || uRate < 30 ? "alto" : uOverdue > 1 || uRate < 50 ? "médio" : "baixo";
-              const riskCU = { alto:"#ef4444", médio:"#f59e0b", baixo:"#10b981" }[riskU];
+              const riskCU = { alto:"#ef4444", médio:"#B8965A", baixo:"#10b981" }[riskU];
               return (
-                <div key={u.id} className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+                <div key={u.id} className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white" style={{ background:u.avatarColor||"#2b8be8", boxShadow:`0 3px 10px ${u.avatarColor||"#2b8be8"}44` }}>{u.name.charAt(0)}</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white" style={{ background:u.avatarColor||"#2B5E46", boxShadow:`0 3px 10px ${u.avatarColor||"#2B5E46"}44` }}>{u.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{u.name}</p>
+                        <p className="text-sm font-black" style={{ color:"#111110" }}>{u.name}</p>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:riskCU+"15", color:riskCU }}>Burnout: {riskU}</span>
                       </div>
                       <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.role}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-3 text-center">
-                      {[{l:"Tarefas",v:uTasks.length,c:"#2b8be8"},{l:"Concluídas",v:uDone,c:"#10b981"},{l:"Atrasadas",v:uOverdue,c:uOverdue>0?"#ef4444":"#10b981"}].map(k=>(
+                      {[{l:"Tarefas",v:uTasks.length,c:"#2B5E46"},{l:"Concluídas",v:uDone,c:"#10b981"},{l:"Atrasadas",v:uOverdue,c:uOverdue>0?"#ef4444":"#10b981"}].map(k=>(
                         <div key={k.l}><p className="text-lg font-black" style={{ color:k.c }}>{k.v}</p><p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.l}</p></div>
                       ))}
                     </div>
                   </div>
-                  <div className="w-full h-1.5 rounded-full mb-1" style={{ background:"rgba(226,232,240,0.5)" }}>
-                    <div className="h-1.5 rounded-full" style={{ width:uRate+"%", background:`linear-gradient(90deg,${u.avatarColor||"#2b8be8"},${u.avatarColor||"#2b8be8"}cc)` }}/>
+                  <div className="w-full h-1.5 rounded-full mb-1" style={{ background:"rgba(206,186,150,0.5)" }}>
+                    <div className="h-1.5 rounded-full" style={{ width:uRate+"%", background:`linear-gradient(90deg,${u.avatarColor||"#2B5E46"},${u.avatarColor||"#2B5E46"}cc)` }}/>
                   </div>
                   <p className="text-[10px]" style={{ color:"#94a3b8" }}>{uRate}% de conclusão</p>
                 </div>
@@ -5965,7 +5974,7 @@ function SeveranceSimulation() {
   const [verbas, setVerbas]         = useState([]);
   const [formData, setFormData]     = useState(null);
   const [erroCalc, setErroCalc]     = useState("");
-  const [sigLeft, setSigLeft]       = useState("Códice Contabilidade");
+  const [sigLeft, setSigLeft]       = useState("YOETZ Inteligência Empresarial");
   const [sigRight, setSigRight]     = useState("");
   const [editObs, setEditObs]           = useState("");
   const [editingObs, setEditingObs]     = useState(false);
@@ -6024,7 +6033,7 @@ function SeveranceSimulation() {
       const hasDesc = v.desconto > 0;
       return "<tr style='border-bottom:1px solid #e8edf5'>" +
         "<td style='padding:8px 4px;color:#374151;font-size:13px'>" + v.description + "</td>" +
-        "<td style='padding:8px 4px;text-align:right;font-size:13px;font-weight:600;color:" + (hasProv ? "#2b8be8" : "#cbd5e1") + "'>" + (hasProv ? fmtCurrency(v.provento) : "—") + "</td>" +
+        "<td style='padding:8px 4px;text-align:right;font-size:13px;font-weight:600;color:" + (hasProv ? "#2B5E46" : "#cbd5e1") + "'>" + (hasProv ? fmtCurrency(v.provento) : "—") + "</td>" +
         "<td style='padding:8px 4px;text-align:right;font-size:13px;font-weight:600;color:" + (hasDesc ? "#ef4444" : "#cbd5e1") + "'>" + (hasDesc ? fmtCurrency(v.desconto) : "—") + "</td>" +
         "</tr>";
     }).join("");
@@ -6041,48 +6050,48 @@ function SeveranceSimulation() {
       ["Salário Base", fmtCurrency(reportData.employeeInfo.baseSalary)],
       ["Dependentes", reportData.employeeInfo.dependentes || "0"],
     ].map(([k, v]) =>
-      "<div style='display:flex;gap:4px;padding:3px 0;font-size:13px;color:#374151'><strong style='color:#1a1d23;min-width:180px'>" + k + ":</strong><span>" + v + "</span></div>"
+      "<div style='display:flex;gap:4px;padding:3px 0;font-size:13px;color:#374151'><strong style='color:#111110;min-width:180px'>" + k + ":</strong><span>" + v + "</span></div>"
     ).join("");
 
     const memoriaHtml = reportData.memoriaCalculo
       .split("\n\n")
-      .map(p => "<p style='margin:0 0 8px;color:#374151;font-size:12px;line-height:1.6'>" + p.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#1a1d23'>$1</strong>") + "</p>")
+      .map(p => "<p style='margin:0 0 8px;color:#374151;font-size:12px;line-height:1.6'>" + p.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#111110'>$1</strong>") + "</p>")
       .join("");
 
     const obsHtml = reportData.observacoes.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
     const html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'/><title>Rescisão — " + reportData.employeeInfo.name + "</title>" +
-      "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1d23;background:#fff;padding:30px 40px;font-size:13px}" +
-      "h1{font-size:22px;font-weight:900;color:#1a1d23;margin-bottom:4px}" +
+      "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111110;background:#fff;padding:30px 40px;font-size:13px}" +
+      "h1{font-size:22px;font-weight:900;color:#111110;margin-bottom:4px}" +
       "h2{font-size:14px;font-weight:700;color:#374151;margin-bottom:2px}" +
       "h3{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:12px}" +
       ".section{margin-bottom:28px}" +
       "table{width:100%;border-collapse:collapse}" +
-      "th{font-size:12px;font-weight:700;padding:8px 4px;border-bottom:2px solid #1a1d23;color:#1a1d23}" +
+      "th{font-size:12px;font-weight:700;padding:8px 4px;border-bottom:2px solid #111110;color:#111110}" +
       ".kpi-row{display:flex;gap:16px;margin-bottom:28px}" +
       ".kpi{flex:1;border:1px solid #dde3ed;border-radius:10px;padding:14px}" +
       ".kpi-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px}" +
       ".kpi-value{font-size:20px;font-weight:900}" +
-      ".kpi-dark{background:linear-gradient(135deg,#1c1f26,#1e2e4a);color:#fff;border-color:transparent}" +
+      ".kpi-dark{background:linear-gradient(135deg,#111110,#1A3829);color:#fff;border-color:transparent}" +
       ".memo-box{background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:14px}" +
       ".obs-box{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;color:#78350f}" +
       ".assinatura{display:flex;justify-content:space-between;padding-top:24px;margin-top:32px;border-top:1px solid #dde3ed}" +
       ".assinatura-col{width:200px;text-align:center}" +
-      ".linha-assinatura{border-top:2px solid #1a1d23;padding-top:8px;margin-top:48px;font-size:12px;font-weight:600}" +
+      ".linha-assinatura{border-top:2px solid #111110;padding-top:8px;margin-top:48px;font-size:12px;font-weight:600}" +
       "@media print{body{padding:15px 20px}}" +
       "</style></head><body>" +
 
-      "<div style='text-align:center;padding-bottom:20px;border-bottom:2px solid #1a1d23;margin-bottom:28px'>" +
-        "<h1>Códice Contabilidade</h1>" +
+      "<div style='text-align:center;padding-bottom:20px;border-bottom:2px solid #111110;margin-bottom:28px'>" +
+        "<h1>YOETZ Inteligência Empresarial</h1>" +
         "<h2>Relatório de Liquidação de Contrato de Trabalho</h2>" +
         "<p style='font-size:12px;color:#94a3b8;font-style:italic;margin-top:4px'>Acerto de Vínculo — Cálculo Rescisório</p>" +
       "</div>" +
 
       "<div class='kpi-row'>" +
         "<div class='kpi kpi-dark'><div class='kpi-label' style='color:rgba(255,255,255,.45)'>Total Líquido</div><div class='kpi-value' style='color:#10b981'>" + fmtCurrency(totalLiq) + "</div><div style='font-size:10px;color:rgba(255,255,255,.35);margin-top:4px'>a pagar ao colaborador</div></div>" +
-        "<div class='kpi'><div class='kpi-label'>Proventos</div><div class='kpi-value' style='color:#2b8be8'>" + fmtCurrency(totalProv) + "</div></div>" +
+        "<div class='kpi'><div class='kpi-label'>Proventos</div><div class='kpi-value' style='color:#2B5E46'>" + fmtCurrency(totalProv) + "</div></div>" +
         "<div class='kpi'><div class='kpi-label'>Descontos</div><div class='kpi-value' style='color:#ef4444'>" + fmtCurrency(totalDesc) + "</div></div>" +
-        "<div class='kpi' style='background:" + (rc.bg||"#f8fafc") + ";border-color:" + (rc.border||"#e8edf5") + "'><div class='kpi-label'>Motivo</div><div style='font-size:12px;font-weight:900;color:" + (rc.color||"#1a1d23") + ";line-height:1.3'>" + reportData.employeeInfo.reason + "</div></div>" +
+        "<div class='kpi' style='background:" + (rc.bg||"#F8F4EE") + ";border-color:" + (rc.border||"#e8edf5") + "'><div class='kpi-label'>Motivo</div><div style='font-size:12px;font-weight:900;color:" + (rc.color||"#111110") + ";line-height:1.3'>" + reportData.employeeInfo.reason + "</div></div>" +
       "</div>" +
 
       "<div class='section'><h3>1. Dados de Identificação</h3><div style='padding-left:16px'>" + infoRows + "</div></div>" +
@@ -6094,13 +6103,13 @@ function SeveranceSimulation() {
           "<th style='text-align:right'>Descontos</th>" +
         "</tr></thead><tbody>" + rows + "</tbody>" +
         "<tfoot>" +
-          "<tr style='border-top:2px solid #1a1d23'>" +
+          "<tr style='border-top:2px solid #111110'>" +
             "<td style='padding:10px 4px;font-weight:900;font-size:13px'>Subtotais</td>" +
-            "<td style='padding:10px 4px;text-align:right;font-weight:900;color:#2b8be8;font-size:13px'>" + fmtCurrency(totalProv) + "</td>" +
+            "<td style='padding:10px 4px;text-align:right;font-weight:900;color:#2B5E46;font-size:13px'>" + fmtCurrency(totalProv) + "</td>" +
             "<td style='padding:10px 4px;text-align:right;font-weight:900;color:#ef4444;font-size:13px'>" + fmtCurrency(totalDesc) + "</td>" +
           "</tr>" +
           "<tr style='border-top:1px solid #e8edf5'>" +
-            "<td style='padding:10px 4px;font-weight:900;font-size:15px;color:#1a1d23'>TOTAL LÍQUIDO A PAGAR</td>" +
+            "<td style='padding:10px 4px;font-weight:900;font-size:15px;color:#111110'>TOTAL LÍQUIDO A PAGAR</td>" +
             "<td colspan='2' style='padding:10px 4px;text-align:right;font-weight:900;font-size:15px;color:#10b981'>" + fmtCurrency(totalLiq) + "</td>" +
           "</tr>" +
         "</tfoot></table>" +
@@ -6115,7 +6124,7 @@ function SeveranceSimulation() {
       "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + editObs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") + "</div></div>" +
 
       "<div class='assinatura'>" +
-        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigLeft||"Códice Contabilidade") + "</div></div>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigLeft||"YOETZ Inteligência Empresarial") + "</div></div>" +
         "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigRight||reportData.employeeInfo.name) + (reportData.employeeInfo.cpf ? "<br/><span style='font-size:11px;color:#94a3b8;font-weight:400'>CPF: " + reportData.employeeInfo.cpf + "</span>" : "") + "</div></div>" +
       "</div>" +
 
@@ -6179,7 +6188,7 @@ function SeveranceSimulation() {
     "Dispensa sem justa causa":                  { bg:"#fff5f5", color:"#dc2626", border:"#fca5a5" },
     "Pedido de demissão":                        { bg:"#fffbeb", color:"#d97706", border:"#fde68a" },
     "Dispensa com justa causa":                  { bg:"#f0fdf4", color:"#16a34a", border:"#bbf7d0" },
-    "Término de contrato de experiência":        { bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe" },
+    "Término de contrato de experiência":        { bg:"#eff6ff", color:"#2B5E46", border:"#bfdbfe" },
     "Rescisão por acordo (Reforma Trabalhista)": { bg:"#f5f3ff", color:"#7c3aed", border:"#ddd6fe" },
   };
 
@@ -6188,12 +6197,12 @@ function SeveranceSimulation() {
     <div className="space-y-5 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black" style={{ color:"#1a1d23" }}>Simulações Rescisórias</h2>
+          <h2 className="text-2xl font-black" style={{ color:"#111110" }}>Simulações Rescisórias</h2>
           <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Cálculos de rescisão de contrato CLT</p>
         </div>
         <button onClick={() => { setReportData(null); setVerbas([]); setFormData(null); setErroCalc(""); setF({ clientId:"", name:"", cpf:"", cargo:"", admissionDate:"", dismissalDate:"", salary:"", dependentes:"0", noticeType:"Indenizado", hasOverdueVacations:false, vacationPeriods:"1", reason:"Dispensa sem justa causa", calculateFGTS:true }); setView("form"); }}
           className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
+          style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 6px #2B5E4630" }}>
           <Icon.Plus />Nova Simulação
         </button>
       </div>
@@ -6207,7 +6216,7 @@ function SeveranceSimulation() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[600px]">
-              <thead style={{ background:"#f8fafc", borderBottom:"2px solid #e8edf5" }}>
+              <thead style={{ background:"#F8F4EE", borderBottom:"2px solid #e8edf5" }}>
                 <tr>{["Data","Colaborador","Cargo","Motivo","Demissão","Líquido",""].map(h => (
                   <th key={h} className="px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{h}</th>
                 ))}</tr>
@@ -6217,9 +6226,9 @@ function SeveranceSimulation() {
                   const rc = reasonColors[s.reason] || reasonColors["Dispensa sem justa causa"];
                   return (
                     <tr key={s.id} style={{ borderBottom:"1px solid #f0f4f8" }}
-                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      onMouseEnter={e=>e.currentTarget.style.background="#F8F4EE"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <td className="px-4 py-3 text-xs" style={{ color:"#94a3b8" }}>{new Date(s.date).toLocaleDateString("pt-BR")}</td>
-                      <td className="px-4 py-3 text-sm font-bold" style={{ color:"#1a1d23" }}>{s.employeeName}</td>
+                      <td className="px-4 py-3 text-sm font-bold" style={{ color:"#111110" }}>{s.employeeName}</td>
                       <td className="px-4 py-3 text-xs" style={{ color:"#64748b" }}>{s.cargo || "—"}</td>
                       <td className="px-4 py-3">
                         <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:rc.bg, color:rc.color, border:`1px solid ${rc.border}` }}>
@@ -6235,7 +6244,7 @@ function SeveranceSimulation() {
               setEditObs(s.reportData?.observacoes || "");
               setEditMemoria(s.reportData?.memoriaCalculo || "");
               setView("result"); }}
-                            className="p-1.5 rounded-lg transition-all" style={{ color:"#2b8be8" }}
+                            className="p-1.5 rounded-lg transition-all" style={{ color:"#2B5E46" }}
                             onMouseEnter={e=>e.currentTarget.style.background="#eff6ff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <Icon.Eye />
                           </button>
@@ -6264,19 +6273,19 @@ function SeveranceSimulation() {
       <div className="space-y-5 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <button onClick={() => setView("list")} className="flex items-center gap-2 text-sm font-semibold" style={{ color:"#64748b" }}
-            onMouseEnter={e=>e.currentTarget.style.color="#2b8be8"} onMouseLeave={e=>e.currentTarget.style.color="#64748b"}>
+            onMouseEnter={e=>e.currentTarget.style.color="#2B5E46"} onMouseLeave={e=>e.currentTarget.style.color="#64748b"}>
             <Icon.ArrowLeft />Voltar
           </button>
           <div className="flex gap-2">
             <button onClick={saveSimulation}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all"
-              style={{ color:"#2b8be8", background:"#eff6ff", border:"1px solid #bfdbfe" }}
+              style={{ color:"#2B5E46", background:"#eff6ff", border:"1px solid #bfdbfe" }}
               onMouseEnter={e=>e.currentTarget.style.background="#dbeafe"} onMouseLeave={e=>e.currentTarget.style.background="#eff6ff"}>
               <Icon.Save />Salvar
             </button>
             <button onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white rounded-xl"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 6px #2b8be830" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 6px #2B5E4630" }}>
               <Icon.Download />Imprimir
             </button>
           </div>
@@ -6284,29 +6293,29 @@ function SeveranceSimulation() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", color:"#fff" }}>
+          <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#fff" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Total Líquido</p>
             <p className="text-2xl font-black" style={{ color:"#10b981" }}>{fmtCurrency(totalLiq)}</p>
             <p className="text-[10px] mt-1" style={{ color:"rgba(255,255,255,0.35)" }}>a pagar ao colaborador</p>
           </div>
           <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Proventos</p>
-            <p className="text-2xl font-black" style={{ color:"#2b8be8" }}>{fmtCurrency(totalProv)}</p>
+            <p className="text-2xl font-black" style={{ color:"#2B5E46" }}>{fmtCurrency(totalProv)}</p>
           </div>
           <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Descontos</p>
             <p className="text-2xl font-black" style={{ color:"#ef4444" }}>{fmtCurrency(totalDesc)}</p>
           </div>
-          <div className="rounded-2xl p-5" style={{ background: rc.bg || "#f8fafc", border:`1px solid ${rc.border || "#e8edf5"}` }}>
+          <div className="rounded-2xl p-5" style={{ background: rc.bg || "#F8F4EE", border:`1px solid ${rc.border || "#e8edf5"}` }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Motivo</p>
-            <p className="text-xs font-black leading-tight" style={{ color: rc.color || "#1a1d23" }}>{reportData.employeeInfo.reason}</p>
+            <p className="text-xs font-black leading-tight" style={{ color: rc.color || "#111110" }}>{reportData.employeeInfo.reason}</p>
           </div>
         </div>
 
         {/* Relatório formal */}
         <div className="rounded-2xl p-8" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-          <div className="text-center mb-8 pb-6" style={{ borderBottom:"2px solid #1a1d23" }}>
-            <h1 className="text-2xl font-black" style={{ color:"#1a1d23" }}>Códice Contabilidade</h1>
+          <div className="text-center mb-8 pb-6" style={{ borderBottom:"2px solid #111110" }}>
+            <h1 className="text-2xl font-black" style={{ color:"#111110" }}>YOETZ Inteligência Empresarial</h1>
             <h2 className="text-base font-bold mt-1" style={{ color:"#374151" }}>Relatório de Liquidação de Contrato de Trabalho</h2>
             <p className="text-sm italic mt-0.5" style={{ color:"#94a3b8" }}>Acerto de Vínculo — Cálculo Rescisório</p>
           </div>
@@ -6326,7 +6335,7 @@ function SeveranceSimulation() {
                 ["Salário Base", fmtCurrency(reportData.employeeInfo.baseSalary)],
                 ["Dependentes", reportData.employeeInfo.dependentes || "0"],
               ].map(([k,v]) => (
-                <p key={k}><strong style={{ color:"#1a1d23" }}>{k}:</strong> {v}</p>
+                <p key={k}><strong style={{ color:"#111110" }}>{k}:</strong> {v}</p>
               ))}
             </div>
           </div>
@@ -6335,24 +6344,24 @@ function SeveranceSimulation() {
             <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>2. Resumo Financeiro</h3>
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr style={{ borderBottom:"2px solid #1a1d23" }}>
-                  <th className="py-2 font-bold" style={{ color:"#1a1d23" }}>Descrição</th>
-                  <th className="py-2 text-right font-bold" style={{ color:"#1a1d23" }}>Proventos</th>
-                  <th className="py-2 text-right font-bold" style={{ color:"#1a1d23" }}>Descontos</th>
+                <tr style={{ borderBottom:"2px solid #111110" }}>
+                  <th className="py-2 font-bold" style={{ color:"#111110" }}>Descrição</th>
+                  <th className="py-2 text-right font-bold" style={{ color:"#111110" }}>Proventos</th>
+                  <th className="py-2 text-right font-bold" style={{ color:"#111110" }}>Descontos</th>
                   <th className="py-2 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {verbas.map(v => (
                   <tr key={v.id} style={{ borderBottom:"1px solid #e8edf5" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    onMouseEnter={e=>e.currentTarget.style.background="#F8F4EE"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <td className="py-2">
                       <input type="text" value={v.description} onChange={e => setVerbas(vs => vs.map(x => x.id===v.id ? {...x,description:e.target.value} : x))}
                         className="bg-transparent border-none focus:ring-0 p-0 w-full text-sm" style={{ color:"#374151" }} />
                     </td>
                     <td className="py-2 text-right">
                       <input type="number" value={v.provento} onChange={e => setVerbas(vs => vs.map(x => x.id===v.id ? {...x,provento:parseFloat(e.target.value)||0} : x))}
-                        className="bg-transparent border-none focus:ring-0 p-0 w-28 text-right text-sm font-semibold" style={{ color: v.provento>0?"#2b8be8":"#cbd5e1" }} />
+                        className="bg-transparent border-none focus:ring-0 p-0 w-28 text-right text-sm font-semibold" style={{ color: v.provento>0?"#2B5E46":"#cbd5e1" }} />
                     </td>
                     <td className="py-2 text-right">
                       <input type="number" value={v.desconto} onChange={e => setVerbas(vs => vs.map(x => x.id===v.id ? {...x,desconto:parseFloat(e.target.value)||0} : x))}
@@ -6369,21 +6378,21 @@ function SeveranceSimulation() {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop:"2px solid #1a1d23" }}>
-                  <td className="py-3 font-black text-sm" style={{ color:"#1a1d23" }}>Subtotais</td>
-                  <td className="py-3 text-right font-black text-sm" style={{ color:"#2b8be8" }}>{fmtCurrency(totalProv)}</td>
+                <tr style={{ borderTop:"2px solid #111110" }}>
+                  <td className="py-3 font-black text-sm" style={{ color:"#111110" }}>Subtotais</td>
+                  <td className="py-3 text-right font-black text-sm" style={{ color:"#2B5E46" }}>{fmtCurrency(totalProv)}</td>
                   <td className="py-3 text-right font-black text-sm" style={{ color:"#ef4444" }}>{fmtCurrency(totalDesc)}</td>
                   <td></td>
                 </tr>
                 <tr style={{ borderTop:"1px solid #e8edf5" }}>
-                  <td className="py-3 font-black" style={{ color:"#1a1d23", fontSize:15 }}>TOTAL LÍQUIDO A PAGAR</td>
+                  <td className="py-3 font-black" style={{ color:"#111110", fontSize:15 }}>TOTAL LÍQUIDO A PAGAR</td>
                   <td colSpan={2} className="py-3 text-right font-black" style={{ color:"#10b981", fontSize:15 }}>{fmtCurrency(totalLiq)}</td>
                   <td></td>
                 </tr>
               </tfoot>
             </table>
             <button onClick={() => setVerbas(vs => [...vs, { id:uid(), description:"Nova Verba", provento:0, desconto:0 }])}
-              className="mt-3 flex items-center gap-1 text-sm font-semibold" style={{ color:"#2b8be8" }}>
+              className="mt-3 flex items-center gap-1 text-sm font-semibold" style={{ color:"#2B5E46" }}>
               <Icon.Plus />Adicionar Verba
             </button>
           </div>
@@ -6393,7 +6402,7 @@ function SeveranceSimulation() {
               <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>3. Memória de Cálculo</h3>
               <button onClick={()=>setEditingMemoria(v=>!v)}
                 className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
-                style={{ background:editingMemoria?"rgba(43,139,232,0.1)":"rgba(241,245,249,0.8)", color:editingMemoria?"#2b8be8":"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+                style={{ background:editingMemoria?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingMemoria?"#2B5E46":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
                 {editingMemoria ? "✓ Fechar" : "✏️ Editar"}
               </button>
             </div>
@@ -6406,8 +6415,8 @@ function SeveranceSimulation() {
                   value={editMemoria}
                   onChange={e=>setEditMemoria(e.target.value)}
                   rows={Math.max(8, (editMemoria.match(/\n/g)||[]).length + 4)}
-                  className="w-full border rounded-xl px-4 py-3 text-xs font-mono resize-y focus:ring-2 focus:ring-blue-300"
-                  style={{ borderColor:"rgba(221,227,237,0.8)", background:"#f8fafc", color:"#374151", lineHeight:1.7 }}/>
+                  className="w-full border rounded-xl px-4 py-3 text-xs font-mono resize-y focus:ring-2 focus:ring-green-700"
+                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"#F8F4EE", color:"#374151", lineHeight:1.7 }}/>
                 <div className="flex gap-2">
                   <button onClick={()=>setEditMemoria(reportData.memoriaCalculo||"")}
                     className="text-xs px-3 py-1.5 rounded-lg transition-all"
@@ -6417,9 +6426,9 @@ function SeveranceSimulation() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl p-4 space-y-2 text-sm ml-4" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+              <div className="rounded-xl p-4 space-y-2 text-sm ml-4" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
                 {editMemoria.split("\n\n").filter(l=>l.trim()).map((linha, i) => (
-                  <p key={i} style={{ color:"#374151", lineHeight:1.6 }} dangerouslySetInnerHTML={{ __html: linha.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#1a1d23'>$1</strong>") }} />
+                  <p key={i} style={{ color:"#374151", lineHeight:1.6 }} dangerouslySetInnerHTML={{ __html: linha.replace(/\*\*(.*?)\*\*/g, "<strong style='color:#111110'>$1</strong>") }} />
                 ))}
               </div>
             )}
@@ -6430,13 +6439,13 @@ function SeveranceSimulation() {
               <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>4. Observações</h3>
               <button onClick={()=>setEditingObs(v=>!v)}
                 className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
-                style={{ background:editingObs?"rgba(43,139,232,0.1)":"rgba(241,245,249,0.8)", color:editingObs?"#2b8be8":"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+                style={{ background:editingObs?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingObs?"#2B5E46":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
                 {editingObs ? "✓ Fechar" : "✏️ Editar"}
               </button>
             </div>
             {editingObs ? (
               <textarea value={editObs} onChange={e=>setEditObs(e.target.value)} rows={5}
-                className="w-full border rounded-xl px-4 py-3 text-sm ml-4 resize-none focus:ring-2 focus:ring-blue-300"
+                className="w-full border rounded-xl px-4 py-3 text-sm ml-4 resize-none focus:ring-2 focus:ring-green-700"
                 style={{ borderColor:"#fde68a", background:"#fffbeb", color:"#78350f", width:"calc(100% - 1rem)" }}/>
             ) : (
               <div className="rounded-xl p-4 text-sm ml-4" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#78350f" }}
@@ -6448,17 +6457,17 @@ function SeveranceSimulation() {
             <p className="text-[10px] font-black uppercase tracking-widest mb-4" style={{ color:"#94a3b8" }}>Assinaturas</p>
             <div className="flex justify-between">
               <div className="w-56 text-center">
-                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #1a1d23" }}>
+                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #111110" }}>
                   <input value={sigLeft} onChange={e=>setSigLeft(e.target.value)}
                     className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
-                    style={{ color:"#1a1d23" }} placeholder="Nome do responsável"/>
+                    style={{ color:"#111110" }} placeholder="Nome do responsável"/>
                 </div>
               </div>
               <div className="w-56 text-center">
-                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #1a1d23" }}>
+                <div className="mt-12 pt-2" style={{ borderTop:"2px solid #111110" }}>
                   <input value={sigRight} onChange={e=>setSigRight(e.target.value)}
                     className="text-sm font-semibold text-center bg-transparent border-none outline-none w-full"
-                    style={{ color:"#1a1d23" }} placeholder="Nome do colaborador"/>
+                    style={{ color:"#111110" }} placeholder="Nome do colaborador"/>
                   {reportData.employeeInfo.cpf && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>CPF: {reportData.employeeInfo.cpf}</p>}
                 </div>
               </div>
@@ -6473,18 +6482,18 @@ function SeveranceSimulation() {
   return (
     <div className="max-w-3xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={() => setView("list")} className="p-2 rounded-xl transition-all" style={{ color:"#64748b", background:"#f5f7fb" }}
-          onMouseEnter={e=>e.currentTarget.style.background="#e8edf5"} onMouseLeave={e=>e.currentTarget.style.background="#f5f7fb"}>
+        <button onClick={() => setView("list")} className="p-2 rounded-xl transition-all" style={{ color:"#64748b", background:"#F8F4EE" }}
+          onMouseEnter={e=>e.currentTarget.style.background="#e8edf5"} onMouseLeave={e=>e.currentTarget.style.background="#F8F4EE"}>
           <Icon.ArrowLeft />
         </button>
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Nova Simulação Rescisória</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110" }}>Nova Simulação Rescisória</h2>
           <p className="text-sm" style={{ color:"#94a3b8" }}>Cálculo de rescisão CLT</p>
         </div>
       </div>
 
       <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
-        <div className="p-4" style={{ background:"#f8fafc", borderBottom:"1px solid #e8edf5" }}>
+        <div className="p-4" style={{ background:"#F8F4EE", borderBottom:"1px solid #e8edf5" }}>
           <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Dados do Colaborador</p>
         </div>
         <div className="p-5 space-y-4">
@@ -6494,7 +6503,7 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Vincular a Cliente Cadastrado <span style={{ color:"#94a3b8" }}>(opcional)</span></label>
               <select value={f.clientId} onChange={e => handleClientSelect(e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }}>
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }}>
                 <option value="">— Selecione um cliente —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -6505,13 +6514,13 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Nome do Colaborador *</label>
               <input type="text" value={f.name} onChange={e => setFld("name", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }}
                 placeholder="João da Silva" />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>CPF</label>
               <input type="text" value={f.cpf} onChange={e => setFld("cpf", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }}
                 placeholder="000.000.000-00" />
             </div>
           </div>
@@ -6520,13 +6529,13 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Cargo</label>
               <input type="text" value={f.cargo} onChange={e => setFld("cargo", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }}
                 placeholder="Ex: Analista, Auxiliar..." />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Salário Base (R$) *</label>
               <input type="number" step="0.01" min="0" value={f.salary} onChange={e => setFld("salary", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }}
                 placeholder="0,00" />
             </div>
           </div>
@@ -6535,32 +6544,32 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Data de Admissão *</label>
               <input type="date" value={f.admissionDate} onChange={e => setFld("admissionDate", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Data de Demissão *</label>
               <input type="date" value={f.dismissalDate} onChange={e => setFld("dismissalDate", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
             </div>
           </div>
 
           {tempoEmpresa && (
             <div className="rounded-xl p-3 flex flex-wrap items-center gap-4" style={{ background:"#eff6ff", border:"1px solid #bfdbfe" }}>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2b8be8" }}>Tempo de Empresa</p>
-                <p className="text-sm font-black" style={{ color:"#1a1d23" }}>
+                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2B5E46" }}>Tempo de Empresa</p>
+                <p className="text-sm font-black" style={{ color:"#111110" }}>
                   {tempoEmpresa.anos > 0 ? `${tempoEmpresa.anos} ano${tempoEmpresa.anos>1?"s":""} e ` : ""}{tempoEmpresa.meses} mês(es)
                 </p>
               </div>
               <div style={{ width:1, height:28, background:"#bfdbfe" }} />
               <div>
-                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2b8be8" }}>Aviso Prévio</p>
-                <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{tempoEmpresa.diasAviso} dias</p>
+                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2B5E46" }}>Aviso Prévio</p>
+                <p className="text-sm font-black" style={{ color:"#111110" }}>{tempoEmpresa.diasAviso} dias</p>
               </div>
               <div style={{ width:1, height:28, background:"#bfdbfe" }} />
               <div>
-                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2b8be8" }}>Total em Meses</p>
-                <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{Math.floor(tempoEmpresa.total)} meses</p>
+                <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:"#2B5E46" }}>Total em Meses</p>
+                <p className="text-sm font-black" style={{ color:"#111110" }}>{Math.floor(tempoEmpresa.total)} meses</p>
               </div>
             </div>
           )}
@@ -6584,7 +6593,7 @@ function SeveranceSimulation() {
                     else setFld("noticeType", "Indenizado");
                   }}
                     className="px-3 py-1.5 text-xs font-bold rounded-xl transition-all"
-                    style={active ? {background:rc2.bg,color:rc2.color,border:`2px solid ${rc2.border}`} : {background:"#f5f7fb",color:"#64748b",border:"1px solid #dde3ed"}}>
+                    style={active ? {background:rc2.bg,color:rc2.color,border:`2px solid ${rc2.border}`} : {background:"#F8F4EE",color:"#64748b",border:"1px solid #dde3ed"}}>
                     {r.split(" ").slice(0,3).join(" ")}
                   </button>
                 );
@@ -6600,7 +6609,7 @@ function SeveranceSimulation() {
                 {["Indenizado","Trabalhado","Não se aplica"].map(v => (
                   <button key={v} type="button" onClick={() => setFld("noticeType", v)}
                     className="px-3 py-2 text-xs font-bold rounded-xl transition-all flex-1"
-                    style={f.noticeType===v ? {background:"#eff6ff",color:"#2b8be8",border:"2px solid #bfdbfe"} : {background:"#f5f7fb",color:"#64748b",border:"1px solid #dde3ed"}}>
+                    style={f.noticeType===v ? {background:"#eff6ff",color:"#2B5E46",border:"2px solid #bfdbfe"} : {background:"#F8F4EE",color:"#64748b",border:"1px solid #dde3ed"}}>
                     {v}
                   </button>
                 ))}
@@ -6612,7 +6621,7 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Dependentes (IRRF)</label>
               <input type="number" min="0" max="20" value={f.dependentes} onChange={e => setFld("dependentes", e.target.value)}
-                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
               <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>R$ 189,59 de dedução por dependente</p>
             </div>
             {mostraFerias && (
@@ -6622,7 +6631,7 @@ function SeveranceSimulation() {
                   {[["Não",false],["Sim",true]].map(([l,v]) => (
                     <button key={l} type="button" onClick={() => setFld("hasOverdueVacations", v)}
                       className="flex-1 py-2 text-xs font-bold rounded-xl transition-all"
-                      style={f.hasOverdueVacations===v ? {background:"#eff6ff",color:"#2b8be8",border:"2px solid #bfdbfe"} : {background:"#f5f7fb",color:"#64748b",border:"1px solid #dde3ed"}}>
+                      style={f.hasOverdueVacations===v ? {background:"#eff6ff",color:"#2B5E46",border:"2px solid #bfdbfe"} : {background:"#F8F4EE",color:"#64748b",border:"1px solid #dde3ed"}}>
                       {l}
                     </button>
                   ))}
@@ -6635,7 +6644,7 @@ function SeveranceSimulation() {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color:"#374151" }}>Quantos períodos de férias vencidas?</label>
               <input type="number" min="1" max="5" value={f.vacationPeriods} onChange={e => setFld("vacationPeriods", e.target.value)}
-                className="w-32 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
+                className="w-32 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-700" style={{ border:"1px solid #dde3ed", color:"#374151" }} />
             </div>
           )}
 
@@ -6652,7 +6661,7 @@ function SeveranceSimulation() {
           <div className="flex justify-end pt-4" style={{ borderTop:"1px solid #e8edf5" }}>
             <button type="button" onClick={handleGerar}
               className="flex items-center gap-2 px-6 py-2.5 text-white rounded-xl font-bold text-sm"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px #2B5E4640" }}>
               <Icon.Calculator />Gerar Simulação
             </button>
           </div>
@@ -6690,7 +6699,7 @@ function SaveSettingsButton({ settings, updateSettings }) {
       style={{
         background: saved
           ? "linear-gradient(135deg,#10b981,#059669)"
-          : "linear-gradient(135deg,#1c1f26,#1e2e4a)",
+          : "linear-gradient(135deg,#111110,#1A3829)",
         color: "#fff",
         boxShadow: saved ? "0 2px 8px rgba(16,185,129,0.3)" : "0 2px 8px rgba(26,29,35,0.25)",
         minWidth: 90,
@@ -6785,14 +6794,14 @@ function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsPr
       <div className="flex items-center gap-5">
         {/* Área de preview */}
         <div className="rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ width:170, height:170, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", border:"2px solid rgba(91,170,255,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
+          style={{ width:170, height:170, background:"linear-gradient(135deg,#1A3829,#2B5E46)", border:"2px solid rgba(184,150,90,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
           {preview
             ? <img src={preview} alt="Logo" style={{ width:"100%", height:"100%", objectFit:"contain", padding:8 }}/>
             : <span className="font-black text-white" style={{ fontSize:56 }}>{(settings.appName||"C")[0]}</span>}
         </div>
 
         <div className="flex-1">
-          <p className="text-sm font-semibold mb-1" style={{ color:"#1a1d23" }}>
+          <p className="text-sm font-semibold mb-1" style={{ color:"#111110" }}>
             {preview ? "Logo atual" : "Nenhuma logo enviada"}
           </p>
           <p className="text-xs mb-3" style={{ color:"#94a3b8" }}>
@@ -6801,7 +6810,7 @@ function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsPr
           <div className="flex gap-2 flex-wrap">
             {/* Botão upload */}
             <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff", boxShadow:"0 2px 8px rgba(43,139,232,0.25)" }}
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff", boxShadow:"0 2px 8px rgba(43,94,70,0.25)" }}
               onMouseEnter={e=>e.currentTarget.style.opacity="0.9"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
               {uploading
                 ? <><Icon.Loader /><span>Enviando...</span></>
@@ -6833,11 +6842,11 @@ function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsPr
 
       {/* Preview sidebar */}
       {preview && (
-        <div className="p-3 rounded-xl" style={{ background:"rgba(26,29,35,0.96)", border:"1px solid rgba(91,170,255,0.12)" }}>
+        <div className="p-3 rounded-xl" style={{ background:"rgba(26,56,41,0.96)", border:"1px solid rgba(184,150,90,0.12)" }}>
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>Preview na sidebar</p>
           <div className="flex items-center gap-3">
             <img src={preview} alt="Preview" className="h-8 w-auto object-contain" style={{ maxWidth:80 }}/>
-            <p className="text-sm font-black" style={{ color:"rgba(255,255,255,0.9)" }}>{settings.appName||"Códice Produtivo"}</p>
+            <p className="text-sm font-black" style={{ color:"rgba(255,255,255,0.9)" }}>{settings.appName||"YOETZ Inteligência Empresarial"}</p>
           </div>
         </div>
       )}
@@ -6915,13 +6924,13 @@ function SettingsPage() {
   };
 
   const ACCENTS = [
-    { label:"Azul (padrão)", color:"#2b8be8" },
+    { label:"Azul (padrão)", color:"#2B5E46" },
     { label:"Índigo",        color:"#6366f1" },
     { label:"Roxo",          color:"#8b5cf6" },
     { label:"Rosa",          color:"#ec4899" },
     { label:"Vermelho",      color:"#ef4444" },
     { label:"Laranja",       color:"#f97316" },
-    { label:"Âmbar",         color:"#f59e0b" },
+    { label:"Âmbar",         color:"#B8965A" },
     { label:"Verde",         color:"#10b981" },
     { label:"Ciano",         color:"#06b6d4" },
     { label:"Cinza",         color:"#64748b" },
@@ -6936,7 +6945,7 @@ function SettingsPage() {
     { label:"Nunito",           value:"'Nunito',sans-serif" },
   ];
 
-  const [catForm, setCatForm] = useState({ name:"", color:"#2b8be8" });
+  const [catForm, setCatForm] = useState({ name:"", color:"#2B5E46" });
   const [ctxForm, setCtxForm] = useState({ name:"", color:"#64748b" });
   const [editCat, setEditCat] = useState(null);
   const [editCtx, setEditCtx] = useState(null);
@@ -6945,7 +6954,7 @@ function SettingsPage() {
     if (!catForm.name.trim()) return;
     if (editCat) { await updateCategory({ ...editCat, ...catForm }); setEditCat(null); }
     else { await addCategory({ id:uid(), ...catForm }); }
-    setCatForm({ name:"", color:"#2b8be8" });
+    setCatForm({ name:"", color:"#2B5E46" });
   };
 
   const saveCtx = async () => {
@@ -6957,9 +6966,9 @@ function SettingsPage() {
 
   const Section = ({ title, icon, children }) => (
     <div className="rounded-2xl overflow-hidden"
-      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
       <div className="px-5 py-3.5 flex items-center gap-2.5"
-        style={{ borderBottom:"1px solid rgba(226,232,240,0.5)", background:"rgba(248,250,252,0.6)" }}>
+        style={{ borderBottom:"1px solid rgba(206,186,150,0.5)", background:"rgba(248,250,252,0.6)" }}>
         <span className="text-base">{icon}</span>
         <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#374151" }}>{title}</p>
       </div>
@@ -6968,8 +6977,8 @@ function SettingsPage() {
   );
 
   const Row = ({ label, sub, children, last }) => (
-    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: last ? "none" : "1px solid rgba(226,232,240,0.4)" }}>
-      <div><p className="text-sm font-semibold" style={{ color:"#1a1d23" }}>{label}</p>{sub && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{sub}</p>}</div>
+    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: last ? "none" : "1px solid rgba(206,186,150,0.4)" }}>
+      <div><p className="text-sm font-semibold" style={{ color:"#111110" }}>{label}</p>{sub && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{sub}</p>}</div>
       <div className="flex-shrink-0 ml-4">{children}</div>
     </div>
   );
@@ -6977,7 +6986,7 @@ function SettingsPage() {
   const Toggle = ({ value, onChange }) => (
     <button type="button" onClick={() => onChange(!value)}
       className="relative flex-shrink-0 transition-all duration-300"
-      style={{ width:44, height:24, borderRadius:12, background: value ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "rgba(203,213,225,0.7)", boxShadow: value ? "0 2px 8px rgba(43,139,232,0.35)" : "none" }}>
+      style={{ width:44, height:24, borderRadius:12, background: value ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "rgba(203,213,225,0.7)", boxShadow: value ? "0 2px 8px rgba(43,94,70,0.35)" : "none" }}>
       <div className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
         style={{ left: value ? "calc(100% - 20px)" : 4, boxShadow:"0 1px 4px rgba(0,0,0,0.15)" }}/>
     </button>
@@ -6988,12 +6997,12 @@ function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Configurações</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o Códice Produtivo ao seu gosto</p>
+          <h2 className="text-xl font-black" style={{ color:"#111110" }}>Configurações</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Personalize o YOETZ Inteligência Empresarial ao seu gosto</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={resetTheme} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-            style={{ background:"rgba(241,245,249,0.8)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}
+            style={{ background:"rgba(241,245,249,0.8)", color:"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";}}
             onMouseLeave={e=>{e.currentTarget.style.background="rgba(241,245,249,0.8)";e.currentTarget.style.color="#64748b";}}>
             ↺ Restaurar padrão
@@ -7005,7 +7014,7 @@ function SettingsPage() {
       {/* APARÊNCIA */}
       <Section title="Aparência & Tema" icon="🎨">
         {/* Cor de destaque */}
-        <div className="pb-5 mb-2" style={{ borderBottom:"1px solid rgba(226,232,240,0.4)" }}>
+        <div className="pb-5 mb-2" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)" }}>
           <p className="text-xs font-bold mb-3" style={{ color:"#374151" }}>Cor de destaque</p>
           <div className="flex gap-2 flex-wrap">
             {ACCENTS.map(a => (
@@ -7015,11 +7024,11 @@ function SettingsPage() {
                 <div className="w-8 h-8 rounded-xl transition-all duration-200"
                   style={{
                     background: a.color,
-                    border: theme.accent===a.color ? "3px solid #1a1d23" : "2px solid transparent",
+                    border: theme.accent===a.color ? "3px solid #111110" : "2px solid transparent",
                     transform: theme.accent===a.color ? "scale(1.2)" : "scale(1)",
                     boxShadow: theme.accent===a.color ? `0 4px 12px ${a.color}60` : `0 2px 6px ${a.color}30`,
                   }}/>
-                {theme.accent===a.color && <div className="w-1 h-1 rounded-full" style={{ background:"#1a1d23" }}/>}
+                {theme.accent===a.color && <div className="w-1 h-1 rounded-full" style={{ background:"#111110" }}/>}
               </button>
             ))}
           </div>
@@ -7042,9 +7051,9 @@ function SettingsPage() {
               <button key={v} onClick={()=>applyTheme("density",v)}
                 className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
                 style={{
-                  background: (theme.density||"normal")===v ? "linear-gradient(135deg,#1c1f26,#1e2e4a)" : "rgba(241,245,249,0.8)",
-                  color: (theme.density||"normal")===v ? "#5aaff5" : "#64748b",
-                  border: (theme.density||"normal")===v ? "1px solid rgba(91,170,255,0.2)" : "1px solid rgba(226,232,240,0.6)",
+                  background: (theme.density||"normal")===v ? "linear-gradient(135deg,#111110,#1A3829)" : "rgba(241,245,249,0.8)",
+                  color: (theme.density||"normal")===v ? "#4A7454" : "#64748b",
+                  border: (theme.density||"normal")===v ? "1px solid rgba(184,150,90,0.2)" : "1px solid rgba(206,186,150,0.6)",
                 }}>
                 {l}
               </button>
@@ -7054,8 +7063,8 @@ function SettingsPage() {
 
         <Row label="Fonte da interface" sub="Tipografia usada em toda a aplicação">
           <select value={theme.font||FONTS[0].value} onChange={e=>applyTheme("font",e.target.value)}
-            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151", fontFamily:theme.font||"inherit", maxWidth:200 }}>
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151", fontFamily:theme.font||"inherit", maxWidth:200 }}>
             {FONTS.map(f=><option key={f.value} value={f.value} style={{ fontFamily:f.value }}>{f.label}</option>)}
           </select>
         </Row>
@@ -7063,9 +7072,9 @@ function SettingsPage() {
         <Row label="Arredondamento dos cards" sub={`${theme.radius??16}px — controla bordas de todos os elementos`} last>
           <div className="flex items-center gap-3">
             <input type="range" min={0} max={24} step={2} value={theme.radius??16} onChange={e=>applyTheme("radius",Number(e.target.value))}
-              className="w-28" style={{ accentColor:"#2b8be8" }}/>
+              className="w-28" style={{ accentColor:"#2B5E46" }}/>
             <div className="w-8 h-8 border-2 border-current rounded flex-shrink-0"
-              style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#2b8be8", background:"rgba(43,139,232,0.08)" }}/>
+              style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#2B5E46", background:"rgba(43,94,70,0.08)" }}/>
           </div>
         </Row>
       </Section>
@@ -7078,14 +7087,14 @@ function SettingsPage() {
       {/* APLICATIVO */}
       <Section title="Aplicativo" icon="⚙️">
         <Row label="Nome do sistema" sub="Exibido na barra lateral">
-          <input value={settings.appName||"Códice Produtivo"}
+          <input value={settings.appName||"YOETZ Inteligência Empresarial"}
             onChange={e=>updateSettings({...settings,appName:e.target.value})}
-            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300 w-44"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}/>
+            className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700 w-44"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}/>
         </Row>
         <Row label="Iniciar na aba" sub="Qual página abre ao fazer login" last>
-          <select className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}
+          <select className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}
             value={settings.defaultTab||"dashboard"}
             onChange={e=>updateSettings({...settings,defaultTab:e.target.value})}>
             <option value="dashboard">Dashboard</option>
@@ -7103,15 +7112,15 @@ function SettingsPage() {
           <div className="space-y-2 mb-4">
             {categories.map(c => (
               <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group transition-all"
-                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.6)" }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(203,213,225,0.8)"}
-                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.6)"}>
+                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(206,186,150,0.6)"}>
                 <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background:c.color }}/>
                 <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={()=>{setEditCat(c);setCatForm({name:c.name,color:c.color});}}
                     className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
                     onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
                     <Icon.Edit />
                   </button>
@@ -7127,19 +7136,19 @@ function SettingsPage() {
           </div>
           <div className="flex gap-2 items-center">
             <input type="color" value={catForm.color} onChange={e=>setCatForm(p=>({...p,color:e.target.value}))}
-              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(226,232,240,0.7)" }}/>
+              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(206,186,150,0.7)" }}/>
             <input value={catForm.name} onChange={e=>setCatForm(p=>({...p,name:e.target.value}))}
               onKeyDown={e=>e.key==="Enter"&&saveCat()}
               placeholder={editCat?"Editar categoria...":"Nova categoria..."}
-              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
             <button onClick={saveCat} disabled={!catForm.name.trim()}
               className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex-shrink-0"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
               {editCat?"Salvar":"+ Add"}
             </button>
             {editCat && (
-              <button onClick={()=>{setEditCat(null);setCatForm({name:"",color:"#2b8be8"});}}
+              <button onClick={()=>{setEditCat(null);setCatForm({name:"",color:"#2B5E46"});}}
                 className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-sm">✕</button>
             )}
           </div>
@@ -7152,15 +7161,15 @@ function SettingsPage() {
           <div className="space-y-2 mb-4">
             {contexts.map(c => (
               <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl group transition-all"
-                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)" }}
+                style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.6)" }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(203,213,225,0.8)"}
-                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.6)"}>
+                onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(206,186,150,0.6)"}>
                 <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background:c.color||"#64748b" }}/>
                 <span className="flex-1 text-sm font-medium" style={{ color:"#374151" }}>{c.name}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={()=>{setEditCtx(c);setCtxForm({name:c.name,color:c.color||"#64748b"});}}
                     className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
                     onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
                     <Icon.Edit />
                   </button>
@@ -7176,15 +7185,15 @@ function SettingsPage() {
           </div>
           <div className="flex gap-2 items-center">
             <input type="color" value={ctxForm.color} onChange={e=>setCtxForm(p=>({...p,color:e.target.value}))}
-              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(226,232,240,0.7)" }}/>
+              className="w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" style={{ padding:2, border:"1px solid rgba(206,186,150,0.7)" }}/>
             <input value={ctxForm.name} onChange={e=>setCtxForm(p=>({...p,name:e.target.value}))}
               onKeyDown={e=>e.key==="Enter"&&saveCtx()}
               placeholder={editCtx?"Editar contexto...":"Novo contexto..."}
-              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
             <button onClick={saveCtx} disabled={!ctxForm.name.trim()}
               className="px-3 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex-shrink-0"
-              style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
               {editCtx?"Salvar":"+ Add"}
             </button>
             {editCtx && (
@@ -7200,7 +7209,7 @@ function SettingsPage() {
         <Row label="Usuário logado" sub={currentProfile?.role === "admin" ? "Administrador" : currentProfile?.role || "Colaborador"}>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black text-white"
-              style={{ background:currentProfile?.avatarColor||"#2b8be8" }}>
+              style={{ background:currentProfile?.avatarColor||"#2B5E46" }}>
               {(currentProfile?.name||"U").charAt(0)}
             </div>
             <span className="text-sm font-semibold" style={{ color:"#374151" }}>{currentProfile?.name||"Usuário"}</span>
@@ -7285,11 +7294,11 @@ function Relationship() {
   };
 
   const typeColors = {
-    cliente:          { bg:"#eff6ff", color:"#2b8be8", border:"#bfdbfe", label:"Cliente",        emoji:"👤" },
+    cliente:          { bg:"#eff6ff", color:"#2B5E46", border:"#bfdbfe", label:"Cliente",        emoji:"👤" },
     data_comemorativa:{ bg:"#fdf4ff", color:"#a855f7", border:"#e9d5ff", label:"Comemorativa",   emoji:"🎉" },
     fornecedor:       { bg:"#f0fdf4", color:"#10b981", border:"#bbf7d0", label:"Fornecedor",     emoji:"🏢" },
     parceiro:         { bg:"#fff7ed", color:"#f97316", border:"#fed7aa", label:"Parceiro",       emoji:"🤝" },
-    outro:            { bg:"#f8fafc", color:"#64748b", border:"#e2e8f0", label:"Outro",          emoji:"📌" },
+    outro:            { bg:"#F8F4EE", color:"#64748b", border:"#e2e8f0", label:"Outro",          emoji:"📌" },
   };
 
   const daysColor = (n) => {
@@ -7370,7 +7379,7 @@ function Relationship() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Relacionamento</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110" }}>Relacionamento</h2>
           <p className="text-sm" style={{ color:"#94a3b8" }}>{(relationships||[]).length} contatos · {todayDates.length} hoje · {upcomingDates.length} em breve</p>
         </div>
         <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
@@ -7410,7 +7419,7 @@ function Relationship() {
       {list.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
           <div className="text-5xl mb-4">💝</div>
-          <p className="font-bold" style={{ color:"#1a1d23" }}>{search || filter!=="todos" ? "Nenhum resultado encontrado" : "Nenhum contato cadastrado"}</p>
+          <p className="font-bold" style={{ color:"#111110" }}>{search || filter!=="todos" ? "Nenhum resultado encontrado" : "Nenhum contato cadastrado"}</p>
           <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>{search || filter!=="todos" ? "Tente outros filtros" : "Adicione aniversários de clientes e datas especiais"}</p>
         </div>
       ) : (
@@ -7436,7 +7445,7 @@ function Relationship() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{r.name}</p>
+                      <p className="font-black text-sm" style={{ color:"#111110" }}>{r.name}</p>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:tc.bg, color:tc.color, border:"1px solid "+tc.border }}>{tc.label}</span>
                       {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse" style={{ background:"linear-gradient(135deg,#a855f7,#ec4899)", color:"#fff" }}>HOJE 🎉</span>}
                     </div>
@@ -7463,12 +7472,12 @@ function Relationship() {
                     {r.email && (
                       <a href={"mailto:"+r.email+"?subject=Parabens "+r.name+"!&body="+encodeURIComponent(r.message||"")}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold"
-                        style={{ background:"#eff6ff", color:"#2b8be8" }} title="E-mail">
+                        style={{ background:"#eff6ff", color:"#2B5E46" }} title="E-mail">
                         <Icon.Send />
                       </a>
                     )}
                     <button onClick={() => openForm(r)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
-                      onMouseEnter={e=>{e.currentTarget.style.background="#f0f4f8";e.currentTarget.style.color="#2b8be8"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#f0f4f8";e.currentTarget.style.color="#2B5E46"}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
                       <Icon.Edit />
                     </button>
@@ -7582,7 +7591,7 @@ function Team() {
     { id:"obligations",  label:"Obrigações",          group:"Escritório" },
   ];
 
-  const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2b8be8", allowedTabs:null, canCreateTasks:false };
+  const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2B5E46", allowedTabs:null, canCreateTasks:false };
 
   const [uf, setUf] = useState(emptyUf);
   const [confirmingDelete, setConfirmingDelete] = useState(null); // usuário a deletar
@@ -7641,7 +7650,7 @@ function Team() {
   };
 
   const roleColors = {
-    admin:        { bg:"#eff6ff", color:"#2b8be8", label:"Administrador" },
+    admin:        { bg:"#eff6ff", color:"#2B5E46", label:"Administrador" },
     colaborador:  { bg:"#f0fdf4", color:"#10b981", label:"Colaborador" },
     visualizador: { bg:"#fdf4ff", color:"#a855f7", label:"Visualizador" },
   };
@@ -7649,7 +7658,7 @@ function Team() {
   const openForm = (u=null) => {
     setEditing(u);
     if (u) {
-      setUf({ name:u.name, email:"", password:"", role:u.role, avatarColor:u.avatarColor||"#2b8be8",
+      setUf({ name:u.name, email:"", password:"", role:u.role, avatarColor:u.avatarColor||"#2B5E46",
         allowedTabs: u.allowedTabs || null, canCreateTasks: u.canCreateTasks !== false });
     } else {
       setUf(emptyUf);
@@ -7702,18 +7711,18 @@ function Team() {
 
   const toggleActive = async (u) => { await updateTeamUser({ ...u, active: !u.active }); };
 
-  const colorOptions = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#64748b"];
+  const colorOptions = ["#2B5E46","#10b981","#a855f7","#f97316","#ef4444","#B8965A","#ec4899","#64748b"];
   const tabGroups = [...new Set(ALL_TABS.map(t => t.group))];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Equipe</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110" }}>Equipe</h2>
           <p className="text-sm" style={{ color:"#94a3b8" }}>Gerencie usuários, acessos e permissões</p>
         </div>
         <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.3)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.3)" }}>
           <Icon.Plus />Novo Usuário
         </button>
       </div>
@@ -7721,11 +7730,11 @@ function Team() {
       {/* Legenda de roles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {[
-          { role:"Administrador", icon:"👑", desc:"Acesso total — todas as abas e configurações", color:"#2b8be8" },
+          { role:"Administrador", icon:"👑", desc:"Acesso total — todas as abas e configurações", color:"#2B5E46" },
           { role:"Colaborador",   icon:"💼", desc:"Abas configuráveis + pode ou não criar tarefas", color:"#10b981" },
           { role:"Visualizador",  icon:"👁️", desc:"Somente leitura das tarefas atribuídas a ele", color:"#a855f7" },
         ].map(r => (
-          <div key={r.role} className="p-3 rounded-xl" style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}>
+          <div key={r.role} className="p-3 rounded-xl" style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}>
             <p className="text-sm font-black mb-1" style={{ color:r.color }}>{r.icon} {r.role}</p>
             <p className="text-xs" style={{ color:"#64748b" }}>{r.desc}</p>
           </div>
@@ -7740,15 +7749,15 @@ function Team() {
           const tabCount = u.allowedTabs ? u.allowedTabs.length : ALL_TABS.length;
           return (
             <div key={u.id} className="rounded-2xl p-4 flex items-center gap-4" style={{ background:"#fff", border:"1px solid #dde3ed", opacity: u.active ? 1 : 0.5 }}>
-              <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black text-white" style={{ background: u.avatarColor||"#2b8be8" }}>
+              <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-black text-white" style={{ background: u.avatarColor||"#2B5E46" }}>
                 {u.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{u.name}</p>
+                  <p className="font-black text-sm" style={{ color:"#111110" }}>{u.name}</p>
                   {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background:"#e0f2fe", color:"#0284c7" }}>Você</span>}
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:rc.bg, color:rc.color }}>{rc.label}</span>
-                  {!u.active && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#f1f5f9", color:"#94a3b8" }}>Inativo</span>}
+                  {!u.active && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"#F8F4EE", color:"#94a3b8" }}>Inativo</span>}
                 </div>
                 {u.role !== "admin" && (
                   <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>
@@ -7764,7 +7773,7 @@ function Team() {
                     {u.active ? "⏸" : "▶"}
                   </button>
                   <button onClick={() => openForm(u)} className="p-2 rounded-lg" style={{ color:"#94a3b8" }}
-                    onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2b8be8"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#eff6ff";e.currentTarget.style.color="#2B5E46"}}
                     onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8"}}>
                     <Icon.Edit />
                   </button>
@@ -7781,7 +7790,7 @@ function Team() {
         {(!teamUsers||teamUsers.length===0) && (
           <div className="rounded-2xl p-10 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
             <p className="text-4xl mb-3">👥</p>
-            <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum usuário na equipe</p>
+            <p className="font-bold" style={{ color:"#111110" }}>Nenhum usuário na equipe</p>
           </div>
         )}
       </div>
@@ -7796,7 +7805,7 @@ function Team() {
                 {confirmingDelete.name.charAt(0)}
               </div>
               <div>
-                <p className="font-black" style={{ color:"#1a1d23" }}>{confirmingDelete.name}</p>
+                <p className="font-black" style={{ color:"#111110" }}>{confirmingDelete.name}</p>
                 <p className="text-sm" style={{ color:"#94a3b8" }}>Esta ação removerá o acesso do usuário ao app.</p>
               </div>
             </div>
@@ -7826,7 +7835,7 @@ function Team() {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Nome completo *</label>
               <input value={uf.name} onChange={e=>setUf(p=>({...p,name:e.target.value}))} placeholder="Ex: Iris Cavalcanti"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
             </div>
 
             {/* Email e senha — só no cadastro */}
@@ -7835,12 +7844,12 @@ function Team() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail *</label>
                   <input type="email" value={uf.email} onChange={e=>setUf(p=>({...p,email:e.target.value}))} placeholder="email@exemplo.com"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Senha *</label>
                   <input type="password" value={uf.password} onChange={e=>setUf(p=>({...p,password:e.target.value}))} placeholder="Mín. 6 caracteres"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
                 </div>
               </div>
             )}
@@ -7849,7 +7858,7 @@ function Team() {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Nível de acesso</label>
               <select value={uf.role} onChange={e=>setUf(p=>({...p,role:e.target.value}))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                 <option value="colaborador">💼 Colaborador</option>
                 <option value="visualizador">👁️ Visualizador — somente leitura</option>
                 <option value="admin">👑 Administrador — acesso total</option>
@@ -7863,16 +7872,16 @@ function Team() {
                   <label className="text-sm font-semibold text-slate-700">Abas visíveis</label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setUf(p=>({...p,allowedTabs:ALL_TABS.map(t=>t.id)}))}
-                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#eff6ff", color:"#2b8be8" }}>Todas</button>
+                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#eff6ff", color:"#2B5E46" }}>Todas</button>
                     <button type="button" onClick={() => setUf(p=>({...p,allowedTabs:[]}))}
-                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#f1f5f9", color:"#64748b" }}>Nenhuma</button>
+                      className="text-xs px-2 py-1 rounded-lg font-medium" style={{ background:"#F8F4EE", color:"#64748b" }}>Nenhuma</button>
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
                   {tabGroups.map((group, gi) => (
                     <div key={group}>
                       {gi > 0 && <div style={{ height:1, background:"#e8edf5" }} />}
-                      <div className="px-3 py-1.5" style={{ background:"#f8fafc" }}>
+                      <div className="px-3 py-1.5" style={{ background:"#F8F4EE" }}>
                         <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>{group}</p>
                       </div>
                       {ALL_TABS.filter(t => t.group === group).map(tab => (
@@ -7914,10 +7923,10 @@ function Team() {
                 <div className="flex gap-2">
                   <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}
                     placeholder="Nova senha (mín. 6 caracteres)"
-                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
                   <button type="button" onClick={resetPassword} disabled={loading || !newPassword}
                     className="px-3 py-2 text-white rounded-lg text-sm font-bold disabled:opacity-50"
-                    style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                    style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                     Salvar
                   </button>
                 </div>
@@ -7931,7 +7940,7 @@ function Team() {
                 {colorOptions.map(c => (
                   <button key={c} type="button" onClick={() => setUf(p=>({...p,avatarColor:c}))}
                     className="w-8 h-8 rounded-lg transition-all"
-                    style={{ background:c, border: uf.avatarColor===c ? "3px solid #1a1d23" : "2px solid transparent", transform: uf.avatarColor===c ? "scale(1.2)" : "scale(1)" }} />
+                    style={{ background:c, border: uf.avatarColor===c ? "3px solid #111110" : "2px solid transparent", transform: uf.avatarColor===c ? "scale(1.2)" : "scale(1)" }} />
                 ))}
               </div>
             </div>
@@ -7939,7 +7948,7 @@ function Team() {
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
               <button onClick={save} disabled={loading} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-60"
-                style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
                 {loading ? <><Icon.Loader />Salvando...</> : editing ? "Salvar" : "Criar Usuário"}
               </button>
             </div>
@@ -7957,7 +7966,7 @@ function Team() {
 // ============================================================
 
 const ONBOARDING_TYPES = {
-  abertura_cnpj:      { label:"Abertura de CNPJ",         emoji:"🏢", color:"#2b8be8", bg:"#eff6ff" },
+  abertura_cnpj:      { label:"Abertura de CNPJ",         emoji:"🏢", color:"#2B5E46", bg:"#eff6ff" },
   novo_cliente:       { label:"Chegada de Novo Cliente",   emoji:"🤝", color:"#10b981", bg:"#f0fdf4" },
   regularizacao_fiscal:{ label:"Regularização Fiscal",    emoji:"📋", color:"#f97316", bg:"#fff7ed" },
 };
@@ -8001,16 +8010,16 @@ const STEP_TEMPLATES = {
 };
 
 const STATUS_CONFIG = {
-  pendente:      { label:"Pendente",     color:"#94a3b8", bg:"#f1f5f9", dot:"#cbd5e1" },
-  em_andamento:  { label:"Em andamento", color:"#2b8be8", bg:"#eff6ff", dot:"#2b8be8" },
+  pendente:      { label:"Pendente",     color:"#94a3b8", bg:"#F8F4EE", dot:"#cbd5e1" },
+  em_andamento:  { label:"Em andamento", color:"#2B5E46", bg:"#eff6ff", dot:"#2B5E46" },
   concluido:     { label:"Concluído",    color:"#10b981", bg:"#f0fdf4", dot:"#10b981" },
   bloqueado:     { label:"Bloqueado",    color:"#ef4444", bg:"#fef2f2", dot:"#ef4444" },
 };
 
 const ONB_STATUS = {
-  em_andamento: { label:"Em andamento", color:"#2b8be8", bg:"#eff6ff" },
+  em_andamento: { label:"Em andamento", color:"#2B5E46", bg:"#eff6ff" },
   concluido:    { label:"Concluído",    color:"#10b981", bg:"#f0fdf4" },
-  pausado:      { label:"Pausado",      color:"#f59e0b", bg:"#fffbeb" },
+  pausado:      { label:"Pausado",      color:"#B8965A", bg:"#fffbeb" },
   cancelado:    { label:"Cancelado",    color:"#ef4444", bg:"#fef2f2" },
 };
 
@@ -8062,7 +8071,7 @@ function OnboardingDetail({ onb, onClose }) {
                 {typeInfo.emoji}
               </div>
               <div>
-                <h2 className="text-lg font-black" style={{ color:"#1a1d23" }}>{onb.title}</h2>
+                <h2 className="text-lg font-black" style={{ color:"#111110" }}>{onb.title}</h2>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:typeInfo.bg, color:typeInfo.color }}>{typeInfo.label}</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:onbStatus.bg, color:onbStatus.color }}>{onbStatus.label}</span>
@@ -8076,7 +8085,7 @@ function OnboardingDetail({ onb, onClose }) {
                 {Object.entries(ONB_STATUS).map(([k,v]) => (
                   <button key={k} onClick={() => updateOnboarding({...onb, status:k})}
                     className="text-[10px] font-bold px-2 py-1 rounded-lg transition-all"
-                    style={{ background: onb.status===k ? v.bg : "#f8fafc", color: onb.status===k ? v.color : "#94a3b8", border: onb.status===k ? "1.5px solid "+v.color+"40" : "1px solid #e2e8f0" }}>
+                    style={{ background: onb.status===k ? v.bg : "#F8F4EE", color: onb.status===k ? v.color : "#94a3b8", border: onb.status===k ? "1.5px solid "+v.color+"40" : "1px solid #e2e8f0" }}>
                     {v.label}
                   </button>
                 ))}
@@ -8088,11 +8097,11 @@ function OnboardingDetail({ onb, onClose }) {
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
-              <span className="text-xs font-black" style={{ color: pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{doneCount}/{steps.length} etapas ({pct}%)</span>
+              <span className="text-xs font-black" style={{ color: pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{doneCount}/{steps.length} etapas ({pct}%)</span>
             </div>
             <div className="w-full rounded-full h-2" style={{ background:"#e2e8f0" }}>
               <div className="h-2 rounded-full transition-all duration-500"
-                style={{ width:pct+"%", background: pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?"linear-gradient(90deg,#2b8be8,#1d6fd4)":"linear-gradient(90deg,#f59e0b,#d97706)" }} />
+                style={{ width:pct+"%", background: pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?"linear-gradient(90deg,#2B5E46,#1d6fd4)":"linear-gradient(90deg,#f59e0b,#d97706)" }} />
             </div>
           </div>
         </div>
@@ -8110,8 +8119,8 @@ function OnboardingDetail({ onb, onClose }) {
             const assignedUser = (teamUsers||[]).find(u => u.id === step.responsibleId);
             return (
               <div key={step.id} className="flex items-start gap-3 p-3 rounded-xl group transition-all"
-                style={{ background:"#f8fafc", border:"1px solid #e8edf5" }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor="#dde3ed"}
+                style={{ background:"#F8F4EE", border:"1px solid #e8edf5" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="#CEBA96"}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="#e8edf5"}>
                 {/* Número + checkbox */}
                 <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
@@ -8125,7 +8134,7 @@ function OnboardingDetail({ onb, onClose }) {
                 {/* Conteúdo */}
                 <div className="flex-1 min-w-0">
                   <p className={"text-sm font-medium " + (step.status==="concluido"?"line-through":"")}
-                    style={{ color: step.status==="concluido"?"#94a3b8":"#1a1d23" }}>{step.title}</p>
+                    style={{ color: step.status==="concluido"?"#94a3b8":"#111110" }}>{step.title}</p>
                   {step.description && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{step.description}</p>}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {/* Status badge */}
@@ -8174,14 +8183,14 @@ function OnboardingDetail({ onb, onClose }) {
                   <input value={newStepTitle} onChange={e=>setNewStepTitle(e.target.value)}
                     onKeyDown={e=>{ if(e.key==="Enter") addNewStep(); if(e.key==="Escape") setShowAddStep(false); }}
                     placeholder="Nome da etapa..." autoFocus
-                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
-                  <button onClick={addNewStep} className="px-3 py-2 text-white rounded-lg text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Adicionar</button>
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
+                  <button onClick={addNewStep} className="px-3 py-2 text-white rounded-lg text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Adicionar</button>
                   <button onClick={()=>setShowAddStep(false)} className="px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
                 </div>
               ) : (
                 <button onClick={()=>setShowAddStep(true)} className="flex items-center gap-2 text-sm font-medium w-full p-3 rounded-xl transition-all"
                   style={{ color:"#94a3b8", border:"1.5px dashed #e2e8f0" }}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#2b8be8";e.currentTarget.style.color="#2b8be8";e.currentTarget.style.background="#f8fafc"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#2B5E46";e.currentTarget.style.color="#2B5E46";e.currentTarget.style.background="#F8F4EE"}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.color="#94a3b8";e.currentTarget.style.background="transparent"}}>
                   <Icon.Plus /> Nova etapa
                 </button>
@@ -8195,8 +8204,8 @@ function OnboardingDetail({ onb, onClose }) {
           <div className="p-4 pt-0">
             <textarea value={onb.notes||""} onChange={e=>isAdmin&&updateOnboarding({...onb,notes:e.target.value})}
               readOnly={!isAdmin} placeholder="Observações gerais sobre este onboarding..."
-              rows={2} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-300 resize-none"
-              style={{ color:"#374151", background: isAdmin?"#fff":"#f8fafc" }} />
+              rows={2} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-green-700 resize-none"
+              style={{ color:"#374151", background: isAdmin?"#fff":"#F8F4EE" }} />
           </div>
         )}
       </div>
@@ -8265,12 +8274,12 @@ function Onboarding() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23" }}>Onboarding de Clientes</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110" }}>Onboarding de Clientes</h2>
           <p className="text-sm" style={{ color:"#94a3b8" }}>Acompanhe abertura de CNPJ, chegada de clientes e regularizações</p>
         </div>
         {canManage && (
           <button onClick={openForm} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-            style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", boxShadow:"0 2px 8px #2b8be840" }}>
+            style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px #2B5E4640" }}>
             <Icon.Plus />Novo Onboarding
           </button>
         )}
@@ -8280,10 +8289,10 @@ function Onboarding() {
       {total > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label:"Total", value:total, color:"#2b8be8", bg:"#eff6ff" },
-            { label:"Em andamento", value:ativos, color:"#f59e0b", bg:"#fffbeb" },
+            { label:"Total", value:total, color:"#2B5E46", bg:"#eff6ff" },
+            { label:"Em andamento", value:ativos, color:"#B8965A", bg:"#fffbeb" },
             { label:"Concluídos", value:concluidos, color:"#10b981", bg:"#f0fdf4" },
-            { label:"Progresso médio", value:avgPct+"%", color: avgPct>=70?"#10b981":avgPct>=40?"#2b8be8":"#f59e0b", bg:"#f8fafc" },
+            { label:"Progresso médio", value:avgPct+"%", color: avgPct>=70?"#10b981":avgPct>=40?"#2B5E46":"#B8965A", bg:"#F8F4EE" },
           ].map(k => (
             <div key={k.label} className="rounded-xl p-4 text-center" style={{ background:k.bg, border:"1px solid "+k.color+"22" }}>
               <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
@@ -8299,7 +8308,7 @@ function Onboarding() {
           {[["todos","Todos"],["em_andamento","Em andamento"],["concluido","Concluídos"],["pausado","Pausados"],["cancelado","Cancelados"]].map(([v,l]) => (
             <button key={v} onClick={()=>setFilter(v)}
               className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-              style={{ background:filter===v?"linear-gradient(135deg,#5aaff5,#2b8be8)":"#f0f4f8", color:filter===v?"#fff":"#64748b" }}>
+              style={{ background:filter===v?"linear-gradient(135deg,#4A7454,#2B5E46)":"#f0f4f8", color:filter===v?"#fff":"#64748b" }}>
               {l}{v!=="todos"&&counts[v]?` (${counts[v]})`:total&&v==="todos"?` (${total})`:""}
             </button>
           ))}
@@ -8309,7 +8318,7 @@ function Onboarding() {
           {[["todos","Todos tipos"],...Object.entries(ONBOARDING_TYPES).map(([k,v])=>[k,v.emoji+" "+v.label.split(" ")[0]])].map(([v,l]) => (
             <button key={v} onClick={()=>setFilterType(v)}
               className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-              style={{ background:filterType===v?"#1a1d23":"#f0f4f8", color:filterType===v?"#fff":"#64748b" }}>
+              style={{ background:filterType===v?"#111110":"#f0f4f8", color:filterType===v?"#fff":"#64748b" }}>
               {l}
             </button>
           ))}
@@ -8320,9 +8329,9 @@ function Onboarding() {
       {list.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ background:"#fff", border:"1px solid #dde3ed" }}>
           <p className="text-5xl mb-4">🚀</p>
-          <p className="font-bold text-lg" style={{ color:"#1a1d23" }}>Nenhum onboarding ainda</p>
+          <p className="font-bold text-lg" style={{ color:"#111110" }}>Nenhum onboarding ainda</p>
           <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Crie o primeiro processo de chegada de cliente ou abertura de CNPJ</p>
-          {canManage && <button onClick={openForm} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>Criar primeiro onboarding</button>}
+          {canManage && <button onClick={openForm} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Criar primeiro onboarding</button>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -8344,7 +8353,7 @@ function Onboarding() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background:typeInfo.bg }}>{typeInfo.emoji}</div>
                     <div>
-                      <p className="font-black text-sm" style={{ color:"#1a1d23" }}>{onb.title}</p>
+                      <p className="font-black text-sm" style={{ color:"#111110" }}>{onb.title}</p>
                       {onb.clientName && <p className="text-xs" style={{ color:"#94a3b8" }}>👤 {onb.clientName}</p>}
                     </div>
                   </div>
@@ -8365,11 +8374,11 @@ function Onboarding() {
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{tot} etapas</span>
-                    <span className="text-[10px] font-black" style={{ color: pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+                    <span className="text-[10px] font-black" style={{ color: pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
                   </div>
                   <div className="w-full rounded-full h-1.5" style={{ background:"#f0f4f8" }}>
                     <div className="h-1.5 rounded-full transition-all"
-                      style={{ width:pct+"%", background: pct===100?"#10b981":pct>50?"#2b8be8":"#f59e0b" }} />
+                      style={{ width:pct+"%", background: pct===100?"#10b981":pct>50?"#2B5E46":"#B8965A" }} />
                   </div>
                 </div>
 
@@ -8405,7 +8414,7 @@ function Onboarding() {
                 {Object.entries(ONBOARDING_TYPES).map(([k,v]) => (
                   <button key={k} type="button" onClick={()=>setOf(p=>({...p,type:k}))}
                     className="p-3 rounded-xl text-center transition-all"
-                    style={{ background:of.type===k?v.bg:"#f8fafc", border:of.type===k?"2px solid "+v.color:"1px solid #e2e8f0", color:of.type===k?v.color:"#64748b" }}>
+                    style={{ background:of.type===k?v.bg:"#F8F4EE", border:of.type===k?"2px solid "+v.color:"1px solid #e2e8f0", color:of.type===k?v.color:"#64748b" }}>
                     <div className="text-2xl mb-1">{v.emoji}</div>
                     <div className="text-[10px] font-bold leading-tight">{v.label}</div>
                   </button>
@@ -8416,26 +8425,26 @@ function Onboarding() {
               <label className="block text-sm font-semibold text-slate-700 mb-1">Título *</label>
               <input value={of.title} onChange={e=>setOf(p=>({...p,title:e.target.value}))}
                 placeholder={of.type==="abertura_cnpj"?"Ex: Abertura CNPJ - Empresa XYZ":of.type==="novo_cliente"?"Ex: Onboarding - João Silva":"Ex: Regularização - Empresa ABC"}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do cliente</label>
                 <input value={of.clientName} onChange={e=>setOf(p=>({...p,clientName:e.target.value}))}
                   placeholder="Nome ou empresa"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Prazo alvo</label>
                 <input type="date" value={of.targetDate} onChange={e=>setOf(p=>({...p,targetDate:e.target.value}))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400" />
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700" />
               </div>
             </div>
             {(teamUsers||[]).length > 1 && (
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Responsável</label>
                 <select value={of.responsibleId} onChange={e=>setOf(p=>({...p,responsibleId:e.target.value}))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-700">
                   <option value="">Sem responsável definido</option>
                   {(teamUsers||[]).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
@@ -8451,7 +8460,7 @@ function Onboarding() {
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={()=>setIsFormOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
               <button onClick={save} disabled={!of.title.trim()} className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>
                 <Icon.Plus />Criar Onboarding
               </button>
             </div>
@@ -8493,7 +8502,7 @@ function Workload() {
     const maxLoad  = 10;
     const loadPct  = Math.min(Math.round(load/maxLoad*100), 100);
     const loadLevel = load <= 3 ? "leve" : load <= 7 ? "normal" : load <= 12 ? "pesada" : "crítica";
-    const loadColors = { leve:"#10b981", normal:"#2b8be8", pesada:"#f59e0b", crítica:"#ef4444" };
+    const loadColors = { leve:"#10b981", normal:"#2B5E46", pesada:"#B8965A", crítica:"#ef4444" };
 
     // Dias da semana
     const daily = Array.from({length:7}, (_,i) => {
@@ -8525,12 +8534,12 @@ function Workload() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Workload do Time</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Workload do Time</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Carga de trabalho, produtividade e distribuição de tarefas</p>
         </div>
         <select value={period} onChange={e=>setPeriod(Number(e.target.value))}
-          className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value={7}>Últimos 7 dias</option>
           <option value={14}>Últimos 14 dias</option>
           <option value={30}>Últimos 30 dias</option>
@@ -8540,13 +8549,13 @@ function Workload() {
       {/* KPIs globais */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:"Ativas no time", value:allActive.length, color:"#2b8be8", icon:"📋" },
+          { label:"Ativas no time", value:allActive.length, color:"#2B5E46", icon:"📋" },
           { label:"Atrasadas", value:allOverdue.length, color:allOverdue.length>0?"#ef4444":"#10b981", icon:"⚠️" },
           { label:"Concluídas (período)", value:allDone.length, color:"#10b981", icon:"✅" },
-          { label:"Carga total", value:totalLoad.toFixed(0), color:totalLoad>20?"#ef4444":totalLoad>10?"#f59e0b":"#10b981", icon:"⚡", sub:"pontos de carga" },
+          { label:"Carga total", value:totalLoad.toFixed(0), color:totalLoad>20?"#ef4444":totalLoad>10?"#B8965A":"#10b981", icon:"⚡", sub:"pontos de carga" },
         ].map(k => (
           <div key={k.label} className="rounded-2xl p-4 transition-all"
-            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+            style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
             onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
             onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
             <div className="flex items-start justify-between">
@@ -8563,9 +8572,9 @@ function Workload() {
 
       {/* Cards de membros */}
       {memberStats.length === 0 ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
           <p className="text-4xl mb-3">👥</p>
-          <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhuma tarefa atribuída ainda</p>
+          <p className="font-bold" style={{ color:"#111110" }}>Nenhuma tarefa atribuída ainda</p>
           <p className="text-xs mt-1" style={{ color:"#94a3b8" }}>Atribua responsáveis nas tarefas para ver o workload</p>
         </div>
       ) : (
@@ -8579,12 +8588,12 @@ function Workload() {
               {/* Header membro */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white flex-shrink-0"
-                  style={{ background:m.avatarColor||"#2b8be8", boxShadow:`0 3px 10px ${m.avatarColor||"#2b8be8"}44` }}>
+                  style={{ background:m.avatarColor||"#2B5E46", boxShadow:`0 3px 10px ${m.avatarColor||"#2B5E46"}44` }}>
                   {m.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{m.name.split(" ")[0]}</p>
+                    <p className="text-sm font-black" style={{ color:"#111110" }}>{m.name.split(" ")[0]}</p>
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
                       style={{ background:m.loadColor+"18", color:m.loadColor, border:`1px solid ${m.loadColor}30` }}>
                       Carga {m.loadLevel}
@@ -8604,7 +8613,7 @@ function Workload() {
                   <span className="text-[10px] font-bold" style={{ color:"#94a3b8" }}>Nível de carga</span>
                   <span className="text-[10px] font-black" style={{ color:m.loadColor }}>{m.loadPct}%</span>
                 </div>
-                <div className="w-full h-2 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+                <div className="w-full h-2 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                   <div className="h-2 rounded-full transition-all duration-700"
                     style={{ width:m.loadPct+"%", background:`linear-gradient(90deg,${m.loadColor},${m.loadColor}cc)`,
                       boxShadow:m.loadLevel==="crítica"?`0 0 8px ${m.loadColor}66`:"none" }}/>
@@ -8614,12 +8623,12 @@ function Workload() {
               {/* Estatísticas inline */}
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {[
-                  { l:"Ativas", v:m.active.length, c:"#2b8be8" },
+                  { l:"Ativas", v:m.active.length, c:"#2B5E46" },
                   { l:"Atrasadas", v:m.overdue.length, c:m.overdue.length>0?"#ef4444":"#10b981" },
                   { l:"Concluídas", v:m.done.length, c:"#10b981" },
                   { l:"No período", v:m.total.length, c:"#64748b" },
                 ].map(s => (
-                  <div key={s.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+                  <div key={s.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                     <p className="text-base font-black" style={{ color:s.c }}>{s.v}</p>
                     <p className="text-[9px]" style={{ color:"#94a3b8" }}>{s.l}</p>
                   </div>
@@ -8633,10 +8642,10 @@ function Workload() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={m.daily} barGap={1} barCategoryGap="25%">
                       <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:9 }}/>
-                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(221,227,237,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(26,29,35,0.1)" }}
+                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(206,186,150,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(26,29,35,0.1)" }}
                         formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700 }}/>
-                      <Bar dataKey="done" name="Concluídas" stackId="a" fill={m.avatarColor||"#2b8be8"} radius={[3,3,0,0]} maxBarSize={20}/>
-                      <Bar dataKey="pending" name="Pendentes" stackId="a" fill="rgba(226,232,240,0.8)" radius={[3,3,0,0]} maxBarSize={20}/>
+                      <Bar dataKey="done" name="Concluídas" stackId="a" fill={m.avatarColor||"#2B5E46"} radius={[3,3,0,0]} maxBarSize={20}/>
+                      <Bar dataKey="pending" name="Pendentes" stackId="a" fill="rgba(206,186,150,0.8)" radius={[3,3,0,0]} maxBarSize={20}/>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -8694,7 +8703,7 @@ function Workload() {
 
 const PRIORITY_CONFIG = {
   low:    { label:"Baixa",   color:"#94a3b8", bg:"rgba(148,163,184,0.1)", dot:"#94a3b8", icon:"↓" },
-  medium: { label:"Média",   color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  dot:"#f59e0b", icon:"→" },
+  medium: { label:"Média",   color:"#B8965A", bg:"rgba(245,158,11,0.1)",  dot:"#B8965A", icon:"→" },
   high:   { label:"Alta",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316", icon:"↑" },
   urgent: { label:"Urgente", color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444", icon:"⚡" },
 };
@@ -8703,11 +8712,11 @@ const CATEGORY_OPTIONS = ["Fiscal","Contábil","Departamento Pessoal","Administr
 
 const COLUMN_CONFIG = {
   todo:  { label:"Não Iniciado", color:"#94a3b8", bg:"rgba(148,163,184,0.06)", icon:"○" },
-  doing: { label:"Em Execução",  color:"#2b8be8", bg:"rgba(43,139,232,0.06)",  icon:"◑" },
+  doing: { label:"Em Execução",  color:"#2B5E46", bg:"rgba(43,94,70,0.06)",  icon:"◑" },
   done:  { label:"Concluído",    color:"#10b981", bg:"rgba(16,185,129,0.06)",  icon:"●" },
 };
 
-const PROJECT_COLORS = ["#2b8be8","#10b981","#a855f7","#f97316","#ef4444","#f59e0b","#ec4899","#06b6d4","#1a1d23","#64748b"];
+const PROJECT_COLORS = ["#2B5E46","#10b981","#a855f7","#f97316","#ef4444","#B8965A","#ec4899","#06b6d4","#111110","#64748b"];
 
 function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
   const { clients, teamUsers } = useApp();
@@ -8728,7 +8737,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
       className="rounded-2xl overflow-hidden transition-all duration-300 group cursor-pointer"
       style={{
         background:"rgba(255,255,255,0.98)",
-        border: isOverdue ? "1.5px solid rgba(239,68,68,0.3)" : "1px solid rgba(221,227,237,0.7)",
+        border: isOverdue ? "1.5px solid rgba(239,68,68,0.3)" : "1px solid rgba(206,186,150,0.7)",
         boxShadow: isOverdue ? "0 4px 20px rgba(239,68,68,0.08)" : "0 4px 16px rgba(26,29,35,0.04)",
         backdropFilter:"blur(8px)",
       }}
@@ -8736,7 +8745,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
       onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=isOverdue?"0 4px 20px rgba(239,68,68,0.08)":"0 4px 16px rgba(26,29,35,0.04)";}}>
 
       {/* Barra de cor topo */}
-      <div className="h-1" style={{ background:`linear-gradient(90deg,${project.color||"#2b8be8"},${project.color||"#2b8be8"}88)` }}/>
+      <div className="h-1" style={{ background:`linear-gradient(90deg,${project.color||"#2B5E46"},${project.color||"#2B5E46"}88)` }}/>
 
       <div className="p-4">
         {/* Header */}
@@ -8749,12 +8758,12 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
               </span>
               {project.category && (
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                  style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>
+                  style={{ background:"rgba(206,186,150,0.6)", color:"#64748b" }}>
                   {project.category}
                 </span>
               )}
             </div>
-            <h3 className="text-sm font-black leading-snug" style={{ color:"#1a1d23" }}>{project.title}</h3>
+            <h3 className="text-sm font-black leading-snug" style={{ color:"#111110" }}>{project.title}</h3>
             {project.clientName && (
               <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>👤 {project.clientName}</p>
             )}
@@ -8762,12 +8771,12 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
           {/* Quick actions */}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
             <button onClick={e=>{e.stopPropagation();setExpanded(v=>!v)}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><polyline points={expanded?"18 15 12 9 6 15":"6 9 12 15 18 9"}/></svg>
             </button>
             <button onClick={e=>{e.stopPropagation();onEdit(project)}} className="p-1.5 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.08)";e.currentTarget.style.color="#2b8be8";}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
               <Icon.Edit />
             </button>
@@ -8784,11 +8793,11 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{checklist.length} tarefas</span>
-              <span className="text-[10px] font-black" style={{ color:pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+              <span className="text-[10px] font-black" style={{ color:pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
             </div>
-            <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+            <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
               <div className="h-1.5 rounded-full transition-all duration-500"
-                style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?`linear-gradient(90deg,${project.color||"#2b8be8"},${project.color||"#2b8be8"}cc)`:project.color||"#2b8be8" }}/>
+                style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":pct>50?`linear-gradient(90deg,${project.color||"#2B5E46"},${project.color||"#2B5E46"}cc)`:project.color||"#2B5E46" }}/>
             </div>
           </div>
         )}
@@ -8798,7 +8807,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
           <div className="flex items-center gap-2">
             {responsible && (
               <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
-                style={{ background:responsible.avatarColor||"#2b8be8", boxShadow:`0 1px 4px ${responsible.avatarColor||"#2b8be8"}44` }}
+                style={{ background:responsible.avatarColor||"#2B5E46", boxShadow:`0 1px 4px ${responsible.avatarColor||"#2B5E46"}44` }}
                 title={responsible.name}>
                 {responsible.name.charAt(0)}
               </div>
@@ -8806,8 +8815,8 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
             {project.dueDate && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                 style={{
-                  background: isOverdue ? "rgba(239,68,68,0.1)" : isDueToday ? "rgba(245,158,11,0.1)" : "rgba(226,232,240,0.4)",
-                  color: isOverdue ? "#ef4444" : isDueToday ? "#f59e0b" : "#94a3b8"
+                  background: isOverdue ? "rgba(239,68,68,0.1)" : isDueToday ? "rgba(245,158,11,0.1)" : "rgba(206,186,150,0.4)",
+                  color: isOverdue ? "#ef4444" : isDueToday ? "#B8965A" : "#94a3b8"
                 }}>
                 {isOverdue ? `${Math.abs(daysLeft)}d atraso` : isDueToday ? "Hoje" : daysLeft !== null ? `${daysLeft}d` : ""}
                 {" "}{new Date(project.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
@@ -8819,18 +8828,18 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
             {project.status !== "todo" && (
               <button onClick={e=>{e.stopPropagation();onMove(project, project.status==="doing"?"todo":"doing")}}
                 className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
-                style={{ background:"rgba(226,232,240,0.4)", color:"#64748b" }}
-                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="rgba(226,232,240,0.4)";e.currentTarget.style.color="#64748b";}}>
+                style={{ background:"rgba(206,186,150,0.4)", color:"#64748b" }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.1)";e.currentTarget.style.color="#2B5E46";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(206,186,150,0.4)";e.currentTarget.style.color="#64748b";}}>
                 ← {project.status==="doing"?"Não iniciado":"Em execução"}
               </button>
             )}
             {project.status !== "done" && (
               <button onClick={e=>{e.stopPropagation();onMove(project, project.status==="todo"?"doing":"done")}}
                 className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
-                style={{ background:"rgba(226,232,240,0.4)", color:"#64748b" }}
-                onMouseEnter={e=>{e.currentTarget.style.background=project.status==="doing"?"rgba(16,185,129,0.1)":"rgba(43,139,232,0.1)";e.currentTarget.style.color=project.status==="doing"?"#10b981":"#2b8be8";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="rgba(226,232,240,0.4)";e.currentTarget.style.color="#64748b";}}>
+                style={{ background:"rgba(206,186,150,0.4)", color:"#64748b" }}
+                onMouseEnter={e=>{e.currentTarget.style.background=project.status==="doing"?"rgba(16,185,129,0.1)":"rgba(43,94,70,0.1)";e.currentTarget.style.color=project.status==="doing"?"#10b981":"#2B5E46";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(206,186,150,0.4)";e.currentTarget.style.color="#64748b";}}>
                 {project.status==="todo"?"Em execução →":"Concluído →"}
               </button>
             )}
@@ -8839,7 +8848,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
 
         {/* Expanded: checklist + notas */}
         {expanded && (
-          <div className="mt-3 pt-3" style={{ borderTop:"1px solid rgba(226,232,240,0.5)" }}>
+          <div className="mt-3 pt-3" style={{ borderTop:"1px solid rgba(206,186,150,0.5)" }}>
             {project.description && (
               <p className="text-xs mb-3 leading-relaxed" style={{ color:"#64748b" }}>{project.description}</p>
             )}
@@ -8850,7 +8859,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
                     style={{ background:"rgba(248,250,252,0.7)" }}>
                     <input type="checkbox" checked={item.done}
                       onChange={e=>{e.stopPropagation(); onUpdateChecklist(project, i, e.target.checked);}}
-                      className="w-3.5 h-3.5 rounded flex-shrink-0" style={{ accentColor:project.color||"#2b8be8" }}/>
+                      className="w-3.5 h-3.5 rounded flex-shrink-0" style={{ accentColor:project.color||"#2B5E46" }}/>
                     <span className="text-xs" style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
                   </div>
                 ))}
@@ -8870,13 +8879,13 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
 
 function ProjectForm({ project, onSave, onClose }) {
   const { clients, teamUsers } = useApp();
-  const emptyPF = { title:"", description:"", priority:"medium", category:"", clientId:"", clientName:"", responsibleId:"", teamIds:[], dueDate:"", startDate:"", checklist:[], tags:[], notes:"", color:"#2b8be8", status:"todo" };
+  const emptyPF = { title:"", description:"", priority:"medium", category:"", clientId:"", clientName:"", responsibleId:"", teamIds:[], dueDate:"", startDate:"", checklist:[], tags:[], notes:"", color:"#2B5E46", status:"todo" };
   const [pf, setPf] = useState(project ? {
     title:project.title||"", description:project.description||"", priority:project.priority||"medium",
     category:project.category||"", clientId:project.clientId||"", clientName:project.clientName||"",
     responsibleId:project.responsibleId||"", teamIds:project.teamIds||[], dueDate:project.dueDate||"",
     startDate:project.startDate||"", checklist:[...( project.checklist||[])], tags:[...(project.tags||[])],
-    notes:project.notes||"", color:project.color||"#2b8be8", status:project.status||"todo"
+    notes:project.notes||"", color:project.color||"#2B5E46", status:project.status||"todo"
   } : emptyPF);
   const [newItem, setNewItem] = useState("");
   const [newTag, setNewTag] = useState("");
@@ -8909,15 +8918,15 @@ function ProjectForm({ project, onSave, onClose }) {
               {PROJECT_COLORS.map(c=>(
                 <button key={c} type="button" onClick={()=>setPf(p=>({...p,color:c}))}
                   className="w-6 h-6 rounded-lg transition-all"
-                  style={{ background:c, border:pf.color===c?"2.5px solid #1a1d23":"2px solid transparent", transform:pf.color===c?"scale(1.2)":"scale(1)" }}/>
+                  style={{ background:c, border:pf.color===c?"2.5px solid #111110":"2px solid transparent", transform:pf.color===c?"scale(1.2)":"scale(1)" }}/>
               ))}
             </div>
           </div>
           <div className="flex-1">
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Nome do projeto *</label>
             <input value={pf.title} onChange={e=>setPf(p=>({...p,title:e.target.value}))} placeholder="Ex: Abertura CNPJ — Empresa XYZ"
-              className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
           </div>
         </div>
 
@@ -8925,8 +8934,8 @@ function ProjectForm({ project, onSave, onClose }) {
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Descrição</label>
           <textarea value={pf.description} onChange={e=>setPf(p=>({...p,description:e.target.value}))}
-            placeholder="O que envolve este projeto..." rows={2} className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            placeholder="O que envolve este projeto..." rows={2} className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Grid: Prioridade + Categoria + Status */}
@@ -8937,7 +8946,7 @@ function ProjectForm({ project, onSave, onClose }) {
               {Object.entries(PRIORITY_CONFIG).map(([k,v]) => (
                 <button key={k} type="button" onClick={()=>setPf(p=>({...p,priority:k}))}
                   className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-                  style={{ background:pf.priority===k?v.bg:"rgba(248,250,252,0.7)", color:pf.priority===k?v.color:"#94a3b8", border:pf.priority===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.6)" }}>
+                  style={{ background:pf.priority===k?v.bg:"rgba(248,250,252,0.7)", color:pf.priority===k?v.color:"#94a3b8", border:pf.priority===k?`1.5px solid ${v.color}40`:"1px solid rgba(206,186,150,0.6)" }}>
                   <span style={{ color:v.color }}>{v.icon}</span> {v.label}
                 </button>
               ))}
@@ -8946,15 +8955,15 @@ function ProjectForm({ project, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Categoria</label>
             <select value={pf.category} onChange={e=>setPf(p=>({...p,category:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               <option value="">Sem categoria</option>
               {CATEGORY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5 mt-3" style={{ color:"#94a3b8" }}>Status</label>
             <select value={pf.status} onChange={e=>setPf(p=>({...p,status:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               <option value="todo">Não Iniciado</option>
               <option value="doing">Em Execução</option>
               <option value="done">Concluído</option>
@@ -8963,12 +8972,12 @@ function ProjectForm({ project, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Início</label>
             <input type="date" value={pf.startDate} onChange={e=>setPf(p=>({...p,startDate:e.target.value}))}
-              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5 mt-3" style={{ color:"#94a3b8" }}>Prazo</label>
             <input type="date" value={pf.dueDate} onChange={e=>setPf(p=>({...p,dueDate:e.target.value}))}
-              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              className="w-full border rounded-xl px-2 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
           </div>
         </div>
 
@@ -8977,8 +8986,8 @@ function ProjectForm({ project, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Cliente</label>
             <select value={pf.clientId} onChange={e=>handleClientSelect(e.target.value)}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               <option value="">Sem cliente</option>
               {(clients||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -8986,8 +8995,8 @@ function ProjectForm({ project, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
             <select value={pf.responsibleId} onChange={e=>setPf(p=>({...p,responsibleId:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               <option value="">Sem responsável</option>
               {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
@@ -8999,7 +9008,7 @@ function ProjectForm({ project, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Checklist</label>
           <div className="space-y-1.5 mb-2">
             {pf.checklist.map((item,i)=>(
-              <div key={i} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
+              <div key={i} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                 <input type="checkbox" checked={item.done} onChange={e=>setPf(p=>{ const cl=[...p.checklist]; cl[i]={...cl[i],done:e.target.checked}; return {...p,checklist:cl}; })} className="w-3.5 h-3.5 rounded" style={{ accentColor:pf.color }}/>
                 <span className="flex-1 text-xs" style={{ color:item.done?"#94a3b8":"#374151", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
                 <button type="button" onClick={()=>setPf(p=>({...p,checklist:p.checklist.filter((_,j)=>j!==i)}))}
@@ -9009,9 +9018,9 @@ function ProjectForm({ project, onSave, onClose }) {
           </div>
           <div className="flex gap-2">
             <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addChecklistItem()} placeholder="Adicionar item..."
-              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
-            <button onClick={addChecklistItem} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+ Item</button>
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={addChecklistItem} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>+ Item</button>
           </div>
         </div>
 
@@ -9021,7 +9030,7 @@ function ProjectForm({ project, onSave, onClose }) {
           <div className="flex flex-wrap gap-1.5 mb-2">
             {pf.tags.map((tag,i)=>(
               <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8", border:"1px solid rgba(43,139,232,0.2)" }}>
+                style={{ background:"rgba(43,94,70,0.1)", color:"#2B5E46", border:"1px solid rgba(43,94,70,0.2)" }}>
                 {tag}
                 <button type="button" onClick={()=>setPf(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
               </span>
@@ -9029,9 +9038,9 @@ function ProjectForm({ project, onSave, onClose }) {
           </div>
           <div className="flex gap-2">
             <input value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTag()} placeholder="Nova tag..."
-              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
-            <button onClick={addTag} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+ Tag</button>
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            <button onClick={addTag} type="button" className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>+ Tag</button>
           </div>
         </div>
 
@@ -9039,15 +9048,15 @@ function ProjectForm({ project, onSave, onClose }) {
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Observações</label>
           <textarea value={pf.notes} onChange={e=>setPf(p=>({...p,notes:e.target.value}))} placeholder="Notas internas..." rows={2}
-            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
           <button onClick={()=>onSave(pf)} disabled={!pf.title.trim()}
             className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
             <Icon.Plus />{project?"Salvar":"Criar Projeto"}
           </button>
         </div>
@@ -9118,7 +9127,7 @@ function Projects() {
   const insights = useMemo(() => {
     const list = [];
     if (overdue > 0) list.push({ icon:"🚨", text:`${overdue} projeto${overdue>1?"s":""} em atraso — atenção imediata necessária`, color:"#ef4444" });
-    if (dueThisWeek > 0) list.push({ icon:"⏰", text:`${dueThisWeek} projeto${dueThisWeek>1?"s":""} vencem esta semana`, color:"#f59e0b" });
+    if (dueThisWeek > 0) list.push({ icon:"⏰", text:`${dueThisWeek} projeto${dueThisWeek>1?"s":""} vencem esta semana`, color:"#B8965A" });
     const urgentCount = projects.filter(p=>p.priority==="urgent"&&p.status!=="done").length;
     if (urgentCount > 0) list.push({ icon:"⚡", text:`${urgentCount} projeto${urgentCount>1?"s":""} com prioridade urgente em aberto`, color:"#ef4444" });
     const catCounts = {};
@@ -9136,12 +9145,12 @@ function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>Projetos</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Projetos</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Gestão operacional e estratégica do escritório</p>
         </div>
         <button onClick={()=>{setEditingProject(null);setFormOpen(true);}}
           className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
           <Icon.Plus />Novo Projeto
         </button>
       </div>
@@ -9150,14 +9159,14 @@ function Projects() {
       {projects.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label:"Ativos", value:active, color:"#2b8be8", icon:"📋" },
+            { label:"Ativos", value:active, color:"#2B5E46", icon:"📋" },
             { label:"Concluídos", value:done, color:"#10b981", icon:"✅" },
             { label:"Atrasados", value:overdue, color:overdue>0?"#ef4444":"#10b981", icon:"⚠️" },
-            { label:"Vencem na semana", value:dueThisWeek, color:"#f59e0b", icon:"📅" },
-            { label:"Progresso médio", value:`${avgProgress}%`, color:avgProgress>=70?"#10b981":avgProgress>=40?"#2b8be8":"#f59e0b", icon:"📈" },
+            { label:"Vencem na semana", value:dueThisWeek, color:"#B8965A", icon:"📅" },
+            { label:"Progresso médio", value:`${avgProgress}%`, color:avgProgress>=70?"#10b981":avgProgress>=40?"#2B5E46":"#B8965A", icon:"📈" },
           ].map(k=>(
             <div key={k.label} className="rounded-2xl p-4 transition-all"
-              style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+              style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
               onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
               onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
               <div className="flex items-start justify-between">
@@ -9192,27 +9201,27 @@ function Projects() {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar projetos..."
-            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
         <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todas prioridades</option>
           {Object.entries(PRIORITY_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
         {categories.length > 0 && (
           <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)}
-            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
             <option value="all">Todas categorias</option>
             {categories.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
         )}
         {(teamUsers||[]).length > 1 && (
           <select value={filterResponsible} onChange={e=>setFilterResponsible(e.target.value)}
-            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+            className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
             <option value="all">Todos responsáveis</option>
             {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name.split(" ")[0]}</option>)}
           </select>
@@ -9221,12 +9230,12 @@ function Projects() {
 
       {/* ── KANBAN ── */}
       {projects.length === 0 ? (
-        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+        <div className="rounded-2xl p-16 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
           <p className="text-5xl mb-4">🚀</p>
-          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>Nenhum projeto ainda</p>
+          <p className="text-lg font-bold" style={{ color:"#111110" }}>Nenhum projeto ainda</p>
           <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>Crie o primeiro projeto estratégico do escritório</p>
           <button onClick={()=>{setEditingProject(null);setFormOpen(true);}} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold"
-            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>Criar primeiro projeto</button>
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Criar primeiro projeto</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -9235,18 +9244,18 @@ function Projects() {
             const colProjects = byStatus(status);
             return (
               <div key={status} className="rounded-2xl overflow-hidden"
-                style={{ background:col.bg, border:"1px solid rgba(221,227,237,0.5)" }}>
+                style={{ background:col.bg, border:"1px solid rgba(206,186,150,0.5)" }}>
                 {/* Header da coluna */}
-                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(221,227,237,0.4)" }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)" }}>
                   <div className="flex items-center gap-2">
                     <span className="font-black text-base" style={{ color:col.color }}>{col.icon}</span>
-                    <h3 className="text-sm font-black" style={{ color:"#1a1d23" }}>{col.label}</h3>
+                    <h3 className="text-sm font-black" style={{ color:"#111110" }}>{col.label}</h3>
                     <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background:`${col.color}18`, color:col.color }}>
                       {colProjects.length}
                     </span>
                   </div>
                   <button onClick={()=>{setEditingProject(null); setFormOpen(true);}} className="p-1 rounded-lg transition-all" style={{ color:"#94a3b8" }}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,139,232,0.1)";e.currentTarget.style.color="#2b8be8";}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.1)";e.currentTarget.style.color="#2B5E46";}}
                     onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}>
                     <Icon.Plus />
                   </button>
@@ -9265,7 +9274,7 @@ function Projects() {
                   ))}
                   {colProjects.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-xl"
-                      style={{ border:"1.5px dashed rgba(221,227,237,0.6)" }}>
+                      style={{ border:"1.5px dashed rgba(206,186,150,0.6)" }}>
                       <p className="text-[10px] font-medium" style={{ color:"#cbd5e1" }}>Nenhum projeto aqui</p>
                     </div>
                   )}
@@ -9312,7 +9321,7 @@ function ScoreRing({ score, size = 80 }) {
   const r = size * 0.38;
   const circ = 2 * Math.PI * r;
   const pct = Math.min(Math.max(score, 0), 100) / 100;
-  const color = score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
+  const color = score >= 70 ? "#10b981" : score >= 40 ? "#B8965A" : "#ef4444";
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={size*0.08}/>
@@ -9397,7 +9406,7 @@ function CodiceIA() {
       if (type === "full") setAnalysis(data);
       await saveAiAnalysis(type, data);
     } catch(e) {
-      console.error("Códice IA:", e.message);
+      console.error("YOETZ IA:", e.message);
       // Mostrar erro real para diagnóstico
       if (type === "full") {
         setAnalysis({ _error: true, manchete: "Erro na análise", resumo_executivo: e.message, score: 0, score_label:"Erro", pontos_fortes:[], alertas:[], recomendacoes:[], previsao_7d:"", burnout_risk:"baixo", burnout_motivos:[], insight_habitos:"", insight_projetos:"", insight_equipe:"" });
@@ -9445,7 +9454,7 @@ function CodiceIA() {
   return (
     <div className="min-h-screen rounded-2xl overflow-hidden" style={{
       background: "linear-gradient(160deg,#0f1117 0%,#0d1520 40%,#0f1117 100%)",
-      border: "1px solid rgba(91,170,255,0.1)",
+      border: "1px solid rgba(184,150,90,0.1)",
     }}>
 
       {/* ── HERO ── */}
@@ -9454,12 +9463,12 @@ function CodiceIA() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                style={{ background:"linear-gradient(135deg,rgba(91,170,255,0.2),rgba(43,139,232,0.1))", border:"1px solid rgba(91,170,255,0.2)" }}>
+                style={{ background:"linear-gradient(135deg,rgba(184,150,90,0.2),rgba(43,94,70,0.1))", border:"1px solid rgba(184,150,90,0.2)" }}>
                 🧠
               </div>
               <div>
-                <h1 className="text-xl font-black" style={{ color:"#fff", letterSpacing:"-0.02em" }}>Códice IA</h1>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color:"rgba(91,170,255,0.7)" }}>Central de Inteligência Operacional</p>
+                <h1 className="text-xl font-black" style={{ color:"#fff", letterSpacing:"-0.02em" }}>YOETZ IA</h1>
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color:"rgba(184,150,90,0.7)" }}>Central de Inteligência Operacional</p>
               </div>
             </div>
             <p className="text-xs max-w-lg" style={{ color:"rgba(255,255,255,0.45)" }}>
@@ -9475,7 +9484,7 @@ function CodiceIA() {
             )}
             <button onClick={()=>runAnalysis("full")} disabled={loading.full}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all"
-              style={{ background:loading.full?"rgba(91,170,255,0.1)":"linear-gradient(135deg,rgba(91,170,255,0.9),rgba(43,139,232,0.9))", color:"#fff", border:"1px solid rgba(91,170,255,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(43,139,232,0.3)", opacity:loading.full?0.7:1 }}>
+              style={{ background:loading.full?"rgba(184,150,90,0.1)":"linear-gradient(135deg,rgba(184,150,90,0.9),rgba(43,94,70,0.9))", color:"#fff", border:"1px solid rgba(184,150,90,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(43,94,70,0.3)", opacity:loading.full?0.7:1 }}>
               {loading.full ? <><Icon.Loader /><span>Analisando...</span></> : <><Icon.Sparkles /><span>Analisar Agora</span></>}
             </button>
           </div>
@@ -9484,9 +9493,9 @@ function CodiceIA() {
         {/* Mini KPIs sempre visíveis */}
         <div className="grid grid-cols-4 gap-3 mt-5">
           {[
-            { label:"Tarefas ativas", value:ctx.tarefas.total-ctx.tarefas.concluidas, color:"#5aaff5" },
+            { label:"Tarefas ativas", value:ctx.tarefas.total-ctx.tarefas.concluidas, color:"#4A7454" },
             { label:"Atrasadas", value:ctx.tarefas.atrasadas, color:ctx.tarefas.atrasadas>0?"#ef4444":"#10b981" },
-            { label:"Taxa conclusão", value:`${ctx.tarefas.taxa_conclusao}%`, color:ctx.tarefas.taxa_conclusao>=70?"#10b981":ctx.tarefas.taxa_conclusao>=40?"#f59e0b":"#ef4444" },
+            { label:"Taxa conclusão", value:`${ctx.tarefas.taxa_conclusao}%`, color:ctx.tarefas.taxa_conclusao>=70?"#10b981":ctx.tarefas.taxa_conclusao>=40?"#B8965A":"#ef4444" },
             { label:"Projetos ativos", value:ctx.projetos.ativos, color:"#a855f7" },
           ].map(k=>(
             <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
@@ -9502,7 +9511,7 @@ function CodiceIA() {
         {SECTIONS.map(([id,label])=>(
           <button key={id} onClick={()=>setActiveSection(id)}
             className="px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all"
-            style={{ background:activeSection===id?"rgba(91,170,255,0.12)":"transparent", color:activeSection===id?"#5aaff5":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #5aaff5":"2px solid transparent" }}>
+            style={{ background:activeSection===id?"rgba(184,150,90,0.12)":"transparent", color:activeSection===id?"#4A7454":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #4A7454":"2px solid transparent" }}>
             {label}
           </button>
         ))}
@@ -9514,23 +9523,23 @@ function CodiceIA() {
         {activeSection === "overview" && (
           <div className="space-y-6">
             {!analysis ? (
-              <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(91,170,255,0.2)" }}>
+              <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(184,150,90,0.2)" }}>
                 <div className="text-5xl mb-4">🧠</div>
                 <p className="text-lg font-black mb-2" style={{ color:"#fff" }}>Inteligência ainda não ativada</p>
                 <p className="text-sm mb-6" style={{ color:"rgba(255,255,255,0.4)" }}>Clique em "Analisar Agora" para gerar a análise executiva completa do escritório com GPT-4o.</p>
                 <button onClick={()=>runAnalysis("full")} disabled={loading.full}
-                  className="px-6 py-3 rounded-xl text-sm font-black" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff" }}>
+                  className="px-6 py-3 rounded-xl text-sm font-black" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff" }}>
                   {loading.full ? "Analisando..." : "🚀 Gerar primeira análise"}
                 </button>
               </div>
             ) : (
               <div className="space-y-5">
                 {/* Score + Manchete */}
-                <div className="rounded-2xl p-6" style={{ background:"linear-gradient(135deg,rgba(43,139,232,0.08),rgba(255,255,255,0.03))", border:"1px solid rgba(91,170,255,0.15)" }}>
+                <div className="rounded-2xl p-6" style={{ background:"linear-gradient(135deg,rgba(43,94,70,0.08),rgba(255,255,255,0.03))", border:"1px solid rgba(184,150,90,0.15)" }}>
                   <div className="flex items-center gap-6">
                     <ScoreRing score={analysis.score||0} size={88}/>
                     <div className="flex-1">
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(91,170,255,0.6)" }}>Score operacional — {analysis.score_label||""}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(184,150,90,0.6)" }}>Score operacional — {analysis.score_label||""}</p>
                       <h2 className="text-xl font-black leading-snug mb-2" style={{ color:"#fff" }}>{analysis.manchete}</h2>
                       <p className="text-sm leading-relaxed" style={{ color:"rgba(255,255,255,0.6)" }}>{analysis.resumo_executivo}</p>
                     </div>
@@ -9560,7 +9569,7 @@ function CodiceIA() {
                       <div className="space-y-2">
                         {analysis.alertas.map((a,i)=>(
                           <div key={i} className="p-2.5 rounded-xl" style={{ background:"rgba(239,68,68,0.06)" }}>
-                            <p className="text-xs font-bold" style={{ color:a.urgencia==="alta"?"#ef4444":a.urgencia==="media"?"#f59e0b":"#94a3b8" }}>{a.titulo}</p>
+                            <p className="text-xs font-bold" style={{ color:a.urgencia==="alta"?"#ef4444":a.urgencia==="media"?"#B8965A":"#94a3b8" }}>{a.titulo}</p>
                             <p className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.5)" }}>{a.descricao}</p>
                           </div>
                         ))}
@@ -9572,10 +9581,10 @@ function CodiceIA() {
                 {/* Recomendações */}
                 {analysis.recomendacoes?.length > 0 && (
                   <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(91,170,255,0.8)" }}>🎯 Recomendações</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(184,150,90,0.8)" }}>🎯 Recomendações</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {analysis.recomendacoes.map((r,i)=>{
-                        const prazoCor = r.prazo==="hoje"?"#ef4444":r.prazo==="semana"?"#f59e0b":"#10b981";
+                        const prazoCor = r.prazo==="hoje"?"#ef4444":r.prazo==="semana"?"#B8965A":"#10b981";
                         return (
                           <div key={i} className="p-3 rounded-xl" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
                             <div className="flex items-center justify-between mb-2">
@@ -9594,7 +9603,7 @@ function CodiceIA() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {analysis.insight_habitos && <AIInsightCard icon="🌱" title="Hábitos" content={analysis.insight_habitos} color="#10b981"/>}
                   {analysis.insight_projetos && <AIInsightCard icon="🚀" title="Projetos" content={analysis.insight_projetos} color="#a855f7"/>}
-                  {analysis.insight_equipe && <AIInsightCard icon="👥" title="Equipe" content={analysis.insight_equipe} color="#5aaff5"/>}
+                  {analysis.insight_equipe && <AIInsightCard icon="👥" title="Equipe" content={analysis.insight_equipe} color="#4A7454"/>}
                 </div>
 
                 {/* Previsão */}
@@ -9631,7 +9640,7 @@ function CodiceIA() {
                   background:`rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.08)`,
                   border:`1px solid rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.2)`
                 }}>
-                  <p className="text-5xl font-black uppercase mb-2" style={{ color:analysis.burnout_risk==="alto"?"#ef4444":analysis.burnout_risk==="medio"?"#f59e0b":"#10b981" }}>
+                  <p className="text-5xl font-black uppercase mb-2" style={{ color:analysis.burnout_risk==="alto"?"#ef4444":analysis.burnout_risk==="medio"?"#B8965A":"#10b981" }}>
                     {analysis.burnout_risk}
                   </p>
                   <p className="text-sm" style={{ color:"rgba(255,255,255,0.5)" }}>Risco de burnout detectado</p>
@@ -9663,7 +9672,7 @@ function CodiceIA() {
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise de Workload da Equipe</h3>
               <button onClick={()=>runAnalysis("workload")} disabled={loading.workload}
-                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(91,170,255,0.8),rgba(43,139,232,0.8))", color:"#fff" }}>
+                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(184,150,90,0.8),rgba(43,94,70,0.8))", color:"#fff" }}>
                 {loading.workload ? "Analisando..." : "⚡ Analisar Workload"}
               </button>
             </div>
@@ -9672,7 +9681,7 @@ function CodiceIA() {
               {ctx.equipe.map((u,i)=>{
                 const load = u.ativas + u.atrasadas * 1.5;
                 const pct = Math.min(Math.round(load/10*100),100);
-                const lc = pct>=80?"#ef4444":pct>=50?"#f59e0b":"#10b981";
+                const lc = pct>=80?"#ef4444":pct>=50?"#B8965A":"#10b981";
                 return (
                   <div key={i} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex items-center justify-between mb-3">
@@ -9682,7 +9691,7 @@ function CodiceIA() {
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      {[{l:"Ativas",v:u.ativas,c:"#5aaff5"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
+                      {[{l:"Ativas",v:u.ativas,c:"#4A7454"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
                         <div key={k.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(255,255,255,0.04)" }}>
                           <p className="text-base font-black" style={{ color:k.c }}>{k.v}</p>
                           <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>{k.l}</p>
@@ -9719,15 +9728,15 @@ function CodiceIA() {
                       <span className="text-2xl">{h.emoji||"⭐"}</span>
                       <div>
                         <p className="text-sm font-black" style={{ color:"#fff" }}>{h.title}</p>
-                        {h.identity && <p className="text-[10px]" style={{ color:`${h.color||"#5aaff5"}` }}>{h.identity}</p>}
+                        {h.identity && <p className="text-[10px]" style={{ color:`${h.color||"#4A7454"}` }}>{h.identity}</p>}
                       </div>
                       <div className="ml-auto text-right">
-                        <p className="text-lg font-black" style={{ color:c>=70?"#10b981":c>=40?"#f59e0b":"#ef4444" }}>{c}%</p>
+                        <p className="text-lg font-black" style={{ color:c>=70?"#10b981":c>=40?"#B8965A":"#ef4444" }}>{c}%</p>
                         <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>30 dias</p>
                       </div>
                     </div>
                     <div className="w-full h-1 rounded-full" style={{ background:"rgba(255,255,255,0.08)" }}>
-                      <div className="h-1 rounded-full" style={{ width:c+"%", background:h.color||"#5aaff5" }}/>
+                      <div className="h-1 rounded-full" style={{ width:c+"%", background:h.color||"#4A7454" }}/>
                     </div>
                   </div>
                 );
@@ -9740,7 +9749,7 @@ function CodiceIA() {
         {activeSection === "chat" && (
           <div className="flex flex-col" style={{ height:"calc(100vh - 380px)", minHeight:400 }}>
             <div className="mb-4">
-              <h3 className="text-base font-black" style={{ color:"#fff" }}>Chat com o Códice IA</h3>
+              <h3 className="text-base font-black" style={{ color:"#fff" }}>Chat com o YOETZ IA</h3>
               <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>Consultor executivo com contexto real do seu escritório. Pergunte qualquer coisa.</p>
             </div>
             {/* Mensagens */}
@@ -9751,7 +9760,7 @@ function CodiceIA() {
                     <button key={q} onClick={()=>{setChatInput(q);}}
                       className="p-3 rounded-xl text-left text-xs transition-all"
                       style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.6)" }}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(91,170,255,0.3)";e.currentTarget.style.color="#fff";}}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(184,150,90,0.3)";e.currentTarget.style.color="#fff";}}
                       onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
                       {q}
                     </button>
@@ -9762,12 +9771,12 @@ function CodiceIA() {
                 <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}>
                   <div className="max-w-lg rounded-2xl px-4 py-3 text-sm"
                     style={{
-                      background: m.role==="user" ? "linear-gradient(135deg,rgba(91,170,255,0.25),rgba(43,139,232,0.2))" : "rgba(255,255,255,0.05)",
-                      border: m.role==="user" ? "1px solid rgba(91,170,255,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                      background: m.role==="user" ? "linear-gradient(135deg,rgba(184,150,90,0.25),rgba(43,94,70,0.2))" : "rgba(255,255,255,0.05)",
+                      border: m.role==="user" ? "1px solid rgba(184,150,90,0.3)" : "1px solid rgba(255,255,255,0.08)",
                       color: "rgba(255,255,255,0.85)",
                       lineHeight: 1.6,
                     }}>
-                    {m.role==="assistant" && <span className="text-[10px] font-black uppercase tracking-widest block mb-1" style={{ color:"rgba(91,170,255,0.7)" }}>Códice IA</span>}
+                    {m.role==="assistant" && <span className="text-[10px] font-black uppercase tracking-widest block mb-1" style={{ color:"rgba(184,150,90,0.7)" }}>YOETZ IA</span>}
                     {m.content}
                   </div>
                 </div>
@@ -9777,7 +9786,7 @@ function CodiceIA() {
                   <div className="rounded-2xl px-4 py-3" style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex items-center gap-1.5">
                       {[0,1,2].map(i=>(
-                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background:"rgba(91,170,255,0.7)", animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>
+                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background:"rgba(184,150,90,0.7)", animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>
                       ))}
                     </div>
                   </div>
@@ -9791,10 +9800,10 @@ function CodiceIA() {
                 onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()}
                 placeholder="Pergunte sobre produtividade, equipe, projetos, hábitos..."
                 className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#5aaff5" }}/>
+                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#4A7454" }}/>
               <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
                 className="px-4 py-3 rounded-xl font-black text-sm transition-all disabled:opacity-40"
-                style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)", color:"#fff", minWidth:52 }}>
+                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff", minWidth:52 }}>
                 {chatLoading ? "..." : "→"}
               </button>
             </div>
@@ -9815,17 +9824,17 @@ const SOP_CATEGORIES = ["Fiscal","Contábil","Departamento Pessoal","Jurídico",
 
 const SOP_PRIORITY = {
   low:      { label:"Baixa",    color:"#94a3b8", bg:"rgba(148,163,184,0.1)" },
-  medium:   { label:"Média",    color:"#f59e0b", bg:"rgba(245,158,11,0.1)"  },
+  medium:   { label:"Média",    color:"#B8965A", bg:"rgba(245,158,11,0.1)"  },
   high:     { label:"Alta",     color:"#f97316", bg:"rgba(249,115,22,0.1)"  },
   critical: { label:"Crítica",  color:"#ef4444", bg:"rgba(239,68,68,0.1)"   },
 };
 const SOP_DIFFICULTY = {
   easy:   { label:"Fácil",   color:"#10b981" },
-  medium: { label:"Médio",   color:"#f59e0b" },
+  medium: { label:"Médio",   color:"#B8965A" },
   hard:   { label:"Difícil", color:"#ef4444" },
 };
 const SOP_TYPE = {
-  sop:      { label:"SOP",      icon:"📋", color:"#2b8be8", bg:"rgba(43,139,232,0.08)"  },
+  sop:      { label:"SOP",      icon:"📋", color:"#2B5E46", bg:"rgba(43,94,70,0.08)"  },
   playbook: { label:"Playbook", icon:"📘", color:"#a855f7", bg:"rgba(168,85,247,0.08)"  },
 };
 
@@ -9859,10 +9868,10 @@ function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
 
   return (
     <div className="group rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer"
-      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+      style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
       onClick={()=>onOpen(sop)}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,139,232,0.2)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.7)";}}>
       {/* Top accent */}
       <div className="h-0.5" style={{ background:`linear-gradient(90deg,${typeConf.color},${typeConf.color}44)` }}/>
       <div className="p-5">
@@ -9877,12 +9886,12 @@ function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
                 <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md" style={{ background:typeConf.bg, color:typeConf.color }}>{typeConf.label}</span>
                 <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md" style={{ background:priorConf.bg, color:priorConf.color }}>{priorConf.label}</span>
               </div>
-              <h3 className="text-sm font-black leading-snug" style={{ color:"#1a1d23" }}>{sop.title}</h3>
+              <h3 className="text-sm font-black leading-snug" style={{ color:"#111110" }}>{sop.title}</h3>
             </div>
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-            <button onClick={e=>{e.stopPropagation();onFavorite(sop);}} className="p-1.5 rounded-lg transition-all" style={{ color:sop.isFavorite?"#f59e0b":"#94a3b8" }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(245,158,11,0.08)";e.currentTarget.style.color="#f59e0b";}}
+            <button onClick={e=>{e.stopPropagation();onFavorite(sop);}} className="p-1.5 rounded-lg transition-all" style={{ color:sop.isFavorite?"#B8965A":"#94a3b8" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(245,158,11,0.08)";e.currentTarget.style.color="#B8965A";}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";if(!sop.isFavorite)e.currentTarget.style.color="#94a3b8";}}>
               <svg viewBox="0 0 24 24" fill={sop.isFavorite?"currentColor":"none"} stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             </button>
@@ -9902,22 +9911,22 @@ function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px]" style={{ color:"#94a3b8" }}>{doneSteps}/{totalSteps} etapas</span>
-              <span className="text-[10px] font-bold" style={{ color:pct===100?"#10b981":pct>50?"#2b8be8":"#94a3b8" }}>{pct}%</span>
+              <span className="text-[10px] font-bold" style={{ color:pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
             </div>
-            <div className="w-full h-1 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
-              <div className="h-1 rounded-full transition-all" style={{ width:pct+"%", background:pct===100?"#10b981":"#2b8be8" }}/>
+            <div className="w-full h-1 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
+              <div className="h-1 rounded-full transition-all" style={{ width:pct+"%", background:pct===100?"#10b981":"#2B5E46" }}/>
             </div>
           </div>
         )}
 
         <div className="flex items-center justify-between text-[10px]" style={{ color:"#94a3b8" }}>
           <div className="flex items-center gap-2">
-            <span className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(226,232,240,0.5)" }}>{sop.category}</span>
+            <span className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(206,186,150,0.5)" }}>{sop.category}</span>
             {sop.estimatedTime && <span>⏱ {sop.estimatedTime}min</span>}
           </div>
           <div className="flex items-center gap-2">
             {sop.executions > 0 && <span>▶ {sop.executions}x</span>}
-            {sop.tags?.slice(0,2).map(t=><span key={t} className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{t}</span>)}
+            {sop.tags?.slice(0,2).map(t=><span key={t} className="px-1.5 py-0.5 rounded-md" style={{ background:"rgba(43,94,70,0.08)", color:"#2B5E46" }}>#{t}</span>)}
           </div>
         </div>
       </div>
@@ -9964,7 +9973,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
     <Modal title="" onClose={onClose} maxWidth="max-w-2xl">
       <div style={{ maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
         {/* Header */}
-        <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(226,232,240,0.6)", background:`linear-gradient(135deg,${typeConf.bg},rgba(255,255,255,0.98))` }}>
+        <div className="p-6 pb-4" style={{ borderBottom:"1px solid rgba(206,186,150,0.6)", background:`linear-gradient(135deg,${typeConf.bg},rgba(255,255,255,0.98))` }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background:typeConf.bg, border:`1px solid ${typeConf.color}20` }}>{typeConf.icon}</div>
@@ -9972,9 +9981,9 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:typeConf.bg, color:typeConf.color }}>{typeConf.label}</span>
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:priorConf.bg, color:priorConf.color }}>{priorConf.label}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(226,232,240,0.6)", color:"#64748b" }}>v{sop.version||"1.0"}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(206,186,150,0.6)", color:"#64748b" }}>v{sop.version||"1.0"}</span>
                 </div>
-                <h2 className="text-base font-black" style={{ color:"#1a1d23" }}>{sop.title}</h2>
+                <h2 className="text-base font-black" style={{ color:"#111110" }}>{sop.title}</h2>
                 <div className="flex items-center gap-3 mt-1 text-[10px]" style={{ color:"#94a3b8" }}>
                   {sop.category && <span>📁 {sop.category}</span>}
                   {sop.estimatedTime && <span>⏱ {sop.estimatedTime}min</span>}
@@ -9986,7 +9995,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Cronômetro */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(26,29,35,0.06)", border:"1px solid rgba(26,29,35,0.08)" }}>
-                <span className="text-xs font-mono font-bold" style={{ color:"#1a1d23" }}>{fmt(timer)}</span>
+                <span className="text-xs font-mono font-bold" style={{ color:"#111110" }}>{fmt(timer)}</span>
                 <button onClick={()=>setTimerOn(v=>!v)} className="p-0.5 rounded transition-all" style={{ color:timerOn?"#ef4444":"#10b981" }}>
                   {timerOn
                     ? <svg viewBox="0 0 24 24" fill="currentColor" style={{width:12,height:12}}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
@@ -9998,7 +10007,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
               </div>
               <button onClick={()=>setExecutionMode(v=>!v)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
-                style={{ background:executionMode?"linear-gradient(135deg,#1c1f26,#1e2e4a)":"rgba(241,245,249,0.8)", color:executionMode?"#5aaff5":"#64748b", border:executionMode?"1px solid rgba(91,170,255,0.2)":"1px solid rgba(226,232,240,0.7)" }}>
+                style={{ background:executionMode?"linear-gradient(135deg,#111110,#1A3829)":"rgba(241,245,249,0.8)", color:executionMode?"#4A7454":"#64748b", border:executionMode?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.7)" }}>
                 ⚡ {executionMode ? "Sair" : "Executar"}
               </button>
             </div>
@@ -10009,11 +10018,11 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
-                <span className="text-xs font-black" style={{ color:pct===100?"#10b981":"#2b8be8" }}>{done}/{checklist.length} ({pct}%)</span>
+                <span className="text-xs font-black" style={{ color:pct===100?"#10b981":"#2B5E46" }}>{done}/{checklist.length} ({pct}%)</span>
               </div>
-              <div className="w-full h-2 rounded-full" style={{ background:"rgba(226,232,240,0.5)" }}>
+              <div className="w-full h-2 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                 <div className="h-2 rounded-full transition-all duration-500"
-                  style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#2b8be8,#1d6fd4)" }}/>
+                  style={{ width:pct+"%", background:pct===100?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#2B5E46,#1d6fd4)" }}/>
               </div>
             </div>
           )}
@@ -10025,7 +10034,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
           {/* MODO EXECUÇÃO */}
           {executionMode ? (
             <div className="space-y-3">
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:"rgba(91,170,255,0.8)" }}>⚡ Modo Execução — foco total</p>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color:"rgba(184,150,90,0.8)" }}>⚡ Modo Execução — foco total</p>
               {checklist.length === 0 ? (
                 <p className="text-sm" style={{ color:"#94a3b8" }}>Nenhum item de checklist neste SOP.</p>
               ) : checklist.map((item,i) => (
@@ -10033,17 +10042,17 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
                   className="flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all"
                   style={{
                     background:item.done?"rgba(16,185,129,0.06)":"rgba(255,255,255,0.98)",
-                    border:item.done?"1.5px solid rgba(16,185,129,0.2)":"1px solid rgba(221,227,237,0.7)",
+                    border:item.done?"1.5px solid rgba(16,185,129,0.2)":"1px solid rgba(206,186,150,0.7)",
                     boxShadow:item.done?"none":"0 2px 8px rgba(26,29,35,0.04)",
                   }}
-                  onMouseEnter={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(43,139,232,0.3)";}}
-                  onMouseLeave={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";}}>
+                  onMouseEnter={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(43,94,70,0.3)";}}
+                  onMouseLeave={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(206,186,150,0.7)";}}>
                   <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
                     style={{ borderColor:item.done?"#10b981":"#d1d5db", background:item.done?"#10b981":"transparent" }}>
                     {item.done && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
                   </div>
                   <div className="flex-1">
-                    <span className="text-sm font-semibold" style={{ color:item.done?"#94a3b8":"#1a1d23", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                    <span className="text-sm font-semibold" style={{ color:item.done?"#94a3b8":"#111110", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
                     {item.note && <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>{item.note}</p>}
                   </div>
                   <span className="text-xs font-bold" style={{ color:"#cbd5e1" }}>{i+1}</span>
@@ -10073,8 +10082,8 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
                   <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#94a3b8" }}>Etapas do Processo</p>
                   <div className="space-y-2">
                     {sop.steps.map((step,i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>{i+1}</div>
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>{i+1}</div>
                         <p className="text-sm flex-1" style={{ color:"#374151", lineHeight:1.5 }}>{step}</p>
                       </div>
                     ))}
@@ -10089,10 +10098,10 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
                   <div className="space-y-2">
                     {checklist.map((item,i) => (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all"
-                        style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}
+                        style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}
                         onClick={()=>toggleCheck(i)}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(43,139,232,0.2)"}
-                        onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(43,94,70,0.2)"}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(206,186,150,0.5)"}>
                         <div className="w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
                           style={{ borderColor:item.done?"#10b981":"#d1d5db", background:item.done?"#10b981":"transparent" }}>
                           {item.done && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:8,height:8}}><polyline points="20 6 9 17 4 12"/></svg>}
@@ -10108,14 +10117,14 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
               {sop.content && (
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Conteúdo</p>
-                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(226,232,240,0.5)", whiteSpace:"pre-wrap" }}>{sop.content}</div>
+                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background:"rgba(248,250,252,0.7)", color:"#374151", border:"1px solid rgba(206,186,150,0.5)", whiteSpace:"pre-wrap" }}>{sop.content}</div>
                 </div>
               )}
 
               {/* Tags + Links */}
               {(sop.tags?.length > 0 || sop.links?.length > 0) && (
                 <div className="flex flex-wrap gap-2">
-                  {sop.tags?.map(t => <span key={t} className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:"rgba(43,139,232,0.08)", color:"#2b8be8" }}>#{t}</span>)}
+                  {sop.tags?.map(t => <span key={t} className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:"rgba(43,94,70,0.08)", color:"#2B5E46" }}>#{t}</span>)}
                   {sop.links?.map((l,i) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background:"rgba(16,185,129,0.08)", color:"#10b981" }}>🔗 {l.label||l.url}</a>)}
                 </div>
               )}
@@ -10150,7 +10159,7 @@ function SopForm({ sop, onSave, onClose }) {
           {Object.entries(SOP_TYPE).map(([k,v])=>(
             <button key={k} type="button" onClick={()=>setF(p=>({...p,type:k}))}
               className="p-3 rounded-xl text-left transition-all"
-              style={{ background:f.type===k?v.bg:"rgba(248,250,252,0.7)", border:f.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(226,232,240,0.6)" }}>
+              style={{ background:f.type===k?v.bg:"rgba(248,250,252,0.7)", border:f.type===k?`1.5px solid ${v.color}40`:"1px solid rgba(206,186,150,0.6)" }}>
               <span className="text-lg">{v.icon}</span>
               <p className="text-xs font-black mt-1" style={{ color:f.type===k?v.color:"#374151" }}>{v.label}</p>
             </button>
@@ -10161,8 +10170,8 @@ function SopForm({ sop, onSave, onClose }) {
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Título *</label>
           <input value={f.title} onChange={e=>setF(p=>({...p,title:e.target.value}))} placeholder="Ex: Admissão de Colaborador"
-            className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Descrição */}
@@ -10170,8 +10179,8 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Descrição</label>
           <textarea value={f.description} onChange={e=>setF(p=>({...p,description:e.target.value}))} rows={2}
             placeholder="Objetivo e contexto deste SOP..."
-            className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Grid 3 col */}
@@ -10179,24 +10188,24 @@ function SopForm({ sop, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Categoria</label>
             <select value={f.category} onChange={e=>setF(p=>({...p,category:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               {SOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Prioridade</label>
             <select value={f.priority} onChange={e=>setF(p=>({...p,priority:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               {Object.entries(SOP_PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Dificuldade</label>
             <select value={f.difficulty} onChange={e=>setF(p=>({...p,difficulty:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               {Object.entries(SOP_DIFFICULTY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
@@ -10206,20 +10215,20 @@ function SopForm({ sop, onSave, onClose }) {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Tempo (min)</label>
             <input type="number" value={f.estimatedTime} onChange={e=>setF(p=>({...p,estimatedTime:Number(e.target.value)}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
           </div>
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Versão</label>
             <input value={f.version} onChange={e=>setF(p=>({...p,version:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
           </div>
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Responsável</label>
             <select value={f.responsibleId} onChange={e=>setF(p=>({...p,responsibleId:e.target.value}))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}>
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}>
               <option value="">Nenhum</option>
               {(teamUsers||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
@@ -10231,8 +10240,8 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Etapas do Processo</label>
           <div className="space-y-1.5 mb-2">
             {f.steps.map((s,i)=>(
-              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"#2b8be8" }}>{i+1}</span>
+              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"#2B5E46" }}>{i+1}</span>
                 <span className="flex-1 text-xs" style={{ color:"#374151" }}>{s}</span>
                 <button type="button" onClick={()=>setF(p=>({...p,steps:p.steps.filter((_,j)=>j!==i)}))} className="text-slate-300 hover:text-red-400 transition-colors">×</button>
               </div>
@@ -10240,10 +10249,10 @@ function SopForm({ sop, onSave, onClose }) {
           </div>
           <div className="flex gap-2">
             <input value={newStep} onChange={e=>setNewStep(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newStep.trim()){ setF(p=>({...p,steps:[...p.steps,newStep.trim()]})); setNewStep(""); } }} placeholder="Adicionar etapa (Enter)..."
-              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
             <button type="button" onClick={()=>{ if(newStep.trim()){ setF(p=>({...p,steps:[...p.steps,newStep.trim()]})); setNewStep(""); }}}
-              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+</button>
+              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>+</button>
           </div>
         </div>
 
@@ -10252,8 +10261,8 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Checklist</label>
           <div className="space-y-1.5 mb-2">
             {f.checklist.map((c,i)=>(
-              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.5)" }}>
-                <input type="checkbox" checked={c.done||false} onChange={()=>setF(p=>{ const cl=[...p.checklist]; cl[i]={...cl[i],done:!cl[i].done}; return {...p,checklist:cl}; })} className="w-3.5 h-3.5 rounded" style={{ accentColor:"#2b8be8" }}/>
+              <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
+                <input type="checkbox" checked={c.done||false} onChange={()=>setF(p=>{ const cl=[...p.checklist]; cl[i]={...cl[i],done:!cl[i].done}; return {...p,checklist:cl}; })} className="w-3.5 h-3.5 rounded" style={{ accentColor:"#2B5E46" }}/>
                 <span className="flex-1 text-xs" style={{ color:"#374151" }}>{c.text}</span>
                 <button type="button" onClick={()=>setF(p=>({...p,checklist:p.checklist.filter((_,j)=>j!==i)}))} className="text-slate-300 hover:text-red-400 transition-colors">×</button>
               </div>
@@ -10261,10 +10270,10 @@ function SopForm({ sop, onSave, onClose }) {
           </div>
           <div className="flex gap-2">
             <input value={newCheck} onChange={e=>setNewCheck(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newCheck.trim()){ setF(p=>({...p,checklist:[...p.checklist,{text:newCheck.trim(),done:false}]})); setNewCheck(""); } }} placeholder="Adicionar item (Enter)..."
-              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-              style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+              className="flex-1 border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+              style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
             <button type="button" onClick={()=>{ if(newCheck.trim()){ setF(p=>({...p,checklist:[...p.checklist,{text:newCheck.trim(),done:false}]})); setNewCheck(""); }}}
-              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#5aaff5,#2b8be8)" }}>+</button>
+              className="px-3 py-1.5 text-white rounded-xl text-xs font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>+</button>
           </div>
         </div>
 
@@ -10273,8 +10282,8 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Conteúdo / Instruções detalhadas</label>
           <textarea value={f.content} onChange={e=>setF(p=>({...p,content:e.target.value}))} rows={4}
             placeholder="Instruções detalhadas, observações técnicas, referências legais..."
-            className="w-full border rounded-xl px-3 py-2 text-sm resize-y focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-2 text-sm resize-y focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Tags */}
@@ -10282,14 +10291,14 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Tags</label>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {f.tags.map((t,i)=>(
-              <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>
+              <span key={i} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:"rgba(43,94,70,0.1)", color:"#2B5E46" }}>
                 #{t}<button type="button" onClick={()=>setF(p=>({...p,tags:p.tags.filter((_,j)=>j!==i)}))} className="opacity-50 hover:opacity-100">×</button>
               </span>
             ))}
           </div>
           <input value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newTag.trim()){ setF(p=>({...p,tags:[...p.tags,newTag.trim()]})); setNewTag(""); }}} placeholder="Adicionar tag (Enter)..."
-            className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Notas */}
@@ -10297,8 +10306,8 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>Observações</label>
           <textarea value={f.notes} onChange={e=>setF(p=>({...p,notes:e.target.value}))} rows={2}
             placeholder="Notas internas, alertas ou contexto adicional..."
-            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.8)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
 
         {/* Flags */}
@@ -10306,7 +10315,7 @@ function SopForm({ sop, onSave, onClose }) {
           <label className="flex items-center gap-2 cursor-pointer">
             <button type="button" onClick={()=>setF(p=>({...p,isTemplate:!p.isTemplate}))}
               className="relative w-9 h-5 rounded-full transition-all"
-              style={{ background:f.isTemplate?"linear-gradient(135deg,#5aaff5,#2b8be8)":"rgba(203,213,225,0.7)" }}>
+              style={{ background:f.isTemplate?"linear-gradient(135deg,#4A7454,#2B5E46)":"rgba(203,213,225,0.7)" }}>
               <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left:f.isTemplate?"calc(100% - 18px)":"2px" }}/>
             </button>
             <span className="text-xs font-semibold" style={{ color:"#374151" }}>Salvar como template</span>
@@ -10317,7 +10326,7 @@ function SopForm({ sop, onSave, onClose }) {
           <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
           <button onClick={()=>onSave(f)} disabled={!f.title.trim()}
             className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-            style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
             <Icon.Plus />{sop?"Salvar":"Criar"}
           </button>
         </div>
@@ -10375,19 +10384,19 @@ function SOPs() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-black" style={{ color:"#1a1d23", letterSpacing:"-0.01em" }}>📚 SOPs & Playbooks</h2>
+          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>📚 SOPs & Playbooks</h2>
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Central operacional do escritório — processos, padrões e playbooks</p>
         </div>
         <div className="flex gap-2">
           <button onClick={()=>setTemplateMode(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background:"rgba(241,245,249,0.9)", color:"#64748b", border:"1px solid rgba(226,232,240,0.7)" }}>
+            style={{ background:"rgba(241,245,249,0.9)", color:"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
             📋 Templates
           </button>
           {isAdmin && (
             <button onClick={()=>{setEditingSop(null);setFormOpen(true);}}
               className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
               <Icon.Plus />Novo SOP
             </button>
           )}
@@ -10401,25 +10410,25 @@ function SOPs() {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar SOPs, playbooks, tags..."
-            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-            style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)" }}/>
+            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+            style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)" }}/>
         </div>
         <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todos os tipos</option>
           <option value="sop">📋 SOP</option>
           <option value="playbook">📘 Playbook</option>
         </select>
         <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todas categorias</option>
           {SOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
         </select>
         <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-300"
-          style={{ borderColor:"rgba(221,227,237,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
+          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-green-700"
+          style={{ borderColor:"rgba(206,186,150,0.7)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
           <option value="all">Todas prioridades</option>
           {Object.entries(SOP_PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -10427,13 +10436,13 @@ function SOPs() {
 
       {/* Empty state */}
       {sops.length === 0 && !templateMode ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+        <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
           <p className="text-5xl mb-4">📚</p>
-          <p className="text-lg font-bold" style={{ color:"#1a1d23" }}>Nenhum SOP ainda</p>
+          <p className="text-lg font-bold" style={{ color:"#111110" }}>Nenhum SOP ainda</p>
           <p className="text-sm mt-1 mb-5" style={{ color:"#94a3b8" }}>Comece pelos templates prontos ou crie do zero</p>
           <div className="flex gap-3 justify-center">
-            <button onClick={()=>setTemplateMode(true)} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background:"rgba(241,245,249,0.9)", color:"#374151", border:"1px solid rgba(226,232,240,0.7)" }}>📋 Usar templates</button>
-            {isAdmin && <button onClick={()=>{setEditingSop(null);setFormOpen(true);}} className="px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>+ Criar do zero</button>}
+            <button onClick={()=>setTemplateMode(true)} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background:"rgba(241,245,249,0.9)", color:"#374151", border:"1px solid rgba(206,186,150,0.7)" }}>📋 Usar templates</button>
+            {isAdmin && <button onClick={()=>{setEditingSop(null);setFormOpen(true);}} className="px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>+ Criar do zero</button>}
           </div>
         </div>
       ) : (
@@ -10442,7 +10451,7 @@ function SOPs() {
           {favorites.length > 0 && !search && filterCat==="all" && filterType==="all" && (
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#94a3b8" }}>
-                <span style={{ color:"#f59e0b" }}>★</span> Favoritos
+                <span style={{ color:"#B8965A" }}>★</span> Favoritos
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {favorites.map(s=>(
@@ -10476,11 +10485,11 @@ function SOPs() {
                 {categories.map(c=>(
                   <button key={c} onClick={()=>setFilterCat(c)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(221,227,237,0.7)", boxShadow:"0 2px 6px rgba(26,29,35,0.04)" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(43,139,232,0.3)";e.currentTarget.style.color="#2b8be8";}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(221,227,237,0.7)";e.currentTarget.style.color="#374151";}}>
+                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 2px 6px rgba(26,29,35,0.04)" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(43,94,70,0.3)";e.currentTarget.style.color="#2B5E46";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(206,186,150,0.7)";e.currentTarget.style.color="#374151";}}>
                     {c}
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(43,139,232,0.1)", color:"#2b8be8" }}>{catCounts[c]||0}</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(43,94,70,0.1)", color:"#2B5E46" }}>{catCounts[c]||0}</span>
                   </button>
                 ))}
               </div>
@@ -10509,9 +10518,9 @@ function SOPs() {
           )}
 
           {filtered.length === 0 && search && (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(221,227,237,0.7)" }}>
+            <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.7)" }}>
               <p className="text-3xl mb-2">🔍</p>
-              <p className="font-bold" style={{ color:"#1a1d23" }}>Nenhum resultado para "{search}"</p>
+              <p className="font-bold" style={{ color:"#111110" }}>Nenhum resultado para "{search}"</p>
             </div>
           )}
         </div>
@@ -10529,10 +10538,10 @@ function SOPs() {
                 const already = sops.some(s=>s.title===tpl.title);
                 return (
                   <div key={i} className="flex items-center gap-3 p-4 rounded-xl transition-all"
-                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(226,232,240,0.6)", opacity:already?0.5:1 }}>
+                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.6)", opacity:already?0.5:1 }}>
                     <span className="text-2xl flex-shrink-0">{tc.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black" style={{ color:"#1a1d23" }}>{tpl.title}</p>
+                      <p className="text-sm font-black" style={{ color:"#111110" }}>{tpl.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px]" style={{ color:tc.color }}>{tc.label}</span>
                         <span className="text-[10px]" style={{ color:"#94a3b8" }}>• {tpl.category}</span>
@@ -10543,7 +10552,7 @@ function SOPs() {
                     </div>
                     <button onClick={()=>!already&&useTemplate(tpl)} disabled={already}
                       className="px-3 py-1.5 text-white rounded-xl text-xs font-bold flex-shrink-0 disabled:opacity-40"
-                      style={{ background:already?"#94a3b8":"linear-gradient(135deg,#1c1f26,#1e2e4a)" }}>
+                      style={{ background:already?"#94a3b8":"linear-gradient(135deg,#111110,#1A3829)" }}>
                       {already?"Adicionado":"+ Usar"}
                     </button>
                   </div>
@@ -10656,14 +10665,14 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg, #1c1f26 0%, #1e2e4a 50%, #1a3a6e 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg, #111110 0%, #1A3829 50%, #1a3a6e 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',system-ui,sans-serif" }}>
       <div style={{ width:"100%", maxWidth:400, padding:"0 24px" }}>
         {/* Header */}
         <div style={{ textAlign:"center", marginBottom:40 }}>
           <h1 style={{ color:"#fff", fontSize:32, fontWeight:900, margin:0, letterSpacing:"0.08em", lineHeight:1.15, textTransform:"uppercase", textShadow:"0 2px 24px rgba(91,175,245,0.4)" }}>
             CÓDICE<br/>CONTABILIDADE
           </h1>
-          <div style={{ width:60, height:3, background:"linear-gradient(90deg,#5aaff5,#2b8be8)", borderRadius:2, margin:"14px auto 0" }}></div>
+          <div style={{ width:60, height:3, background:"linear-gradient(90deg,#4A7454,#2B5E46)", borderRadius:2, margin:"14px auto 0" }}></div>
           <p style={{ color:"rgba(255,255,255,0.45)", fontSize:13, marginTop:12 }}>
             {mode === "login" ? "Entre na sua conta" : "Crie sua conta"}
           </p>
@@ -10675,7 +10684,7 @@ function LoginScreen({ onLogin }) {
             {["login","signup"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); }}
                 style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, transition:"all 0.2s",
-                  background: mode===m ? "linear-gradient(135deg,#5aaff5,#2b8be8)" : "transparent",
+                  background: mode===m ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "transparent",
                   color: mode===m ? "#fff" : "rgba(255,255,255,0.5)" }}>
                 {m === "login" ? "Entrar" : "Cadastrar"}
               </button>
@@ -10702,12 +10711,12 @@ function LoginScreen({ onLogin }) {
 
           <button onClick={handle} disabled={loading}
             style={{ width:"100%", padding:"13px 0", borderRadius:12, border:"none", cursor:loading?"not-allowed":"pointer", fontSize:15, fontWeight:700, color:"#fff",
-              background: loading ? "rgba(91,175,245,0.4)" : "linear-gradient(135deg,#5aaff5,#2b8be8)",
-              boxShadow: loading ? "none" : "0 4px 20px #2b8be850", transition:"all 0.2s" }}>
+              background: loading ? "rgba(91,175,245,0.4)" : "linear-gradient(135deg,#4A7454,#2B5E46)",
+              boxShadow: loading ? "none" : "0 4px 20px #2B5E4650", transition:"all 0.2s" }}>
             {loading ? "Aguarde..." : (mode === "login" ? "Entrar" : "Criar Conta")}
           </button>
         </div>
-        <p style={{ textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:11, marginTop:24 }}>Códice Contabilidade © 2025</p>
+        <p style={{ textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:11, marginTop:24 }}>YOETZ Inteligência Empresarial © 2025</p>
       </div>
     </div>
   );
@@ -10733,8 +10742,8 @@ export default function App() {
   // Aguardar verificação de sessão antes de renderizar
   if (!authChecked) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#eef1f7", flexDirection:"column", gap:16 }}>
-      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1c1f26,#1e2e4a)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="#5aaff5" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <div style={{ width:48, height:48, borderRadius:12, background:"linear-gradient(135deg,#1A3829,#2B5E46)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4A7454" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
       <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando...</p>
     </div>
