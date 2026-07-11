@@ -5983,10 +5983,9 @@ function SeveranceSimulation() {
 
   // Carregar simulações do banco (compartilhado entre todos os usuários da equipe)
   const { severanceSimulations } = useApp();
+  // Sincronizar saved com o estado global sempre que mudar
   useEffect(() => {
-    if (severanceSimulations?.length > 0) {
-      setSaved(severanceSimulations);
-    }
+    setSaved(severanceSimulations || []);
   }, [severanceSimulations]);
 
   const [f, setF] = useState({
@@ -6150,8 +6149,9 @@ function SeveranceSimulation() {
     };
     setSaved(p => [entry, ...p]);
     // Salvar no banco
-    await db.upsert("severance_simulations", {
+    const saveResult = await db.upsert("severance_simulations", {
       id: entry.id,
+      user_id: auth.getUserId(),
       employee_name: entry.employeeName,
       client_name: formData.clientName||"",
       client_id: entry.clientId,
@@ -6161,10 +6161,12 @@ function SeveranceSimulation() {
       report_data: entry.reportData,
       verbas: entry.verbas,
       form_data: entry.formData,
-    }).catch(console.error);
+    }).catch(e => { console.error("Erro ao salvar simulação:", e); return null; });
+    
+    if (saveResult) {
+      console.log("Simulação salva com sucesso:", entry.id);
+    }
     setView("list");
-    // Recarregar lista do banco para garantir sincronia
-    setSaved(p => [entry, ...p.filter(x => x.id !== entry.id)]);
   };
 
   const handleGerar = () => {
