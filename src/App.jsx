@@ -8,7 +8,7 @@ import { db, auth } from "./supabase.js";
 // ============================================================
 const defaultCategories = [
   { id: "fiscal", name: "Fiscal", color: "#ef4444" },
-  { id: "contabil", name: "Contábil", color: "#3b82f6" },
+  { id: "contabil", name: "Contábil", color: "#2B5E46" },
   { id: "dp", name: "DP", color: "#10b981" },
   { id: "societario", name: "Societário", color: "#B8965A" },
   { id: "administrativo", name: "Administrativo", color: "#6366f1" },
@@ -17,7 +17,7 @@ const defaultCategories = [
 ];
 const defaultContexts = [
   { id: "pessoal", name: "Pessoal", color: "#ec4899" },
-  { id: "codice-contabilidade", name: "YOETZ Inteligência Empresarial", color: "#3b82f6" },
+  { id: "codice-contabilidade", name: "YOETZ Inteligência Empresarial", color: "#2B5E46" },
   { id: "codice-start", name: "YOETZ Start", color: "#10b981" },
   { id: "iabv", name: "IABV", color: "#B8965A" },
   { id: "direito", name: "Direito (Faculdade)", color: "#6366f1" },
@@ -631,7 +631,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
 
       {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-30 w-60 flex flex-col transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ background: "linear-gradient(180deg, #111110 0%, #1e2330 60%, #1a2038 100%)" }}>
+        style={{ background: "linear-gradient(175deg, #0D1F15 0%, #1A3829 30%, #2B5E46 58%, #1A3829 80%, #0D1F15 100%)", borderRight:"1px solid rgba(184,150,90,0.12)" }}>
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center py-7 px-4 relative" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
@@ -651,7 +651,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
                 <text x="184" y="168" fontFamily="system-ui,sans-serif" fontWeight="300" fontSize="18" letterSpacing="7" fill="#B8965A">INTELIGÊNCIA EMPRESARIAL</text>
               </svg>
           }
-          <h1 className="text-xs font-bold text-center tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.85)" }}>{settings.appName}</h1>
+          <p className="text-[9px] font-medium text-center tracking-widest uppercase" style={{ color: "rgba(184,150,90,0.7)", letterSpacing:"0.2em" }}>{settings.appName}</p>
           <button className="lg:hidden absolute top-4 right-4" style={{ color: "rgba(255,255,255,0.5)" }} onClick={() => setSidebarOpen(false)}><Icon.X /></button>
         </div>
 
@@ -659,7 +659,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
           {navGroups.map(group => (
             <div key={group.label}>
-              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>{group.label}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "rgba(184,150,90,0.5)", letterSpacing:"0.15em" }}>{group.label}</p>
               <div className="space-y-0.5">
                 {group.items.map(item => {
                   const I = item.icon;
@@ -668,13 +668,13 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
                     <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
                       className="flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150"
                       style={active
-                        ? { background: "linear-gradient(90deg, #2B5E4622 0%, #2B5E4608 100%)", color: "#7ec8f8", borderLeft: "2px solid #2B5E46" }
-                        : { color: "rgba(255,255,255,0.55)", borderLeft: "2px solid transparent" }
+                        ? { background: "linear-gradient(90deg,rgba(184,150,90,0.18) 0%,rgba(184,150,90,0.06) 100%)", color: "#CEBA96", borderLeft: "2.5px solid #B8965A", borderRadius:"0 8px 8px 0" }
+                        : { color: "rgba(255,255,255,0.5)", borderLeft: "2.5px solid transparent" }
                       }
                       onMouseEnter={e => { if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.85)"; }}
                       onMouseLeave={e => { if (!active) e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
                     >
-                      <span className="mr-3 flex-shrink-0" style={active ? { color: "#4A7454" } : {}}><I /></span>
+                      <span className="mr-3 flex-shrink-0" style={active ? { color: "#B8965A" } : { color:"rgba(255,255,255,0.45)" }}><I /></span>
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -685,10 +685,10 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         </nav>
 
         {/* User footer */}
-        <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(184,150,90,0.15)" }}>
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #4A7454, #2B5E46)", color: "#fff" }}>
+              style={{ background: "linear-gradient(135deg, #B8965A, #CEBA96)", color: "#111110", fontWeight:900 }}>
               {(currentProfile?.name?.[0] || auth.getUserEmail()?.[0] || "U").toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
@@ -709,7 +709,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
 
       {/* MAIN */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="flex items-center h-14 px-4 sm:px-6 flex-shrink-0" style={{ background: "#fff", borderBottom: "1px solid #dde3ed" }}>
+        <header className="flex items-center h-14 px-4 sm:px-6 flex-shrink-0" style={{ background: "#ffffff", borderBottom: "1px solid rgba(206,186,150,0.3)" }}>
           <button className="mr-4 lg:hidden" style={{ color: "#64748b" }} onClick={() => setSidebarOpen(true)}><Icon.Menu /></button>
           <div>
             <h1 className="text-base font-bold" style={{ color: "#111110" }}>{currentLabel}</h1>
@@ -743,10 +743,10 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
 // ============================================================
 // DASHBOARD
 // ============================================================
-function StatCard({ title, value, icon, trend, trendColor, accent = "#3b82f6" }) {
+function StatCard({ title, value, icon, trend, trendColor, accent = "#2B5E46" }) {
   return (
     <div className="rounded-2xl p-5 hover:shadow-lg transition-all duration-200 cursor-default relative overflow-hidden"
-      style={{ background: "#fff", border: "1px solid #dde3ed", boxShadow: "0 2px 8px rgba(26,29,35,0.07)" }}>
+      style={{ background: "#fff", border: "1px solid #dde3ed", boxShadow: "0 2px 8px rgba(17,24,20,0.07)" }}>
       <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-5" style={{ background: accent, transform: "translate(30%, -30%)" }} />
       <div className="flex items-start justify-between mb-3">
         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#94a3b8" }}>{title}</p>
@@ -861,12 +861,12 @@ function Dashboard() {
         border: urgent ? "1.5px solid rgba(239,68,68,0.25)" : "1px solid rgba(206,186,150,0.8)",
         boxShadow: urgent
           ? "0 4px 24px rgba(239,68,68,0.08), 0 1px 4px rgba(0,0,0,0.04)"
-          : "0 4px 24px rgba(26,29,35,0.05), 0 1px 4px rgba(0,0,0,0.03)",
+          : "0 4px 24px rgba(17,24,20,0.05), 0 1px 4px rgba(0,0,0,0.03)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=urgent?"0 8px 32px rgba(239,68,68,0.14)":"0 8px 32px rgba(26,29,35,0.1)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=urgent?"0 4px 24px rgba(239,68,68,0.08)":"0 4px 24px rgba(26,29,35,0.05)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=urgent?"0 8px 32px rgba(239,68,68,0.14)":"0 8px 32px rgba(17,24,20,0.1)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=urgent?"0 4px 24px rgba(239,68,68,0.08)":"0 4px 24px rgba(17,24,20,0.05)";}}>
       {/* Glow de fundo sutil */}
       <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at top right, ${accent}08 0%, transparent 60%)`, pointerEvents:"none" }}/>
       <div className="flex items-start justify-between">
@@ -1029,7 +1029,7 @@ function Dashboard() {
         <div className="lg:col-span-2 rounded-2xl p-6" style={{
           background:"rgba(255,255,255,0.98)",
           border:"1px solid rgba(206,186,150,0.7)",
-          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+          boxShadow:"0 4px 24px rgba(17,24,20,0.06)",
           backdropFilter:"blur(8px)",
         }}>
           <div className="flex items-center justify-between mb-5">
@@ -1039,7 +1039,7 @@ function Dashboard() {
             </div>
             <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
               <span className="flex items-center gap-1.5" style={{ color:"#B8965A" }}>
-                <span style={{ width:8,height:8,borderRadius:2,background:"#2B5E46",display:"inline-block" }}/>Concluídas
+                <span style={{ width:8,height:8,borderRadius:2,background:"#B8965A",display:"inline-block" }}/>Concluídas
               </span>
               <span className="flex items-center gap-1.5" style={{ color:"#e2e8f0" }}>
                 <span style={{ width:8,height:8,borderRadius:2,background:"#cbd5e1",display:"inline-block" }}/>Pendentes
@@ -1063,7 +1063,7 @@ function Dashboard() {
                 <XAxis dataKey="day" axisLine={false} tickLine={false}
                   tick={({ x,y,payload,index }) => (
                     <text x={x} y={y+12} textAnchor="middle" fontSize={11} fontWeight={spark7[index]?.date===t?700:400}
-                      fill={spark7[index]?.date===t?"#2B5E46":"#94a3b8"}>
+                      fill={spark7[index]?.date===t?"#B8965A":"#94a3b8"}>
                       {spark7[index]?.date===t?"Hoje":payload.value}
                     </text>
                   )}
@@ -1071,7 +1071,7 @@ function Dashboard() {
                 <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
                 <Tooltip
                   cursor={{ fill:"rgba(43,94,70,0.04)", radius:8 }}
-                  contentStyle={{ borderRadius:14, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 32px rgba(26,29,35,0.12)", padding:"10px 14px", fontSize:12, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                  contentStyle={{ borderRadius:14, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 32px rgba(17,24,20,0.12)", padding:"10px 14px", fontSize:12, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
                   labelStyle={{ fontWeight:700, color:"#111110", marginBottom:4 }}
                   formatter={(val,name) => [`${val} tarefa${val!==1?"s":""}`, name]}
                 />
@@ -1099,7 +1099,7 @@ function Dashboard() {
         <div className="rounded-2xl p-5 flex flex-col gap-3" style={{
           background:"rgba(255,255,255,0.98)",
           border:"1px solid rgba(206,186,150,0.7)",
-          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+          boxShadow:"0 4px 24px rgba(17,24,20,0.06)",
         }}>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#4A7454,#2B5E46)" }}/>
@@ -1114,7 +1114,7 @@ function Dashboard() {
           ) : (
             <div className="space-y-2.5">
               {insights.map((ins,i) => {
-                const colors = { danger:"#ef4444",warning:"#B8965A",success:"#10b981",info:"#2B5E46",special:"#a855f7" };
+                const colors = { danger:"#ef4444",warning:"#B8965A",success:"#10b981",info:"#B8965A",special:"#a855f7" };
                 const bgs    = { danger:"rgba(239,68,68,0.06)",warning:"rgba(245,158,11,0.06)",success:"rgba(16,185,129,0.06)",info:"rgba(43,94,70,0.06)",special:"rgba(168,85,247,0.06)" };
                 const c = colors[ins.type]||"#64748b";
                 const bg = bgs[ins.type]||"#ffffff";
@@ -1146,7 +1146,7 @@ function Dashboard() {
           <div className="rounded-2xl p-5" style={{
             background:"rgba(255,255,255,0.98)",
             border:"1px solid rgba(206,186,150,0.7)",
-            boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+            boxShadow:"0 4px 24px rgba(17,24,20,0.06)",
           }}>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#10b981,#059669)" }}/>
@@ -1190,7 +1190,7 @@ function Dashboard() {
         <div className="rounded-2xl p-5" style={{
           background:"rgba(255,255,255,0.98)",
           border:"1px solid rgba(206,186,150,0.7)",
-          boxShadow:"0 4px 24px rgba(26,29,35,0.06)",
+          boxShadow:"0 4px 24px rgba(17,24,20,0.06)",
         }}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1.5 h-4 rounded-full" style={{ background:"linear-gradient(180deg,#f59e0b,#d97706)" }}/>
@@ -1648,7 +1648,7 @@ function Tasks() {
           </div>
         </div>
       )}
-      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
         <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom:"1px solid #dde3ed" }}>
           {viewMode === "list" ? (
             <div className="flex items-center gap-2 flex-wrap">
@@ -1694,7 +1694,7 @@ function Tasks() {
             {/* Botão Relatório — novo */}
             <button onClick={() => setShowRelatorio(true)}
               className="flex items-center px-4 py-2 rounded-xl text-sm font-semibold gap-1.5 transition-all"
-              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#B8965A", border:"1px solid rgba(184,150,90,0.2)", boxShadow:"0 2px 8px rgba(26,29,35,0.15)" }}
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#B8965A", border:"1px solid rgba(184,150,90,0.2)", boxShadow:"0 2px 8px rgba(17,24,20,0.15)" }}
               onMouseEnter={e=>{e.currentTarget.style.opacity="0.9";}}
               onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}>
@@ -1748,8 +1748,8 @@ function Tasks() {
               style={{
                 background: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "rgba(43,94,70,0.09)",
                 color: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "#fff" : "#2B5E46",
-                border: "1.5px solid rgba(43,94,70,0.25)",
-                boxShadow: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "0 2px 8px rgba(43,94,70,0.25)" : "none",
+                border: "1.5px solid rgba(184,150,90,0.25)",
+                boxShadow: filterStatus==="pending" && startDate===today() && endDate > today() && endDate !== today() ? "0 2px 8px rgba(184,150,90,0.2)" : "none",
               }}>
               📋 Todas
             </button>
@@ -2142,7 +2142,7 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
             background: "rgba(255,255,255,0.99)",
             border: "1px solid rgba(206,186,150,0.9)",
             borderRadius: 12,
-            boxShadow: "0 8px 32px rgba(26,29,35,0.18)",
+            boxShadow: "0 8px 32px rgba(17,24,20,0.18)",
           }}>
           <div style={{ padding:"8px 12px 6px", borderBottom:"1px solid rgba(206,186,150,0.7)", position:"sticky", top:0, background:"rgba(255,255,255,0.99)" }}>
             <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8" }}>{menuTitle}</p>
@@ -2275,7 +2275,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
   if (compact) {
     return (
       <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150"
-        style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(26,29,35,0.04)" }}>
+        style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(17,24,20,0.04)" }}>
         <button onClick={()=>onToggle(task.id)} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
           style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
           {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
@@ -2297,9 +2297,9 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
   // ── MODO NORMAL ────────────────────────────────────────
   return (
     <div className="group rounded-2xl transition-all duration-200"
-      style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
-      onMouseEnter={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 4px 20px rgba(239,68,68,0.1)":"0 4px 20px rgba(26,29,35,0.08)";e.currentTarget.style.transform="translateY(-1px)";}}
-      onMouseLeave={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(26,29,35,0.04)";e.currentTarget.style.transform="translateY(0)";}}>
+      style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
+      onMouseEnter={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 4px 20px rgba(239,68,68,0.1)":"0 4px 20px rgba(17,24,20,0.08)";e.currentTarget.style.transform="translateY(-1px)";}}
+      onMouseLeave={e=>{e.currentTarget.style.boxShadow=od&&!task.completed?"0 2px 12px rgba(239,68,68,0.06)":"0 2px 12px rgba(17,24,20,0.04)";e.currentTarget.style.transform="translateY(0)";}}>
 
       <div className="flex">
         {cat && <div className="w-1 rounded-l-2xl flex-shrink-0" style={{ background:cat.color, opacity:task.completed?0.25:0.75 }}/>}
@@ -2343,7 +2343,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </button>
               {editingDate && createPortal(
                 <div id={"date-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
-                  style={{ position:"fixed", zIndex:9999, left:datePos.left, top:datePos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", padding:14, minWidth:210 }}>
+                  style={{ position:"fixed", zIndex:9999, left:datePos.left, top:datePos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(17,24,20,0.16)", padding:14, minWidth:210 }}>
                   <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:8 }}>Alterar prazo</p>
                   <input type="date" defaultValue={task.dueDate||""}
                     autoFocus
@@ -2371,7 +2371,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
                 </button>
                 {showAssign && canAssign && createPortal(
                   <div id={"assign-portal-"+task.id} onMouseDown={e=>e.stopPropagation()}
-                    style={{ position:"fixed", zIndex:9999, left:assignPos.left, top:assignPos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(26,29,35,0.16)", minWidth:200, overflow:"hidden" }}>
+                    style={{ position:"fixed", zIndex:9999, left:assignPos.left, top:assignPos.top, background:"rgba(255,255,255,0.99)", border:"1px solid rgba(206,186,150,0.9)", borderRadius:12, boxShadow:"0 8px 32px rgba(17,24,20,0.16)", minWidth:200, overflow:"hidden" }}>
                     <p style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", color:"#94a3b8", padding:"10px 14px 6px" }}>Atribuir responsável</p>
                     <button type="button" onMouseDown={e=>e.stopPropagation()}
                       onClick={()=>{ safeUpdate({assignedTo:null}); setShowAssign(false); }}
@@ -2426,7 +2426,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
               </button>
               <button onClick={()=>{setShowDetail(v=>!v);setShowComment(false);}} title="Detalhes"
                 className="p-1.5 rounded-lg transition-all"
-                style={{ color:showDetail?"#2B5E46":"#94a3b8", background:showDetail?"rgba(43,94,70,0.08)":"transparent" }}
+                style={{ color:showDetail?"#B8965A":"#94a3b8", background:showDetail?"rgba(43,94,70,0.08)":"transparent" }}
                 onMouseEnter={e=>{e.currentTarget.style.background="rgba(43,94,70,0.08)";e.currentTarget.style.color="#2B5E46";}}
                 onMouseLeave={e=>{ if(!showDetail){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#94a3b8";}}}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:13,height:13}}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -2655,7 +2655,7 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
                   style={{
                     background: done ? "#2B5E46" : isToday ? "#dbeafe" : expected && !isFuture ? "#ffffff" : "transparent",
                     color: done ? "#fff" : isToday ? "#2B5E46" : isFuture ? "#d1d5db" : expected ? "#374151" : "#cbd5e1",
-                    border: isToday && !done ? "2px solid #2B5E46" : "2px solid transparent",
+                    border: isToday && !done ? "2px solid #B8965A" : "2px solid transparent",
                     opacity: isFuture ? 0.4 : 1,
                     cursor: isFuture ? "default" : "pointer",
                   }}>
@@ -2667,9 +2667,9 @@ function HabitCalendarModal({ habit, onClose, onToggle, categories }) {
         </div>
         {/* Legend */}
         <div className="px-4 pb-4 flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#2B5E46" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Feito</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#B8965A" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Feito</span></div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#ffffff", border:"1px solid #dde3ed" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Esperado</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#dbeafe", border:"2px solid #2B5E46" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Hoje</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ background:"#dbeafe", border:"2px solid #B8965A" }} /><span className="text-[10px]" style={{ color:"#64748b" }}>Hoje</span></div>
         </div>
       </div>
     </div>
@@ -2752,11 +2752,11 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
       style={{
         background: done ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.95)",
         border: done ? `1.5px solid ${h.color||"#2B5E46"}30` : "1px solid rgba(206,186,150,0.7)",
-        boxShadow: done ? `0 4px 24px ${h.color||"#2B5E46"}12` : "0 4px 16px rgba(26,29,35,0.04)",
+        boxShadow: done ? `0 4px 24px ${h.color||"#2B5E46"}12` : "0 4px 16px rgba(17,24,20,0.04)",
         backdropFilter: "blur(8px)",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2B5E46"}18`:"0 8px 28px rgba(26,29,35,0.08)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2B5E46"}12`:"0 4px 16px rgba(26,29,35,0.04)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=done?`0 8px 32px ${h.color||"#2B5E46"}18`:"0 8px 28px rgba(17,24,20,0.08)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=done?`0 4px 24px ${h.color||"#2B5E46"}12`:"0 4px 16px rgba(17,24,20,0.04)";}}>
 
       {/* Barra de progresso streak */}
       <div className="h-0.5" style={{ background:`linear-gradient(90deg,${h.color||"#2B5E46"},${h.color||"#2B5E46"}66)`, width:`${Math.min(streak/Math.max(h.targetStreak||21,1)*100,100)}%`, transition:"width 0.6s ease" }}/>
@@ -3106,7 +3106,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
           <p className="text-xs mt-0.5" style={{ color:"#94a3b8" }}>Sistema inteligente de construção de identidade</p>
         </div>
         <button onClick={()=>openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
           <Icon.Plus />Novo Hábito
         </button>
       </div>
@@ -3124,7 +3124,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
           <button key={id} onClick={()=>setView(id)}
             className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
             style={{ background:view===id?"rgba(255,255,255,0.98)":"transparent", color:view===id?"#1A3829":"#94a3b8",
-              boxShadow:view===id?"0 2px 8px rgba(26,29,35,0.08)":"none" }}>
+              boxShadow:view===id?"0 2px 8px rgba(17,24,20,0.08)":"none" }}>
             {label}
           </button>
         ))}
@@ -3142,9 +3142,9 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
               { label:"Melhor sequência", value:stats.bestOverall, sub:"dias consecutivos", color:"#a855f7", icon:"🏆" },
             ].map(k => (
               <div key={k.label} className="rounded-2xl p-4 transition-all"
-                style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
-                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+                style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
+                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>{k.label}</p>
@@ -3226,9 +3226,9 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 const color = pct >= 70 ? "#10b981" : pct >= 40 ? "#B8965A" : "#ef4444";
                 return (
                   <div key={id.name} className="rounded-2xl p-5 transition-all"
-                    style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
+                    style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}
                     onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=`0 8px 24px ${color}15`;}}
-                    onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+                    onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-black" style={{ color:"#111110" }}>{id.name}</p>
@@ -3348,7 +3348,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {EMOJIS.map(e => (
                   <button key={e} type="button" onClick={()=>setHf(p=>({...p,emoji:e}))}
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all"
-                    style={{ background:hf.emoji===e?"rgba(43,94,70,0.15)":"rgba(248,250,252,0.8)", border:hf.emoji===e?"1.5px solid rgba(43,94,70,0.4)":"1px solid rgba(206,186,150,0.6)", transform:hf.emoji===e?"scale(1.15)":"scale(1)" }}>
+                    style={{ background:hf.emoji===e?"rgba(43,94,70,0.15)":"rgba(248,250,252,0.8)", border:hf.emoji===e?"1.5px solid rgba(184,150,90,0.4)":"1px solid rgba(206,186,150,0.6)", transform:hf.emoji===e?"scale(1.15)":"scale(1)" }}>
                     {e}
                   </button>
                 ))}
@@ -3409,7 +3409,7 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {[["daily","Todos os dias"],["weekly","Dias específicos"]].map(([v,l]) => (
                   <button key={v} type="button" onClick={()=>setHf(p=>({...p,freq:v,freqDays:v==="daily"?[1,2,3,4,5,6,7]:p.freqDays?.length?p.freqDays:[1,2,3,4,5]}))}
                     className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:hf.freq===v?"linear-gradient(135deg,#111110,#1A3829)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#4A7454":"#64748b", border:hf.freq===v?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.6)" }}>
+                    style={{ background:hf.freq===v?"linear-gradient(135deg,#111110,#1A3829)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#B8965A":"#64748b", border:hf.freq===v?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.6)" }}>
                     {l}
                   </button>
                 ))}
@@ -3447,8 +3447,8 @@ Responda APENAS com JSON puro (sem markdown), com esta estrutura:
                 {TIME_OPTIONS.map(o => (
                   <button key={o.v} type="button" onClick={()=>setHf(p=>({...p,timeOfDay:o.v}))}
                     className="p-2.5 rounded-xl text-left transition-all"
-                    style={{ background:hf.timeOfDay===o.v?"rgba(43,94,70,0.08)":"rgba(248,250,252,0.7)", border:hf.timeOfDay===o.v?"1.5px solid rgba(43,94,70,0.3)":"1px solid rgba(206,186,150,0.6)" }}>
-                    <p className="text-sm font-semibold" style={{ color:hf.timeOfDay===o.v?"#2B5E46":"#374151" }}>{o.l}</p>
+                    style={{ background:hf.timeOfDay===o.v?"rgba(43,94,70,0.08)":"rgba(248,250,252,0.7)", border:hf.timeOfDay===o.v?"1.5px solid rgba(184,150,90,0.3)":"1px solid rgba(206,186,150,0.6)" }}>
+                    <p className="text-sm font-semibold" style={{ color:hf.timeOfDay===o.v?"#B8965A":"#374151" }}>{o.l}</p>
                     {o.sub && <p className="text-[10px]" style={{ color:"#94a3b8" }}>{o.sub}</p>}
                   </button>
                 ))}
@@ -3714,7 +3714,7 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
               <div key={l} className="flex items-center gap-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all"
-                    style={i < stepIdx ? { background:"#10b981", color:"#fff" } : i === stepIdx ? { background:"#2B5E46", color:"#fff" } : { background:"#e8edf5", color:"#94a3b8" }}>
+                    style={i < stepIdx ? { background:"#10b981", color:"#fff" } : i === stepIdx ? { background:"#B8965A", color:"#fff" } : { background:"#e8edf5", color:"#94a3b8" }}>
                     {i < stepIdx ? "✓" : i+1}
                   </div>
                   <span className="text-xs font-semibold" style={{ color: i === stepIdx ? "#2B5E46" : i < stepIdx ? "#10b981" : "#94a3b8" }}>{l}</span>
@@ -3889,14 +3889,14 @@ function ImportClientsModal({ onClose, existingClients, onImport }) {
                         </button>
                       </div>
                       {/* Novo */}
-                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="replace" ? "#eff6ff":"#ffffff", border:`2px solid ${resolutions[i]==="replace"?"#2B5E46":"#e8edf5"}` }}>
+                      <div className="rounded-xl p-3" style={{ background: resolutions[i]==="replace" ? "#eff6ff":"#ffffff", border:`2px solid ${resolutions[i]==="replace"?"#B8965A":"#e8edf5"}` }}>
                         <p className="text-[10px] font-black uppercase mb-2" style={{ color:"#94a3b8" }}>📥 Importando</p>
                         <p className="font-bold text-sm" style={{ color:"#111110" }}>{cfl.incoming.name}</p>
                         <p className="text-xs mt-0.5" style={{ color:"#64748b" }}>{cfl.incoming.document || "—"}</p>
                         <p className="text-xs mt-1 font-semibold" style={{ color:"#374151" }}>{fmtCurrency(cfl.incoming.monthlyFee)}</p>
                         <button onClick={() => setResolutions(p => ({...p,[i]:"replace"}))}
                           className="mt-3 w-full py-1.5 rounded-xl text-xs font-bold transition-all"
-                          style={resolutions[i]==="replace" ? {background:"#2B5E46",color:"#fff"} : {background:"#e8edf5",color:"#64748b"}}>
+                          style={resolutions[i]==="replace" ? {background:"#B8965A",color:"#fff"} : {background:"#e8edf5",color:"#64748b"}}>
                           ↑ Substituir
                         </button>
                       </div>
@@ -4106,7 +4106,7 @@ function ClientTimeline({ client, onClose }) {
         <div className="p-5 pb-4" style={{ borderBottom:"1px solid rgba(206,186,150,0.6)", background:"linear-gradient(135deg,rgba(43,94,70,0.04),rgba(255,255,255,0.98))" }}>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg font-black text-white"
-              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 4px 12px rgba(26,29,35,0.2)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 4px 12px rgba(17,24,20,0.2)" }}>
               {client.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -4195,7 +4195,7 @@ function ClientTimeline({ client, onClose }) {
                         {et.emoji}
                       </div>
                       <div className="p-3 rounded-xl transition-all"
-                        style={{ background: item.resolved?"rgba(248,250,252,0.7)":"rgba(255,255,255,0.95)", border:`1px solid ${item.resolved?"rgba(206,186,150,0.5)":et.color+"20"}`, boxShadow:item.resolved?"none":"0 2px 8px rgba(26,29,35,0.04)" }}>
+                        style={{ background: item.resolved?"rgba(248,250,252,0.7)":"rgba(255,255,255,0.95)", border:`1px solid ${item.resolved?"rgba(206,186,150,0.5)":et.color+"20"}`, boxShadow:item.resolved?"none":"0 2px 8px rgba(17,24,20,0.04)" }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -4251,7 +4251,7 @@ function Clients() {
   // ── Status operacional config ─────────────────────────
   const OP_STATUS = {
     healthy:   { label:"Operação saudável",  color:"#10b981", bg:"rgba(16,185,129,0.1)",  dot:"#10b981",  icon:"🟢" },
-    onboarding:{ label:"Em onboarding",      color:"#B8965A", bg:"rgba(43,94,70,0.1)",  dot:"#2B5E46",  icon:"🚀" },
+    onboarding:{ label:"Em onboarding",      color:"#B8965A", bg:"rgba(43,94,70,0.1)",  dot:"#B8965A",  icon:"🚀" },
     attention: { label:"Atenção",            color:"#B8965A", bg:"rgba(245,158,11,0.1)",  dot:"#B8965A",  icon:"🟡" },
     stopped:   { label:"Processo parado",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316",  icon:"⚠️" },
     critical:  { label:"Crítico",            color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444",  icon:"🔴" },
@@ -4320,10 +4320,10 @@ function Clients() {
 
     return (
       <div className="rounded-2xl overflow-hidden transition-all duration-300 group cursor-pointer"
-        style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+        style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
         onClick={()=>setSelectedClient(c)}
-        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
-        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";}}>
+        onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(17,24,20,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";}}>
 
         {/* Barra de saúde no topo */}
         <div className="h-0.5" style={{ background:`linear-gradient(90deg,${opConf.color},${opConf.color}44)`, width:`${health}%`, transition:"width 0.8s ease" }}/>
@@ -4439,7 +4439,7 @@ function Clients() {
                 { label:"Tarefas abertas", value:m.openTasks, color:"#B8965A" },
                 { label:"Atrasadas", value:m.overdueTasks, color:m.overdueTasks>0?"#ef4444":"#10b981" },
                 { label:"Projetos ativos", value:m.activeProjects, color:"#a855f7" },
-                { label:"Onboarding", value:m.clientOnboarding?"Ativo":"—", color:m.clientOnboarding?"#2B5E46":"#94a3b8" },
+                { label:"Onboarding", value:m.clientOnboarding?"Ativo":"—", color:m.clientOnboarding?"#B8965A":"#94a3b8" },
               ].map(k=>(
                 <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
                   <p className="text-lg font-black" style={{ color:k.color }}>{k.value}</p>
@@ -4454,7 +4454,7 @@ function Clients() {
             {tabs.map(([id,label])=>(
               <button key={id} onClick={()=>setActiveTab(id)}
                 className="px-3 py-2 text-xs font-bold rounded-t-xl transition-all"
-                style={{ background:activeTab===id?"rgba(43,94,70,0.08)":"transparent", color:activeTab===id?"#2B5E46":"#94a3b8", borderBottom:activeTab===id?"2px solid #B8965A":"2px solid transparent" }}>
+                style={{ background:activeTab===id?"rgba(43,94,70,0.08)":"transparent", color:activeTab===id?"#B8965A":"#94a3b8", borderBottom:activeTab===id?"2px solid #B8965A":"2px solid transparent" }}>
                 {label}
               </button>
             ))}
@@ -4530,7 +4530,7 @@ function Clients() {
                   : clientProjects.map(p => {
                       const cl = p.checklist||[];
                       const pct = cl.length>0 ? Math.round(cl.filter(x=>x.done).length/cl.length*100) : 0;
-                      const statusColors = { todo:"#94a3b8", doing:"#2B5E46", done:"#10b981" };
+                      const statusColors = { todo:"#94a3b8", doing:"#B8965A", done:"#10b981" };
                       return (
                         <div key={p.id} className="p-4 rounded-2xl" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)" }}>
                           <div className="flex items-center justify-between mb-2">
@@ -4604,7 +4604,7 @@ function Clients() {
             {[["cards","▦"],["list","☰"]].map(([v,icon])=>(
               <button key={v} onClick={()=>setViewMode(v)}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                style={{ background:viewMode===v?"rgba(255,255,255,0.98)":"transparent", color:viewMode===v?"#111110":"#94a3b8", boxShadow:viewMode===v?"0 1px 4px rgba(26,29,35,0.08)":"none" }}>
+                style={{ background:viewMode===v?"rgba(255,255,255,0.98)":"transparent", color:viewMode===v?"#111110":"#94a3b8", boxShadow:viewMode===v?"0 1px 4px rgba(17,24,20,0.08)":"none" }}>
                 {icon}
               </button>
             ))}
@@ -4612,7 +4612,7 @@ function Clients() {
           {isAdmin && (
             <button onClick={()=>openForm()}
               className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
               <Icon.Plus />Novo Cliente
             </button>
           )}
@@ -4628,9 +4628,9 @@ function Clients() {
           { label:"Saúde da carteira",    value:`${avgHealth}%`,        sub:"score operacional",      color:avgHealth>=70?"#10b981":avgHealth>=40?"#B8965A":"#ef4444", icon:"🧠" },
         ].map(k=>(
           <div key={k.label} className="rounded-2xl p-4 transition-all"
-            style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+            style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>{k.label}</p>
@@ -5036,24 +5036,24 @@ function Obligations() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl p-5 col-span-2 lg:col-span-1" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#fff" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.45)" }}>Taxa de Conclusão</p>
-          <p className="text-3xl font-black" style={{ color: completionPct===100?"#10b981": completionPct>=60?"#4A7454":"#B8965A" }}>{completionPct}%</p>
+          <p className="text-3xl font-black" style={{ color: completionPct===100?"#10b981": completionPct>=60?"#B8965A":"#B8965A" }}>{completionPct}%</p>
           <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background:"rgba(255,255,255,0.1)" }}>
             <div className="h-full rounded-full transition-all duration-700"
-              style={{ width:`${completionPct}%`, background: completionPct===100?"#10b981":"#4A7454" }} />
+              style={{ width:`${completionPct}%`, background: completionPct===100?"#10b981":"#B8965A" }} />
           </div>
           <p className="text-[10px] mt-1.5" style={{ color:"rgba(255,255,255,0.4)" }}>{doneCount} de {totalCount} concluídas</p>
         </div>
-        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Pendentes</p>
           <p className="text-2xl font-black" style={{ color:"#d97706" }}>{pendingCount}</p>
           <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>obrigações em aberto</p>
         </div>
-        <div className="rounded-2xl p-5" style={{ background: urgentCount > 0 ? "#fffbeb":"#fff", border:`1px solid ${urgentCount>0?"#fde68a":"#CEBA96"}`, boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+        <div className="rounded-2xl p-5" style={{ background: urgentCount > 0 ? "#fffbeb":"#fff", border:`1px solid ${urgentCount>0?"#fde68a":"#CEBA96"}`, boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Urgentes</p>
           <p className="text-2xl font-black" style={{ color: urgentCount > 0 ? "#d97706":"#94a3b8" }}>{urgentCount}</p>
           <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>vencem em ≤ 2 dias</p>
         </div>
-        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+        <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Globais</p>
           <p className="text-2xl font-black" style={{ color:"#7c3aed" }}>{globalObs.length}</p>
           <p className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>para todos os clientes</p>
@@ -5062,7 +5062,7 @@ function Obligations() {
 
       {/* ── OVERVIEW TAB ── */}
       {tab === "overview" && (
-        <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
           {/* Toolbar */}
           <div className="p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom:"1px solid #e8edf5" }}>
             <div className="flex items-center gap-2 flex-wrap">
@@ -5189,7 +5189,7 @@ function Obligations() {
       {tab === "by-client" && (
         <div className="flex flex-col lg:flex-row gap-5" style={{ minHeight:560 }}>
           {/* Client list with progress */}
-          <div className="w-full lg:w-80 flex-shrink-0 rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+          <div className="w-full lg:w-80 flex-shrink-0 rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
             <div className="p-4" style={{ borderBottom:"1px solid #e8edf5", background:"#ffffff" }}>
               <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Clientes</p>
             </div>
@@ -5218,7 +5218,7 @@ function Obligations() {
                     {c.total > 0 && (
                       <div className="h-1 rounded-full overflow-hidden" style={{ background:"#e8edf5" }}>
                         <div className="h-full rounded-full transition-all"
-                          style={{ width:`${pct}%`, background: pct===100?"#10b981":"#2B5E46" }} />
+                          style={{ width:`${pct}%`, background: pct===100?"#10b981":"#B8965A" }} />
                       </div>
                     )}
                   </button>
@@ -5228,7 +5228,7 @@ function Obligations() {
           </div>
 
           {/* Client detail panel */}
-          <div className="flex-1 rounded-2xl overflow-hidden flex flex-col" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+          <div className="flex-1 rounded-2xl overflow-hidden flex flex-col" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
             {!selectedClient ? (
               <div className="flex-1 flex flex-col items-center justify-center py-16" style={{ color:"#94a3b8" }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10 mb-3 opacity-30"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -5574,7 +5574,7 @@ Responda em JSON puro (sem markdown):
           <button key={id} onClick={()=>setActiveTabR(id)}
             className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
             style={{ background:activeTab===id?"rgba(255,255,255,0.98)":"transparent", color:activeTab===id?"#111110":"#94a3b8",
-              boxShadow:activeTab===id?"0 2px 8px rgba(26,29,35,0.08)":"none" }}>
+              boxShadow:activeTab===id?"0 2px 8px rgba(17,24,20,0.08)":"none" }}>
             {label}
           </button>
         ))}
@@ -5592,9 +5592,9 @@ Responda em JSON puro (sem markdown):
               { label:"Em atraso agora", value:overdue, color:overdue>0?"#ef4444":"#10b981", bg:overdue>0?"rgba(239,68,68,0.06)":"rgba(16,185,129,0.06)", sub:overdue===0?"✓ Tudo em dia":undefined },
             ].map(k => (
               <div key={k.label} className="rounded-2xl p-4 transition-all"
-                style={{ background:`rgba(255,255,255,0.98)`, border:`1px solid rgba(206,186,150,0.7)`, boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
-                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+                style={{ background:`rgba(255,255,255,0.98)`, border:`1px solid rgba(206,186,150,0.7)`, boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
+                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
                 <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>{k.label}</div>
                 <div className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</div>
                 {k.sub && <div className="text-[10px] mt-1" style={{ color:"#94a3b8" }}>{k.sub}</div>}
@@ -5603,7 +5603,7 @@ Responda em JSON puro (sem markdown):
           </div>
 
           {/* Gráfico tendência semanal */}
-          <div className="rounded-2xl p-6" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}>
+          <div className="rounded-2xl p-6" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}>
             <h3 className="text-sm font-black mb-1" style={{ color:"#111110" }}>Tendência Semanal</h3>
             <p className="text-xs mb-4" style={{ color:"#94a3b8" }}>Evolução da taxa de conclusão</p>
             <div className="h-48">
@@ -5622,7 +5622,7 @@ Responda em JSON puro (sem markdown):
                   <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(206,186,150,0.4)"/>
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:10 }}/>
                   <YAxis axisLine={false} tickLine={false} tick={{ fill:"#cbd5e1", fontSize:10 }} allowDecimals={false} width={20}/>
-                  <Tooltip contentStyle={{ borderRadius:12, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 24px rgba(26,29,35,0.12)", fontSize:11, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
+                  <Tooltip contentStyle={{ borderRadius:12, border:"1px solid rgba(206,186,150,0.8)", boxShadow:"0 8px 24px rgba(17,24,20,0.12)", fontSize:11, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(8px)" }}
                     formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700, color:"#111110" }}/>
                   <Bar dataKey="done" name="Concluídas" fill="url(#rg1)" radius={[5,5,0,0]} maxBarSize={32}/>
                   <Bar dataKey="total" name="Total" fill="url(#rg2)" radius={[5,5,0,0]} maxBarSize={32}/>
@@ -5633,7 +5633,7 @@ Responda em JSON puro (sem markdown):
 
           {/* Por categoria */}
           {catStats.length > 0 && (
-            <div className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+            <div className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}>
               <h3 className="text-sm font-black mb-4" style={{ color:"#111110" }}>Desempenho por Categoria</h3>
               <div className="space-y-3">
                 {catStats.map(c => (
@@ -5722,7 +5722,7 @@ Responda em JSON puro (sem markdown):
           </div>
 
           {/* Sugestões */}
-          <div className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+          <div className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}>
             <p className="text-sm font-black mb-3" style={{ color:"#111110" }}>💡 Sugestões de Ação</p>
             <div className="space-y-2">
               {burnoutAnalysis.suggestions.map((s,i) => (
@@ -5776,7 +5776,7 @@ Responda em JSON puro (sem markdown):
               const riskU = uOverdue > 3 || uRate < 30 ? "alto" : uOverdue > 1 || uRate < 50 ? "médio" : "baixo";
               const riskCU = { alto:"#ef4444", médio:"#B8965A", baixo:"#10b981" }[riskU];
               return (
-                <div key={u.id} className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+                <div key={u.id} className="rounded-2xl p-5" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white" style={{ background:u.avatarColor||"#2B5E46", boxShadow:`0 3px 10px ${u.avatarColor||"#2B5E46"}44` }}>{u.name.charAt(0)}</div>
                     <div className="flex-1">
@@ -5787,7 +5787,7 @@ Responda em JSON puro (sem markdown):
                       <p className="text-[10px]" style={{ color:"#94a3b8" }}>{u.role}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-3 text-center">
-                      {[{l:"Tarefas",v:uTasks.length,c:"#2B5E46"},{l:"Concluídas",v:uDone,c:"#10b981"},{l:"Atrasadas",v:uOverdue,c:uOverdue>0?"#ef4444":"#10b981"}].map(k=>(
+                      {[{l:"Tarefas",v:uTasks.length,c:"#B8965A"},{l:"Concluídas",v:uDone,c:"#10b981"},{l:"Atrasadas",v:uOverdue,c:uOverdue>0?"#ef4444":"#10b981"}].map(k=>(
                         <div key={k.l}><p className="text-lg font-black" style={{ color:k.c }}>{k.v}</p><p className="text-[9px]" style={{ color:"#94a3b8" }}>{k.l}</p></div>
                       ))}
                     </div>
@@ -6207,7 +6207,7 @@ function SeveranceSimulation() {
         </button>
       </div>
 
-      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
         {saved.length === 0 ? (
           <div className="p-16 text-center">
             <Icon.Calculator />
@@ -6298,11 +6298,11 @@ function SeveranceSimulation() {
             <p className="text-2xl font-black" style={{ color:"#10b981" }}>{fmtCurrency(totalLiq)}</p>
             <p className="text-[10px] mt-1" style={{ color:"rgba(255,255,255,0.35)" }}>a pagar ao colaborador</p>
           </div>
-          <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+          <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Proventos</p>
             <p className="text-2xl font-black" style={{ color:"#B8965A" }}>{fmtCurrency(totalProv)}</p>
           </div>
-          <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}>
+          <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>Descontos</p>
             <p className="text-2xl font-black" style={{ color:"#ef4444" }}>{fmtCurrency(totalDesc)}</p>
           </div>
@@ -6313,7 +6313,7 @@ function SeveranceSimulation() {
         </div>
 
         {/* Relatório formal */}
-        <div className="rounded-2xl p-8" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+        <div className="rounded-2xl p-8" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
           <div className="text-center mb-8 pb-6" style={{ borderBottom:"2px solid #111110" }}>
             <h1 className="text-2xl font-black" style={{ color:"#111110" }}>YOETZ Inteligência Empresarial</h1>
             <h2 className="text-base font-bold mt-1" style={{ color:"#374151" }}>Relatório de Liquidação de Contrato de Trabalho</h2>
@@ -6361,7 +6361,7 @@ function SeveranceSimulation() {
                     </td>
                     <td className="py-2 text-right">
                       <input type="number" value={v.provento} onChange={e => setVerbas(vs => vs.map(x => x.id===v.id ? {...x,provento:parseFloat(e.target.value)||0} : x))}
-                        className="bg-transparent border-none focus:ring-0 p-0 w-28 text-right text-sm font-semibold" style={{ color: v.provento>0?"#2B5E46":"#cbd5e1" }} />
+                        className="bg-transparent border-none focus:ring-0 p-0 w-28 text-right text-sm font-semibold" style={{ color: v.provento>0?"#B8965A":"#cbd5e1" }} />
                     </td>
                     <td className="py-2 text-right">
                       <input type="number" value={v.desconto} onChange={e => setVerbas(vs => vs.map(x => x.id===v.id ? {...x,desconto:parseFloat(e.target.value)||0} : x))}
@@ -6402,7 +6402,7 @@ function SeveranceSimulation() {
               <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>3. Memória de Cálculo</h3>
               <button onClick={()=>setEditingMemoria(v=>!v)}
                 className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
-                style={{ background:editingMemoria?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingMemoria?"#2B5E46":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
+                style={{ background:editingMemoria?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingMemoria?"#B8965A":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
                 {editingMemoria ? "✓ Fechar" : "✏️ Editar"}
               </button>
             </div>
@@ -6439,7 +6439,7 @@ function SeveranceSimulation() {
               <h3 className="text-sm font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>4. Observações</h3>
               <button onClick={()=>setEditingObs(v=>!v)}
                 className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
-                style={{ background:editingObs?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingObs?"#2B5E46":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
+                style={{ background:editingObs?"rgba(43,94,70,0.1)":"rgba(241,245,249,0.8)", color:editingObs?"#B8965A":"#64748b", border:"1px solid rgba(206,186,150,0.7)" }}>
                 {editingObs ? "✓ Fechar" : "✏️ Editar"}
               </button>
             </div>
@@ -6492,7 +6492,7 @@ function SeveranceSimulation() {
         </div>
       </div>
 
-      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.07)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.07)" }}>
         <div className="p-4" style={{ background:"#ffffff", borderBottom:"1px solid #e8edf5" }}>
           <p className="text-xs font-black uppercase tracking-widest" style={{ color:"#94a3b8" }}>Dados do Colaborador</p>
         </div>
@@ -6701,7 +6701,7 @@ function SaveSettingsButton({ settings, updateSettings }) {
           ? "linear-gradient(135deg,#10b981,#059669)"
           : "linear-gradient(135deg,#111110,#1A3829)",
         color: "#fff",
-        boxShadow: saved ? "0 2px 8px rgba(16,185,129,0.3)" : "0 2px 8px rgba(26,29,35,0.25)",
+        boxShadow: saved ? "0 2px 8px rgba(16,185,129,0.3)" : "0 2px 8px rgba(17,24,20,0.25)",
         minWidth: 90,
       }}>
       {saving
@@ -6794,7 +6794,7 @@ function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsPr
       <div className="flex items-center gap-5">
         {/* Área de preview */}
         <div className="rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ width:170, height:170, background:"linear-gradient(135deg,#1A3829,#2B5E46)", border:"2px solid rgba(184,150,90,0.15)", boxShadow:"0 4px 16px rgba(26,29,35,0.15)" }}>
+          style={{ width:170, height:170, background:"linear-gradient(135deg,#1A3829,#2B5E46)", border:"2px solid rgba(184,150,90,0.15)", boxShadow:"0 4px 16px rgba(17,24,20,0.15)" }}>
           {preview
             ? <img src={preview} alt="Logo" style={{ width:"100%", height:"100%", objectFit:"contain", padding:8 }}/>
             : <span className="font-black text-white" style={{ fontSize:56 }}>{(settings.appName||"C")[0]}</span>}
@@ -6966,7 +6966,7 @@ function SettingsPage() {
 
   const Section = ({ title, icon, children }) => (
     <div className="rounded-2xl overflow-hidden"
-      style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)" }}>
+      style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}>
       <div className="px-5 py-3.5 flex items-center gap-2.5"
         style={{ borderBottom:"1px solid rgba(206,186,150,0.5)", background:"rgba(248,250,252,0.6)" }}>
         <span className="text-base">{icon}</span>
@@ -6986,7 +6986,7 @@ function SettingsPage() {
   const Toggle = ({ value, onChange }) => (
     <button type="button" onClick={() => onChange(!value)}
       className="relative flex-shrink-0 transition-all duration-300"
-      style={{ width:44, height:24, borderRadius:12, background: value ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "rgba(203,213,225,0.7)", boxShadow: value ? "0 2px 8px rgba(43,94,70,0.35)" : "none" }}>
+      style={{ width:44, height:24, borderRadius:12, background: value ? "linear-gradient(135deg,#4A7454,#2B5E46)" : "rgba(203,213,225,0.7)", boxShadow: value ? "0 2px 8px rgba(184,150,90,0.3)" : "none" }}>
       <div className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
         style={{ left: value ? "calc(100% - 20px)" : 4, boxShadow:"0 1px 4px rgba(0,0,0,0.15)" }}/>
     </button>
@@ -7074,7 +7074,7 @@ function SettingsPage() {
             <input type="range" min={0} max={24} step={2} value={theme.radius??16} onChange={e=>applyTheme("radius",Number(e.target.value))}
               className="w-28" style={{ accentColor:"#2B5E46" }}/>
             <div className="w-8 h-8 border-2 border-current rounded flex-shrink-0"
-              style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#2B5E46", background:"rgba(184,150,90,0.1)" }}/>
+              style={{ borderRadius:(theme.radius??16)+"px", borderColor:"#B8965A", background:"rgba(184,150,90,0.1)" }}/>
           </div>
         </Row>
       </Section>
@@ -7434,7 +7434,7 @@ function Relationship() {
               <div key={r.id} className="rounded-2xl p-4" style={{
                 background:"#fff",
                 border: isToday ? "2px solid #a855f7" : isUrgent ? "1.5px solid #fde68a" : "1px solid #dde3ed",
-                boxShadow: isToday ? "0 0 0 4px rgba(168,85,247,0.08)" : "0 2px 6px rgba(26,29,35,0.05)"
+                boxShadow: isToday ? "0 0 0 4px rgba(168,85,247,0.08)" : "0 2px 6px rgba(17,24,20,0.05)"
               }}>
                 <div className="flex items-center gap-4">
                   {/* Avatar */}
@@ -7591,7 +7591,7 @@ function Team() {
     { id:"obligations",  label:"Obrigações",          group:"Escritório" },
   ];
 
-  const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#2B5E46", allowedTabs:null, canCreateTasks:false };
+  const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#B8965A", allowedTabs:null, canCreateTasks:false };
 
   const [uf, setUf] = useState(emptyUf);
   const [confirmingDelete, setConfirmingDelete] = useState(null); // usuário a deletar
@@ -7722,7 +7722,7 @@ function Team() {
           <p className="text-sm" style={{ color:"#94a3b8" }}>Gerencie usuários, acessos e permissões</p>
         </div>
         <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.3)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.3)" }}>
           <Icon.Plus />Novo Usuário
         </button>
       </div>
@@ -8011,7 +8011,7 @@ const STEP_TEMPLATES = {
 
 const STATUS_CONFIG = {
   pendente:      { label:"Pendente",     color:"#94a3b8", bg:"#ffffff", dot:"#cbd5e1" },
-  em_andamento:  { label:"Em andamento", color:"#B8965A", bg:"#eff6ff", dot:"#2B5E46" },
+  em_andamento:  { label:"Em andamento", color:"#B8965A", bg:"#eff6ff", dot:"#B8965A" },
   concluido:     { label:"Concluído",    color:"#10b981", bg:"#f0fdf4", dot:"#10b981" },
   bloqueado:     { label:"Bloqueado",    color:"#ef4444", bg:"#fef2f2", dot:"#ef4444" },
 };
@@ -8097,7 +8097,7 @@ function OnboardingDetail({ onb, onClose }) {
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
-              <span className="text-xs font-black" style={{ color: pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{doneCount}/{steps.length} etapas ({pct}%)</span>
+              <span className="text-xs font-black" style={{ color: pct===100?"#10b981":pct>50?"#B8965A":"#94a3b8" }}>{doneCount}/{steps.length} etapas ({pct}%)</span>
             </div>
             <div className="w-full rounded-full h-2" style={{ background:"#e2e8f0" }}>
               <div className="h-2 rounded-full transition-all duration-500"
@@ -8292,7 +8292,7 @@ function Onboarding() {
             { label:"Total", value:total, color:"#B8965A", bg:"#eff6ff" },
             { label:"Em andamento", value:ativos, color:"#B8965A", bg:"#fffbeb" },
             { label:"Concluídos", value:concluidos, color:"#10b981", bg:"#f0fdf4" },
-            { label:"Progresso médio", value:avgPct+"%", color: avgPct>=70?"#10b981":avgPct>=40?"#2B5E46":"#B8965A", bg:"#ffffff" },
+            { label:"Progresso médio", value:avgPct+"%", color: avgPct>=70?"#10b981":avgPct>=40?"#B8965A":"#B8965A", bg:"#ffffff" },
           ].map(k => (
             <div key={k.label} className="rounded-xl p-4 text-center" style={{ background:k.bg, border:"1px solid "+k.color+"22" }}>
               <p className="text-2xl font-black" style={{ color:k.color }}>{k.value}</p>
@@ -8344,10 +8344,10 @@ function Onboarding() {
 
             return (
               <div key={onb.id} className="rounded-2xl p-5 cursor-pointer group transition-all"
-                style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(26,29,35,0.06)" }}
+                style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}
                 onClick={() => setDetailOnb(onb)}
-                onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.12)";e.currentTarget.style.transform="translateY(-1px)"}}
-                onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(26,29,35,0.06)";e.currentTarget.style.transform="translateY(0)"}}>
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.12)";e.currentTarget.style.transform="translateY(-1px)"}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(17,24,20,0.06)";e.currentTarget.style.transform="translateY(0)"}}>
 
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
@@ -8374,11 +8374,11 @@ function Onboarding() {
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{tot} etapas</span>
-                    <span className="text-[10px] font-black" style={{ color: pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
+                    <span className="text-[10px] font-black" style={{ color: pct===100?"#10b981":pct>50?"#B8965A":"#94a3b8" }}>{pct}%</span>
                   </div>
                   <div className="w-full rounded-full h-1.5" style={{ background:"#f0f4f8" }}>
                     <div className="h-1.5 rounded-full transition-all"
-                      style={{ width:pct+"%", background: pct===100?"#10b981":pct>50?"#2B5E46":"#B8965A" }} />
+                      style={{ width:pct+"%", background: pct===100?"#10b981":pct>50?"#B8965A":"#B8965A" }} />
                   </div>
                 </div>
 
@@ -8502,7 +8502,7 @@ function Workload() {
     const maxLoad  = 10;
     const loadPct  = Math.min(Math.round(load/maxLoad*100), 100);
     const loadLevel = load <= 3 ? "leve" : load <= 7 ? "normal" : load <= 12 ? "pesada" : "crítica";
-    const loadColors = { leve:"#10b981", normal:"#2B5E46", pesada:"#B8965A", crítica:"#ef4444" };
+    const loadColors = { leve:"#10b981", normal:"#B8965A", pesada:"#B8965A", crítica:"#ef4444" };
 
     // Dias da semana
     const daily = Array.from({length:7}, (_,i) => {
@@ -8555,9 +8555,9 @@ function Workload() {
           { label:"Carga total", value:totalLoad.toFixed(0), color:totalLoad>20?"#ef4444":totalLoad>10?"#B8965A":"#10b981", icon:"⚡", sub:"pontos de carga" },
         ].map(k => (
           <div key={k.label} className="rounded-2xl p-4 transition-all"
-            style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+            style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#94a3b8" }}>{k.label}</p>
@@ -8581,9 +8581,9 @@ function Workload() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {memberStats.map(m => (
             <div key={m.id} className="rounded-2xl p-5 transition-all"
-              style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${m.loadColor}22`, boxShadow:"0 4px 16px rgba(26,29,35,0.05)", backdropFilter:"blur(8px)" }}
+              style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${m.loadColor}22`, boxShadow:"0 4px 16px rgba(17,24,20,0.05)", backdropFilter:"blur(8px)" }}
               onMouseEnter={e=>{e.currentTarget.style.boxShadow=`0 8px 28px ${m.loadColor}12`;e.currentTarget.style.transform="translateY(-1px)";}}
-              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.05)";e.currentTarget.style.transform="translateY(0)";}}>
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.05)";e.currentTarget.style.transform="translateY(0)";}}>
 
               {/* Header membro */}
               <div className="flex items-center gap-3 mb-4">
@@ -8623,7 +8623,7 @@ function Workload() {
               {/* Estatísticas inline */}
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {[
-                  { l:"Ativas", v:m.active.length, c:"#2B5E46" },
+                  { l:"Ativas", v:m.active.length, c:"#B8965A" },
                   { l:"Atrasadas", v:m.overdue.length, c:m.overdue.length>0?"#ef4444":"#10b981" },
                   { l:"Concluídas", v:m.done.length, c:"#10b981" },
                   { l:"No período", v:m.total.length, c:"#64748b" },
@@ -8642,7 +8642,7 @@ function Workload() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={m.daily} barGap={1} barCategoryGap="25%">
                       <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill:"#94a3b8", fontSize:9 }}/>
-                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(206,186,150,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(26,29,35,0.1)" }}
+                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(206,186,150,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(17,24,20,0.1)" }}
                         formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700 }}/>
                       <Bar dataKey="done" name="Concluídas" stackId="a" fill={m.avatarColor||"#2B5E46"} radius={[3,3,0,0]} maxBarSize={20}/>
                       <Bar dataKey="pending" name="Pendentes" stackId="a" fill="rgba(206,186,150,0.8)" radius={[3,3,0,0]} maxBarSize={20}/>
@@ -8738,11 +8738,11 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
       style={{
         background:"rgba(255,255,255,0.98)",
         border: isOverdue ? "1.5px solid rgba(239,68,68,0.3)" : "1px solid rgba(206,186,150,0.7)",
-        boxShadow: isOverdue ? "0 4px 20px rgba(239,68,68,0.08)" : "0 4px 16px rgba(26,29,35,0.04)",
+        boxShadow: isOverdue ? "0 4px 20px rgba(239,68,68,0.08)" : "0 4px 16px rgba(17,24,20,0.04)",
         backdropFilter:"blur(8px)",
       }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=isOverdue?"0 8px 28px rgba(239,68,68,0.12)":"0 8px 28px rgba(26,29,35,0.1)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=isOverdue?"0 4px 20px rgba(239,68,68,0.08)":"0 4px 16px rgba(26,29,35,0.04)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=isOverdue?"0 8px 28px rgba(239,68,68,0.12)":"0 8px 28px rgba(17,24,20,0.1)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=isOverdue?"0 4px 20px rgba(239,68,68,0.08)":"0 4px 16px rgba(17,24,20,0.04)";}}>
 
       {/* Barra de cor topo */}
       <div className="h-1" style={{ background:`linear-gradient(90deg,${project.color||"#2B5E46"},${project.color||"#2B5E46"}88)` }}/>
@@ -8793,7 +8793,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px]" style={{ color:"#94a3b8" }}>{done}/{checklist.length} tarefas</span>
-              <span className="text-[10px] font-black" style={{ color:pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
+              <span className="text-[10px] font-black" style={{ color:pct===100?"#10b981":pct>50?"#B8965A":"#94a3b8" }}>{pct}%</span>
             </div>
             <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
               <div className="h-1.5 rounded-full transition-all duration-500"
@@ -8838,7 +8838,7 @@ function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
               <button onClick={e=>{e.stopPropagation();onMove(project, project.status==="todo"?"doing":"done")}}
                 className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
                 style={{ background:"rgba(206,186,150,0.4)", color:"#64748b" }}
-                onMouseEnter={e=>{e.currentTarget.style.background=project.status==="doing"?"rgba(16,185,129,0.1)":"rgba(43,94,70,0.1)";e.currentTarget.style.color=project.status==="doing"?"#10b981":"#2B5E46";}}
+                onMouseEnter={e=>{e.currentTarget.style.background=project.status==="doing"?"rgba(16,185,129,0.1)":"rgba(43,94,70,0.1)";e.currentTarget.style.color=project.status==="doing"?"#10b981":"#B8965A";}}
                 onMouseLeave={e=>{e.currentTarget.style.background="rgba(206,186,150,0.4)";e.currentTarget.style.color="#64748b";}}>
                 {project.status==="todo"?"Em execução →":"Concluído →"}
               </button>
@@ -9150,7 +9150,7 @@ function Projects() {
         </div>
         <button onClick={()=>{setEditingProject(null);setFormOpen(true);}}
           className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
           <Icon.Plus />Novo Projeto
         </button>
       </div>
@@ -9163,12 +9163,12 @@ function Projects() {
             { label:"Concluídos", value:done, color:"#10b981", icon:"✅" },
             { label:"Atrasados", value:overdue, color:overdue>0?"#ef4444":"#10b981", icon:"⚠️" },
             { label:"Vencem na semana", value:dueThisWeek, color:"#B8965A", icon:"📅" },
-            { label:"Progresso médio", value:`${avgProgress}%`, color:avgProgress>=70?"#10b981":avgProgress>=40?"#2B5E46":"#B8965A", icon:"📈" },
+            { label:"Progresso médio", value:`${avgProgress}%`, color:avgProgress>=70?"#10b981":avgProgress>=40?"#B8965A":"#B8965A", icon:"📈" },
           ].map(k=>(
             <div key={k.label} className="rounded-2xl p-4 transition-all"
-              style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
-              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(26,29,35,0.08)";}}
-              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";}}>
+              style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#94a3b8" }}>{k.label}</p>
@@ -9453,7 +9453,7 @@ function CodiceIA() {
 
   return (
     <div className="min-h-screen rounded-2xl overflow-hidden" style={{
-      background: "linear-gradient(160deg,#0f1117 0%,#0d1520 40%,#0f1117 100%)",
+      background: "linear-gradient(160deg,#0f1117 0%,#0D1F15 40%,#0f1117 100%)",
       border: "1px solid rgba(184,150,90,0.1)",
     }}>
 
@@ -9484,7 +9484,7 @@ function CodiceIA() {
             )}
             <button onClick={()=>runAnalysis("full")} disabled={loading.full}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all"
-              style={{ background:loading.full?"rgba(184,150,90,0.1)":"linear-gradient(135deg,rgba(184,150,90,0.9),rgba(43,94,70,0.9))", color:"#fff", border:"1px solid rgba(184,150,90,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(43,94,70,0.3)", opacity:loading.full?0.7:1 }}>
+              style={{ background:loading.full?"rgba(184,150,90,0.1)":"linear-gradient(135deg,rgba(184,150,90,0.9),rgba(43,94,70,0.9))", color:"#fff", border:"1px solid rgba(184,150,90,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(184,150,90,0.25)", opacity:loading.full?0.7:1 }}>
               {loading.full ? <><Icon.Loader /><span>Analisando...</span></> : <><Icon.Sparkles /><span>Analisar Agora</span></>}
             </button>
           </div>
@@ -9511,7 +9511,7 @@ function CodiceIA() {
         {SECTIONS.map(([id,label])=>(
           <button key={id} onClick={()=>setActiveSection(id)}
             className="px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all"
-            style={{ background:activeSection===id?"rgba(184,150,90,0.12)":"transparent", color:activeSection===id?"#B8965A":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #4A7454":"2px solid transparent" }}>
+            style={{ background:activeSection===id?"rgba(184,150,90,0.12)":"transparent", color:activeSection===id?"#B8965A":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #B8965A":"2px solid transparent" }}>
             {label}
           </button>
         ))}
@@ -9691,7 +9691,7 @@ function CodiceIA() {
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      {[{l:"Ativas",v:u.ativas,c:"#4A7454"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
+                      {[{l:"Ativas",v:u.ativas,c:"#B8965A"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
                         <div key={k.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(255,255,255,0.04)" }}>
                           <p className="text-base font-black" style={{ color:k.c }}>{k.v}</p>
                           <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>{k.l}</p>
@@ -9800,7 +9800,7 @@ function CodiceIA() {
                 onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()}
                 placeholder="Pergunte sobre produtividade, equipe, projetos, hábitos..."
                 className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#4A7454" }}/>
+                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#B8965A" }}/>
               <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
                 className="px-4 py-3 rounded-xl font-black text-sm transition-all disabled:opacity-40"
                 style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff", minWidth:52 }}>
@@ -9868,10 +9868,10 @@ function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
 
   return (
     <div className="group rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer"
-      style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(26,29,35,0.04)", backdropFilter:"blur(8px)" }}
+      style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
       onClick={()=>onOpen(sop)}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(26,29,35,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(26,29,35,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 28px rgba(17,24,20,0.1)";e.currentTarget.style.borderColor="rgba(43,94,70,0.2)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";}}>
       {/* Top accent */}
       <div className="h-0.5" style={{ background:`linear-gradient(90deg,${typeConf.color},${typeConf.color}44)` }}/>
       <div className="p-5">
@@ -9911,10 +9911,10 @@ function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px]" style={{ color:"#94a3b8" }}>{doneSteps}/{totalSteps} etapas</span>
-              <span className="text-[10px] font-bold" style={{ color:pct===100?"#10b981":pct>50?"#2B5E46":"#94a3b8" }}>{pct}%</span>
+              <span className="text-[10px] font-bold" style={{ color:pct===100?"#10b981":pct>50?"#B8965A":"#94a3b8" }}>{pct}%</span>
             </div>
             <div className="w-full h-1 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
-              <div className="h-1 rounded-full transition-all" style={{ width:pct+"%", background:pct===100?"#10b981":"#2B5E46" }}/>
+              <div className="h-1 rounded-full transition-all" style={{ width:pct+"%", background:pct===100?"#10b981":"#B8965A" }}/>
             </div>
           </div>
         )}
@@ -9994,7 +9994,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Cronômetro */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(26,29,35,0.06)", border:"1px solid rgba(26,29,35,0.08)" }}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background:"rgba(17,24,20,0.06)", border:"1px solid rgba(17,24,20,0.08)" }}>
                 <span className="text-xs font-mono font-bold" style={{ color:"#111110" }}>{fmt(timer)}</span>
                 <button onClick={()=>setTimerOn(v=>!v)} className="p-0.5 rounded transition-all" style={{ color:timerOn?"#ef4444":"#10b981" }}>
                   {timerOn
@@ -10007,7 +10007,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
               </div>
               <button onClick={()=>setExecutionMode(v=>!v)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
-                style={{ background:executionMode?"linear-gradient(135deg,#111110,#1A3829)":"rgba(241,245,249,0.8)", color:executionMode?"#4A7454":"#64748b", border:executionMode?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.7)" }}>
+                style={{ background:executionMode?"linear-gradient(135deg,#111110,#1A3829)":"rgba(241,245,249,0.8)", color:executionMode?"#B8965A":"#64748b", border:executionMode?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.7)" }}>
                 ⚡ {executionMode ? "Sair" : "Executar"}
               </button>
             </div>
@@ -10018,7 +10018,7 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-semibold" style={{ color:"#374151" }}>Progresso</span>
-                <span className="text-xs font-black" style={{ color:pct===100?"#10b981":"#2B5E46" }}>{done}/{checklist.length} ({pct}%)</span>
+                <span className="text-xs font-black" style={{ color:pct===100?"#10b981":"#B8965A" }}>{done}/{checklist.length} ({pct}%)</span>
               </div>
               <div className="w-full h-2 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
                 <div className="h-2 rounded-full transition-all duration-500"
@@ -10043,9 +10043,9 @@ function SopDetail({ sop: sopProp, onClose, onUpdate, isAdmin, teamUsers }) {
                   style={{
                     background:item.done?"rgba(16,185,129,0.06)":"rgba(255,255,255,0.98)",
                     border:item.done?"1.5px solid rgba(16,185,129,0.2)":"1px solid rgba(206,186,150,0.7)",
-                    boxShadow:item.done?"none":"0 2px 8px rgba(26,29,35,0.04)",
+                    boxShadow:item.done?"none":"0 2px 8px rgba(17,24,20,0.04)",
                   }}
-                  onMouseEnter={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(43,94,70,0.3)";}}
+                  onMouseEnter={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(184,150,90,0.25)";}}
                   onMouseLeave={e=>{if(!item.done)e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";}}>
                   <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
                     style={{ borderColor:item.done?"#10b981":"#d1d5db", background:item.done?"#10b981":"transparent" }}>
@@ -10241,7 +10241,7 @@ function SopForm({ sop, onSave, onClose }) {
           <div className="space-y-1.5 mb-2">
             {f.steps.map((s,i)=>(
               <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"#2B5E46" }}>{i+1}</span>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background:"#B8965A" }}>{i+1}</span>
                 <span className="flex-1 text-xs" style={{ color:"#374151" }}>{s}</span>
                 <button type="button" onClick={()=>setF(p=>({...p,steps:p.steps.filter((_,j)=>j!==i)}))} className="text-slate-300 hover:text-red-400 transition-colors">×</button>
               </div>
@@ -10396,7 +10396,7 @@ function SOPs() {
           {isAdmin && (
             <button onClick={()=>{setEditingSop(null);setFormOpen(true);}}
               className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,29,35,0.25)" }}>
+              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
               <Icon.Plus />Novo SOP
             </button>
           )}
@@ -10485,8 +10485,8 @@ function SOPs() {
                 {categories.map(c=>(
                   <button key={c} onClick={()=>setFilterCat(c)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 2px 6px rgba(26,29,35,0.04)" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(43,94,70,0.3)";e.currentTarget.style.color="#2B5E46";}}
+                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(206,186,150,0.7)", boxShadow:"0 2px 6px rgba(17,24,20,0.04)" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(184,150,90,0.25)";e.currentTarget.style.color="#2B5E46";}}
                     onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";e.currentTarget.style.color="#374151";}}>
                     {c}
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(184,150,90,0.1)", color:"#B8965A" }}>{catCounts[c]||0}</span>
