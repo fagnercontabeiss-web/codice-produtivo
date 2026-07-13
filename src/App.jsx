@@ -1527,6 +1527,10 @@ function Tasks() {
   const [isMultiOpen, setIsMultiOpen] = useState(false);
   const [showDonePanel, setShowDonePanel] = useState(false);
   const [showRelatorio, setShowRelatorio] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusTaskIds, setFocusTaskIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("yoetz_focus_tasks") || "[]"); } catch { return []; }
+  });
   const [doneFilterDate, setDoneFilterDate] = useState(today());
   const [calMonth, setCalMonth] = useState(new Date());
 
@@ -1621,7 +1625,9 @@ function Tasks() {
       if (task.assignedTo && task.assignedTo !== currentProfile.id) return;
     }
     setEditing(task || null);
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||categories[0]?.id||"", contextId:task.contextId||contexts[0]?.id||"", dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:categories[0]?.id||"", contextId:contexts[0]?.id||"", dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
+    const defaultCatId = categories.find(c => c.name?.toLowerCase().includes("admin"))?.id || categories[0]?.id || "";
+    const defaultCtxId = contexts.find(c => c.name?.toLowerCase().includes("yoetz") || c.name?.toLowerCase().includes("cód") || c.name?.toLowerCase().includes("cod"))?.id || contexts[0]?.id || "";
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
@@ -1717,8 +1723,21 @@ function Tasks() {
               </svg>
               {isListening ? "Gravando..." : "Voz"}
             </button>
+            {/* Botão Foco */}
+            <button onClick={() => setFocusMode(v => !v)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+              style={{
+                background: focusMode ? "linear-gradient(135deg,#B8965A,#8A7040)" : "rgba(184,150,90,0.1)",
+                color: focusMode ? "#fff" : "#B8965A",
+                border: "1px solid rgba(184,150,90,0.35)",
+                boxShadow: focusMode ? "0 2px 12px rgba(184,150,90,0.3)" : "none",
+              }}>
+              🎯 Foco {focusTaskIds.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(255,255,255,0.25)", color: focusMode?"#fff":"#B8965A" }}>{focusTaskIds.length}</span>
+              )}
+            </button>
             {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
-              <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px #2B5E4640" }}><Icon.Plus />Nova Tarefa</button>
+              <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,56,41,0.25)" }}><Icon.Plus />Nova Tarefa</button>
             )}
           </div>
         </div>
@@ -1796,7 +1815,14 @@ function Tasks() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filtered.map(task => <TaskItem key={task.id} task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} compact={compactMode} onDuplicate={t => { const nt={...t,id:uid(),completed:false}; addTask(nt); }} />)}
+              {filtered.map(task => (
+                <div key={task.id} style={{ position:"relative" }}>
+                  {focusTaskIds.includes(task.id) && (
+                    <div style={{ position:"absolute", left:-6, top:"50%", transform:"translateY(-50%)", width:3, height:"60%", background:"#B8965A", borderRadius:2, zIndex:1, boxShadow:"0 0 6px rgba(184,150,90,0.5)" }}/>
+                  )}
+                  <TaskItem task={task} onToggle={() => toggleTaskCompletion(task.id)} onEdit={() => openTaskForm(task)} onDelete={() => deleteTask(task.id)} onUpdate={updateTask} categories={categories} contexts={contexts} teamUsers={teamUsers} currentProfile={currentProfile} compact={compactMode} onDuplicate={t => { const nt={...t,id:uid(),completed:false}; addTask(nt); }} />
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -2062,6 +2088,131 @@ function Tasks() {
           toggleTaskCompletion={toggleTaskCompletion}
           onClose={() => setShowRelatorio(false)}
         />
+      )}
+
+      {/* ── MODO FOCO ── */}
+      {focusMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background:"rgba(13,31,21,0.92)", backdropFilter:"blur(12px)" }}
+          onClick={e => e.target === e.currentTarget && setFocusMode(false)}>
+          <div className="w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl"
+            style={{ background:"linear-gradient(160deg,#0D1F15,#1A3829)", border:"1px solid rgba(184,150,90,0.2)", maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+
+            {/* Header */}
+            <div className="px-6 py-5 flex items-center justify-between flex-shrink-0"
+              style={{ borderBottom:"1px solid rgba(184,150,90,0.15)" }}>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(184,150,90,0.7)" }}>🎯 Modo Foco</p>
+                <h2 className="text-lg font-black" style={{ color:"#fff" }}>
+                  {focusTaskIds.length === 0 ? "Selecione suas prioridades" : `${focusTaskIds.length} tarefa${focusTaskIds.length>1?"s":""} em foco`}
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color:"rgba(255,255,255,0.4)" }}>
+                  Clique nas tarefas para adicionar ou remover do foco
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {focusTaskIds.length > 0 && (
+                  <button onClick={() => { setFocusTaskIds([]); localStorage.setItem("yoetz_focus_tasks","[]"); }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                    style={{ background:"rgba(239,68,68,0.1)", color:"#ef4444", border:"1px solid rgba(239,68,68,0.2)" }}>
+                    Limpar
+                  </button>
+                )}
+                <button onClick={() => setFocusMode(false)} className="p-2 rounded-xl transition-all" style={{ color:"rgba(255,255,255,0.5)" }}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <Icon.X />
+                </button>
+              </div>
+            </div>
+
+            {/* Tarefas em foco */}
+            {focusTaskIds.length > 0 && (
+              <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom:"1px solid rgba(184,150,90,0.1)" }}>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(184,150,90,0.8)" }}>✦ Em Foco Agora</p>
+                <div className="space-y-2">
+                  {focusTaskIds.map(id => {
+                    const task = tasks.find(t => t.id === id);
+                    if (!task) return null;
+                    const cat = categories.find(c => c.id === task.categoryId);
+                    return (
+                      <div key={id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                        style={{ background:"rgba(184,150,90,0.12)", border:"1px solid rgba(184,150,90,0.25)" }}
+                        onClick={() => { const next = focusTaskIds.filter(x=>x!==id); setFocusTaskIds(next); localStorage.setItem("yoetz_focus_tasks", JSON.stringify(next)); }}>
+                        <button onClick={e=>{ e.stopPropagation(); toggleTaskCompletion(task.id); }}
+                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{ borderColor:task.completed?"#10b981":"rgba(184,150,90,0.6)", background:task.completed?"#10b981":"transparent" }}>
+                          {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
+                        </button>
+                        <p className="flex-1 text-sm font-semibold" style={{ color:task.completed?"rgba(255,255,255,0.4)":"#fff", textDecoration:task.completed?"line-through":"none" }}>{task.title}</p>
+                        {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}25`, color:cat.color }}>{cat.name}</span>}
+                        <span className="text-[9px] flex-shrink-0" style={{ color:"rgba(184,150,90,0.5)" }}>✕</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Lista de tarefas pendentes para selecionar */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(255,255,255,0.3)" }}>
+                Tarefas pendentes — clique para adicionar ao foco
+              </p>
+              <div className="space-y-2">
+                {tasks.filter(t => !t.completed && !t.parentId)
+                  .sort((a,b) => (a.dueDate||"9999").localeCompare(b.dueDate||"9999"))
+                  .map(task => {
+                    const inFocus = focusTaskIds.includes(task.id);
+                    const cat = categories.find(c => c.id === task.categoryId);
+                    const od = task.dueDate && task.dueDate < today();
+                    return (
+                      <div key={task.id}
+                        className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                        style={{
+                          background: inFocus ? "rgba(184,150,90,0.12)" : "rgba(255,255,255,0.04)",
+                          border: inFocus ? "1px solid rgba(184,150,90,0.35)" : "1px solid rgba(255,255,255,0.07)",
+                        }}
+                        onMouseEnter={e=>{ if(!inFocus) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
+                        onMouseLeave={e=>{ if(!inFocus) e.currentTarget.style.background="rgba(255,255,255,0.04)"; }}
+                        onClick={() => {
+                          const next = inFocus ? focusTaskIds.filter(x=>x!==task.id) : [...focusTaskIds, task.id];
+                          setFocusTaskIds(next);
+                          localStorage.setItem("yoetz_focus_tasks", JSON.stringify(next));
+                        }}>
+                        <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{ borderColor: inFocus ? "#B8965A" : "rgba(255,255,255,0.2)", background: inFocus ? "#B8965A" : "transparent" }}>
+                          {inFocus && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <p className="flex-1 text-sm font-medium truncate" style={{ color: inFocus ? "#fff" : "rgba(255,255,255,0.65)" }}>{task.title}</p>
+                        {cat && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background:`${cat.color}20`, color:cat.color }}>{cat.name}</span>}
+                        {task.dueDate && (
+                          <span className="text-[9px] font-bold flex-shrink-0" style={{ color: od?"#ef4444":"rgba(255,255,255,0.35)" }}>
+                            {new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Footer com indicador de foco na lista */}
+            {focusTaskIds.length > 0 && (
+              <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+                style={{ borderTop:"1px solid rgba(184,150,90,0.1)" }}>
+                <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>
+                  As tarefas em foco aparecem destacadas na lista principal
+                </p>
+                <button onClick={() => setFocusMode(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all"
+                  style={{ background:"linear-gradient(135deg,#B8965A,#8A7040)" }}>
+                  Fechar e Focar ✦
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
     </div>
