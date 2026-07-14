@@ -31,6 +31,7 @@ const defaultState = {
   projects: [],
   sops: [],
   clientEvents: [],
+  globalObligationsDb: [],
   severanceSimulations: [],
   aiAnalyses: [],
   teamUsers: [], // perfis da equipe
@@ -91,6 +92,7 @@ function AppProvider({ children }) {
         const projectsRaw  = await db.select("projects").catch(() => []);
         const sopsRaw      = await db.select("sops").catch(() => []);
         const severanceRaw  = await db.select("severance_simulations").catch(() => []);
+        const globalObsRaw  = await db.select("global_obligations").catch(() => []);
         const aiRaw         = await db.select("ai_analyses").catch(() => []);
         const clientEvRaw  = await db.select("client_events").catch(() => []);
         const stepsRaw     = await db.select("onboarding_steps").catch(() => []);
@@ -113,6 +115,7 @@ function AppProvider({ children }) {
           teamUsers: (profilesRaw||[]).map(p => ({ id:p.id, name:p.name, role:p.role, ownerId:p.owner_id, avatarColor:p.avatar_color, active:p.active, allowedTabs:p.allowed_tabs||null, canCreateTasks:p.can_create_tasks!==false })),
           currentProfile: myProfile ? { id:myProfile.id, name:myProfile.name, role:myProfile.role, ownerId:myProfile.owner_id, avatarColor:myProfile.avatar_color, allowedTabs:myProfile.allowed_tabs||null, canCreateTasks:myProfile.can_create_tasks!==false } : null,
           clientEvents: (clientEvRaw||[]).map(e => ({ id:e.id, clientId:e.client_id, type:e.type, title:e.title, content:e.content||"", date:e.date, resolved:e.resolved||false })),
+          globalObligationsDb: (globalObsRaw||[]).map(g => ({ id:g.id, name:g.name, type:g.type, dueDate:g.due_date, createdAt:g.created_at })),
           severanceSimulations: (severanceRaw||[]).map(s => ({ id:s.id, date:s.created_at, employeeName:s.employee_name, clientName:s.client_name||"", clientId:s.client_id||null, reason:s.reason, dismissalDate:s.dismissal_date, netAmount:parseFloat(s.net_amount)||0, reportData:s.report_data, verbas:s.verbas, formData:s.form_data })),
           aiAnalyses: (aiRaw||[]).map(a => ({ id:a.id, type:a.type, result:a.result, createdAt:a.created_at })),
           sops: (sopsRaw||[]).map(s => ({ id:s.id, title:s.title, type:s.type||"sop", category:s.category||"Operacional", sector:s.sector||"", description:s.description||"", content:s.content||"", steps:s.steps||[], checklist:s.checklist||[], tags:s.tags||[], links:s.links||[], priority:s.priority||"medium", difficulty:s.difficulty||"medium", frequency:s.frequency||"recorrente", estimatedTime:s.estimated_time||30, version:s.version||"1.0", isFavorite:s.is_favorite||false, isTemplate:s.is_template||false, responsibleId:s.responsible_id||null, views:s.views||0, executions:s.executions||0, notes:s.notes||"", createdAt:s.created_at, updatedAt:s.updated_at })),
@@ -288,6 +291,23 @@ function AppProvider({ children }) {
     await db.delete("projects", id).catch(console.error);
   }, []);
 
+  // Global Obligations actions
+  const { globalObligationsDb } = state;
+  const addGlobalObligationDb = useCallback(async (g) => {
+    setState(st => ({ ...st, globalObligationsDb: [g, ...st.globalObligationsDb] }));
+    await db.upsert("global_obligations", {
+      id: g.id,
+      user_id: auth.getUserId(),
+      name: g.name,
+      type: g.type,
+      due_date: g.dueDate,
+    }).catch(console.error);
+  }, []);
+  const deleteGlobalObligationDb = useCallback(async (id) => {
+    setState(st => ({ ...st, globalObligationsDb: st.globalObligationsDb.filter(g => g.id !== id) }));
+    await db.delete("global_obligations", id).catch(console.error);
+  }, []);
+
   // SOPs actions
   const sopToDb = s => ({ id:s.id, title:s.title, type:s.type||"sop", category:s.category||"Operacional", sector:s.sector||"", description:s.description||"", content:s.content||"", steps:s.steps||[], checklist:s.checklist||[], tags:s.tags||[], links:s.links||[], priority:s.priority||"medium", difficulty:s.difficulty||"medium", frequency:s.frequency||"recorrente", estimated_time:s.estimatedTime||30, version:s.version||"1.0", is_favorite:s.isFavorite||false, is_template:s.isTemplate||false, responsible_id:s.responsibleId||null, views:s.views||0, executions:s.executions||0, notes:s.notes||"", updated_at:new Date().toISOString() });
   const addSop = useCallback(async s => {
@@ -360,7 +380,8 @@ function AppProvider({ children }) {
     </div>
   );
 
-  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject, saveAiAnalysis, addSop, updateSop, deleteSop };
+  const v = { ...state, addTask, updateTask, deleteTask, toggleTaskCompletion, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, addClient, updateClient, deleteClient, addWeeklyGoal, updateWeeklyGoal, deleteWeeklyGoal, toggleWeeklyGoalCompletion, addCategory, updateCategory, deleteCategory, addContext, updateContext, deleteContext, updateSettings, addRelationship, updateRelationship, deleteRelationship, addTeamUser, updateTeamUser, removeTeamUser, addOnboarding, updateOnboarding, deleteOnboarding, addStep, updateStep, deleteStep, addClientEvent, updateClientEvent, deleteClientEvent, addProject, updateProject, deleteProject, saveAiAnalysis, addSop, updateSop, deleteSop,
+    globalObligationsDb, addGlobalObligationDb, deleteGlobalObligationDb };
   return <AppContext.Provider value={v}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -5006,10 +5027,10 @@ function Obligations() {
   const [filterType, setFilterType]     = useState("all");
 
   // Global obligations stored separately in localStorage
-  const [globalObs, setGlobalObs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("globalObligations") || "[]"); } catch { return []; }
-  });
-  useEffect(() => { localStorage.setItem("globalObligations", JSON.stringify(globalObs)); }, [globalObs]);
+  // Obrigações globais — agora vêm do Supabase
+  const { globalObligationsDb, addGlobalObligationDb, deleteGlobalObligationDb } = useApp();
+  const globalObs = globalObligationsDb || [];
+  const setGlobalObs = () => {}; // legado — não usar mais
 
   const months = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   const obTypes = ["fiscal","trabalhista","contabil","societario","outro"];
@@ -5122,9 +5143,10 @@ function Obligations() {
     setIsAddOpen(false); setNewOb({ name:"", type:"fiscal", dueDate:15, repeatMonthly:true });
   };
 
-  const addGlobalObligation = () => {
+  const addGlobalObligation = async () => {
     if (!newGlobal.name) return;
-    setGlobalObs(p => [...p, { id: uid(), name: newGlobal.name, type: newGlobal.type, dueDate: Number(newGlobal.dueDate) }]);
+    const g = { id: uid(), name: newGlobal.name, type: newGlobal.type, dueDate: Number(newGlobal.dueDate) };
+    await addGlobalObligationDb(g);
     setIsGlobalAddOpen(false); setNewGlobal({ name:"", type:"fiscal", dueDate:15 });
   };
 
@@ -5206,7 +5228,7 @@ function Obligations() {
         </div>
         <div className="rounded-2xl p-5" style={{ background:"#fff", border:"1px solid #dde3ed", boxShadow:"0 2px 8px rgba(17,24,20,0.06)" }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Globais</p>
-          <p className="text-2xl font-black" style={{ color:"#7c3aed" }}>{globalObs.length}</p>
+          <p className="text-2xl font-black" style={{ color:"#B8965A" }}>{globalObs.length}</p>
           <p className="text-[10px] mt-1" style={{ color:"#6B7C50" }}>para todos os clientes</p>
         </div>
       </div>
@@ -5320,13 +5342,17 @@ function Obligations() {
               <p className="text-xs font-black uppercase tracking-wide mb-3" style={{ color:"#6B7C50" }}>Obrigações Globais do Escritório</p>
               <div className="flex flex-wrap gap-2">
                 {globalObs.map(g => (
-                  <div key={g.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background:"#f5f3ff", border:"1px solid #ddd6fe" }}>
-                    <span className="text-xs font-semibold" style={{ color:"#7c3aed" }}>{g.name}</span>
-                    <span className="text-[10px]" style={{ color:"#a78bfa" }}>· Dia {g.dueDate}</span>
-                    <button onClick={() => setGlobalObs(p => p.filter(x => x.id !== g.id))}
-                      className="p-0.5 rounded" style={{ color:"#c4b5fd" }}
-                      onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#c4b5fd"}>
-                      <Icon.X />
+                  <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-xl group/glob transition-all"
+                    style={{ background:"rgba(43,94,70,0.06)", border:"1px solid rgba(43,94,70,0.15)" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(43,94,70,0.1)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="rgba(43,94,70,0.06)"}>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md uppercase" style={{ background:"rgba(184,150,90,0.12)", color:"#B8965A" }}>{g.type}</span>
+                    <span className="text-xs font-semibold flex-1" style={{ color:"#111110" }}>{g.name}</span>
+                    <span className="text-[10px] font-bold" style={{ color:"#6B7C50" }}>Dia {g.dueDate}</span>
+                    <button onClick={() => deleteGlobalObligationDb(g.id)}
+                      className="p-1 rounded-lg opacity-0 group-hover/glob:opacity-100 transition-all flex-shrink-0" style={{ color:"#6B7C50" }}
+                      onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#6B7C50"}>
+                      <Icon.Trash />
                     </button>
                   </div>
                 ))}
