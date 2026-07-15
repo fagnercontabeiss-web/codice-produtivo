@@ -81,8 +81,21 @@ function AppProvider({ children }) {
   useEffect(() => {
     const load = async () => {
       try {
-        await auth.restoreSession(); // AWAIT obrigatório — senão as chamadas seguintes ficam sem token
-        // Cada tabela isolada para que falha em uma não afete as demais
+        // 1. Restaurar sessão — com retry se falhar
+        let session = await auth.restoreSession();
+        if (!session) {
+          console.warn("[load] sessão não restaurada na primeira tentativa, aguardando 800ms...");
+          await new Promise(r => setTimeout(r, 800));
+          session = await auth.restoreSession();
+        }
+        if (!session) {
+          console.error("[load] sessão inválida após retry — usuário precisa fazer login");
+          setLoading(false);
+          return;
+        }
+        console.log("[load] sessão OK, userId:", auth.getUserId());
+
+        // 2. Carregar todas as tabelas em paralelo com fallback individual
         const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw] = await Promise.all([
           db.select("tasks").catch(e => { console.error("[load] tasks:", e.message); return []; }),
           db.select("habits").catch(e => { console.error("[load] habits:", e.message); return []; }),
@@ -93,7 +106,17 @@ function AppProvider({ children }) {
           db.select("settings").catch(e => { console.error("[load] settings:", e.message); return []; }),
           db.select("relationships").catch(e => { console.error("[load] relationships:", e.message); return []; }),
         ]);
-        console.log("[load] tasks carregadas do banco:", tasks?.length);
+        console.log("[load] tasks carregadas:", tasks?.length, "| sessão userId:", auth.getUserId());
+
+        // 3. Se tasks vier vazio com sessão válida, retry imediato
+        let finalTasks = tasks;
+        if (tasks.length === 0 && auth.getUserId()) {
+          console.warn("[load] tasks vazio — retry imediato...");
+          await new Promise(r => setTimeout(r, 500));
+          finalTasks = await db.select("tasks").catch(() => []);
+          console.log("[load] retry tasks:", finalTasks.length);
+        }
+
         // user_profiles separado — tabela pode não existir em instâncias antigas
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
@@ -109,19 +132,9 @@ function AppProvider({ children }) {
         const settings = settingsRows?.[0]
           ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password, logoUrl:settingsRows[0].logo_url||null }
           : defaultState.settings;
-        // Se tasks vier vazio mas temos sessão válida, pode ser falha temporária — retry
-        if (tasks.length === 0 && auth.getUserId()) {
-          console.warn("[load] tasks veio vazio com sessão válida — retentando em 1s...");
-          setTimeout(async () => {
-            const retryTasks = await db.select("tasks").catch(() => []);
-            if (retryTasks.length > 0) {
-              console.log("[load] retry OK — carregadas", retryTasks.length, "tarefas");
-              setState(prev => ({ ...prev, tasks: retryTasks.map(taskFromDb) }));
-            }
-          }, 1000);
-        }
+
         setState({
-          tasks: tasks.map(taskFromDb), habits: habits.map(habitFromDb),
+          tasks: finalTasks.map(taskFromDb), habits: habits.map(habitFromDb),
           clients: clients.map(clientFromDb), weeklyGoals: goals.map(goalFromDb),
           categories: cats.length > 0 ? cats.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultCategories,
           contexts:   ctxs.length > 0 ? ctxs.map(r => ({ id:r.id, name:r.name, color:r.color })) : defaultContexts,
@@ -160,12 +173,10 @@ function AppProvider({ children }) {
           await db.upsert("contexts", defaultContexts).catch(() => {});
         }
       } catch (e) {
-        console.error("Supabase load error:", e);
+        console.error("[load] Erro crítico:", e.message);
+        // NÃO restaurar estado antigo do localStorage — tarefas novas seriam perdidas
+        // Mostrar erro e deixar o usuário recarregar manualmente
         setDbError(true);
-        try {
-          const saved = localStorage.getItem("contaTaskState");
-          if (saved) { const p = JSON.parse(saved); if (!p.categories) p.categories = defaultCategories; if (!p.contexts) p.contexts = defaultContexts; if (!p.settings) p.settings = defaultState.settings; setState(p); }
-        } catch {}
       } finally { setLoading(false); }
     };
     load();
@@ -1795,6 +1806,14 @@ function Tasks() {
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(255,255,255,0.25)", color: focusMode?"#fff":"#B8965A" }}>{focusTaskIds.length}</span>
               )}
             </button>
+            {/* Botão recarregar quando lista está vazia */}
+            {tasks.length === 0 && (
+              <button onClick={() => window.location.reload()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold animate-pulse"
+                style={{ background:"rgba(239,68,68,0.1)", color:"#ef4444", border:"1px solid rgba(239,68,68,0.2)" }}>
+                ↺ Recarregar
+              </button>
+            )}
             {(isAdmin || (isColab && currentProfile?.canCreateTasks)) && (
               <button onClick={() => openTaskForm(null)} className="flex items-center px-4 py-2 text-white rounded-xl text-sm font-bold gap-1.5 transition-all" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(26,56,41,0.25)" }}><Icon.Plus />Nova Tarefa</button>
             )}
