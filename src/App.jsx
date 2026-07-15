@@ -81,15 +81,15 @@ function AppProvider({ children }) {
   useEffect(() => {
     const load = async () => {
       try {
-        // 1. Restaurar sessão — com retry se falhar
+        // 1. Restaurar sessão — com retry e modo resiliência
         let session = await auth.restoreSession();
         if (!session) {
-          console.warn("[load] sessão não restaurada na primeira tentativa, aguardando 800ms...");
-          await new Promise(r => setTimeout(r, 800));
+          console.warn("[load] sessão não restaurada, aguardando 1s e tentando de novo...");
+          await new Promise(r => setTimeout(r, 1000));
           session = await auth.restoreSession();
         }
         if (!session) {
-          console.error("[load] sessão inválida após retry — usuário precisa fazer login");
+          console.error("[load] sessão inválida após retry — redirecionando para login");
           setLoading(false);
           return;
         }
@@ -413,7 +413,14 @@ function AppProvider({ children }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="#4A7454" strokeWidth="2" style={{ width:24, height:24 }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
       <p style={{ color:"#64748b", fontSize:14, fontWeight:600 }}>Carregando YOETZ Inteligência Empresarial...</p>
-      {dbError && <p style={{ color:"#ef4444", fontSize:12 }}>Erro ao conectar — usando dados locais</p>}
+      {dbError && (
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <p style={{ color:"#ef4444", fontSize:11 }}>⚠ Instabilidade no servidor</p>
+          <button onClick={() => window.location.reload()} style={{ color:"#B8965A", fontSize:11, fontWeight:"bold", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>
+            ↺ Tentar novamente
+          </button>
+        </div>
+      )}
     </div>
   );
 
