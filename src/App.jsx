@@ -1647,27 +1647,21 @@ function Tasks() {
   const isTodayMode = startDate === todayStr && endDate === todayStr;
 
   const filtered = visibleTasks.filter(t => {
+    const _dbg = t.title?.toLowerCase().includes("nota fiscal");
     if (t.parentId) return false;
-    // Filtro de status
-    if (filterStatus === "completed" && !t.completed) return false;
-    if (filterStatus === "pending" && t.completed) return false;
-    if (hideCompleted && t.completed) return false;
-    // Filtro de categoria e contexto
-    if (filterCat !== "all" && t.categoryId !== filterCat) return false;
-    if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
-    // Filtro de busca
+    if (filterStatus === "completed" && !t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: status completed"); return false; }
+    if (filterStatus === "pending" && t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: status pending"); return false; }
+    if (hideCompleted && t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: hideCompleted"); return false; }
+    if (filterCat !== "all" && t.categoryId !== filterCat) { if(_dbg) console.log("[filtro] BLOQUEADO: cat", t.categoryId, "!=", filterCat); return false; }
+    if (filterCtx !== "all" && t.contextId !== filterCtx) { if(_dbg) console.log("[filtro] BLOQUEADO: ctx", t.contextId, "!=", filterCtx); return false; }
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-    // Filtro de data:
-    // Modo HOJE: mostrar tarefas com dueDate = hoje OU atrasadas (dueDate < hoje) OU sem data
     if (isTodayMode && !t.completed) {
-      if (t.dueDate && t.dueDate > todayStr) return false; // ocultar futuras
+      if (t.dueDate && t.dueDate > todayStr) { if(_dbg) console.log("[filtro] BLOQUEADO: futuro", t.dueDate, ">", todayStr); return false; }
     }
-    // Modo normal: tarefas pendentes SEM dueDate sempre aparecem
-    // Tarefas pendentes COM dueDate: sempre aparecem (sem corte por range)
-    // Tarefas concluídas: limitar pelo range de datas
     if (t.completed && t.dueDate) {
-      if (t.dueDate < startDate || t.dueDate > endDate) return false;
+      if (t.dueDate < startDate || t.dueDate > endDate) { if(_dbg) console.log("[filtro] BLOQUEADO: range"); return false; }
     }
+    if(_dbg) console.log("[filtro] PASSOU:", t.title, "ctx:", t.contextId, "cat:", t.categoryId, "due:", t.dueDate, "filterCtx:", filterCtx, "filterCat:", filterCat, "isTodayMode:", isTodayMode, "todayStr:", todayStr);
     return true;
   });
 
