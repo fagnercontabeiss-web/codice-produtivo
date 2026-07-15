@@ -416,7 +416,14 @@ const useApp = () => useContext(AppContext);
 // HELPERS
 // ============================================================
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => {
+  const d = new Date();
+  // Usar timezone local (não UTC) para evitar bug de dia errado
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const fmt = (d) => { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day}/${m}/${y}`; };
 const fmtCurrency = v => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const isOverdue = (dueDate, completed) => {
@@ -1679,7 +1686,7 @@ function Tasks() {
     setEditing(task || null);
     const defaultCatId = categories.find(c => c.name?.toLowerCase().includes("admin"))?.id || categories[0]?.id || "";
     const defaultCtxId = contexts.find(c => c.name?.toLowerCase().includes("yoetz") || c.name?.toLowerCase().includes("cód") || c.name?.toLowerCase().includes("cod"))?.id || contexts[0]?.id || "";
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:new Date().toISOString().split("T")[0], clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
@@ -1692,7 +1699,7 @@ function Tasks() {
 
   const saveMulti = () => {
     const lines = multiText.split("\n").map(l => l.trim()).filter(Boolean);
-    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "YOETZ Inteligência Empresarial") || contexts[0])?.id, dueDate: new Date().toISOString().split("T")[0], completed: false, isRecurring: false, checklist: [] }));
+    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "YOETZ Inteligência Empresarial") || contexts[0])?.id, dueDate: today(), completed: false, isRecurring: false, checklist: [] }));
     setMultiText(""); setIsMultiOpen(false);
   };
 
