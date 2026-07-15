@@ -222,9 +222,18 @@ function AppProvider({ children }) {
       updated = tasks.find(t => t.id===id);
       return {...s, tasks};
     });
-    setTimeout(() => {
+    setTimeout(async () => {
       if (!updated) return;
-      db.upsert("tasks", taskToDb(updated)).catch(console.error);
+      try {
+        await db.upsert("tasks", taskToDb(updated));
+      } catch(e) {
+        // Se falhar o upsert, reverter o estado local para evitar inconsistência
+        console.error("[toggle] Falha ao salvar, revertendo:", e.message);
+        setState(s => ({
+          ...s,
+          tasks: s.tasks.map(t => t.id===id ? {...t, completed:!t.completed} : t)
+        }));
+      }
       // Se completou e é recorrente, criar próxima ocorrência automaticamente
       if (updated.completed && updated.isRecurring && updated.recurrenceType && updated.dueDate) {
         const nextDate = getNextRecurrenceDate(updated.dueDate, updated.recurrenceType);
@@ -1647,21 +1656,19 @@ function Tasks() {
   const isTodayMode = startDate === todayStr && endDate === todayStr;
 
   const filtered = visibleTasks.filter(t => {
-    const _dbg = t.title?.toLowerCase().includes("nota fiscal");
     if (t.parentId) return false;
-    if (filterStatus === "completed" && !t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: status completed"); return false; }
-    if (filterStatus === "pending" && t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: status pending"); return false; }
-    if (hideCompleted && t.completed) { if(_dbg) console.log("[filtro] BLOQUEADO: hideCompleted"); return false; }
-    if (filterCat !== "all" && t.categoryId !== filterCat) { if(_dbg) console.log("[filtro] BLOQUEADO: cat", t.categoryId, "!=", filterCat); return false; }
-    if (filterCtx !== "all" && t.contextId !== filterCtx) { if(_dbg) console.log("[filtro] BLOQUEADO: ctx", t.contextId, "!=", filterCtx); return false; }
+    if (filterStatus === "completed" && !t.completed) return false;
+    if (filterStatus === "pending" && t.completed) return false;
+    if (hideCompleted && t.completed) return false;
+    if (filterCat !== "all" && t.categoryId !== filterCat) return false;
+    if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (isTodayMode && !t.completed) {
-      if (t.dueDate && t.dueDate > todayStr) { if(_dbg) console.log("[filtro] BLOQUEADO: futuro", t.dueDate, ">", todayStr); return false; }
+      if (t.dueDate && t.dueDate > todayStr) return false;
     }
     if (t.completed && t.dueDate) {
-      if (t.dueDate < startDate || t.dueDate > endDate) { if(_dbg) console.log("[filtro] BLOQUEADO: range"); return false; }
+      if (t.dueDate < startDate || t.dueDate > endDate) return false;
     }
-    if(_dbg) console.log("[filtro] PASSOU:", t.title, "ctx:", t.contextId, "cat:", t.categoryId, "due:", t.dueDate, "filterCtx:", filterCtx, "filterCat:", filterCat, "isTodayMode:", isTodayMode, "todayStr:", todayStr);
     return true;
   });
 
