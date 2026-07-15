@@ -70,7 +70,7 @@ function AppProvider({ children }) {
   const [dbError, setDbError] = useState(false);
 
   const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all", parentId:r.parent_id||null });
-  const taskToDb   = t => ({ id:t.id, title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null });
+  const taskToDb   = t => ({ id:t.id, user_id:auth.getUserId(), title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate||null, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null });
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2B5E46", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
@@ -154,7 +154,14 @@ function AppProvider({ children }) {
 
   useEffect(() => { if (dbError) localStorage.setItem("contaTaskState", JSON.stringify(state)); }, [state, dbError]);
 
-  const addTask = useCallback(async t => { setState(s => ({ ...s, tasks:[...s.tasks,t] })); await db.upsert("tasks", taskToDb(t)).catch(console.error); }, []);
+  const addTask = useCallback(async t => {
+    setState(s => ({ ...s, tasks:[...s.tasks,t] }));
+    try {
+      await db.upsert("tasks", taskToDb(t));
+    } catch(e) {
+      console.error("[addTask] Erro ao salvar:", e.message, taskToDb(t));
+    }
+  }, []);
   const updateTask = useCallback(async t => {
     // Merge com estado atual para nunca sobrescrever com dados stale
     setState(s => {
@@ -1534,8 +1541,8 @@ function Tasks() {
   const isAdmin  = currentProfile?.role === "admin" || !currentProfile;
   const isColab  = currentProfile?.role === "colaborador";
   const isViewer = currentProfile?.role === "visualizador";
-  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split("T")[0]; });
-  const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 2); return d.toISOString().split("T")[0]; });
+  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 3); return d.toISOString().split("T")[0]; });
+  const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().split("T")[0]; });
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [filterCtx, setFilterCtx] = useState("all");
@@ -1581,7 +1588,10 @@ function Tasks() {
     if (filterCat !== "all" && t.categoryId !== filterCat) return false;
     if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (t.dueDate < startDate || t.dueDate > endDate) return false;
+    // Só filtrar por data se a tarefa TEM data E não está concluída
+    if (t.dueDate && !t.completed) {
+      if (t.dueDate < startDate || t.dueDate > endDate) return false;
+    }
     return true;
   });
 
