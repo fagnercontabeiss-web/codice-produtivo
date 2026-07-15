@@ -82,10 +82,18 @@ function AppProvider({ children }) {
     const load = async () => {
       try {
         await auth.restoreSession(); // AWAIT obrigatório — senão as chamadas seguintes ficam sem token
+        // Cada tabela isolada para que falha em uma não afete as demais
         const [tasks, habits, clients, goals, cats, ctxs, settingsRows, relsRaw] = await Promise.all([
-          db.select("tasks"), db.select("habits"), db.select("clients"),
-          db.select("weekly_goals"), db.select("categories"), db.select("contexts"), db.select("settings"), db.select("relationships"),
+          db.select("tasks").catch(e => { console.error("[load] tasks:", e.message); return []; }),
+          db.select("habits").catch(e => { console.error("[load] habits:", e.message); return []; }),
+          db.select("clients").catch(e => { console.error("[load] clients:", e.message); return []; }),
+          db.select("weekly_goals").catch(e => { console.error("[load] weekly_goals:", e.message); return []; }),
+          db.select("categories").catch(e => { console.error("[load] categories:", e.message); return []; }),
+          db.select("contexts").catch(e => { console.error("[load] contexts:", e.message); return []; }),
+          db.select("settings").catch(e => { console.error("[load] settings:", e.message); return []; }),
+          db.select("relationships").catch(e => { console.error("[load] relationships:", e.message); return []; }),
         ]);
+        console.log("[load] tasks carregadas do banco:", tasks?.length);
         // user_profiles separado — tabela pode não existir em instâncias antigas
         const profilesRaw  = await db.select("user_profiles").catch(() => []);
         const onboardRaw   = await db.select("onboardings").catch(() => []);
@@ -101,6 +109,17 @@ function AppProvider({ children }) {
         const settings = settingsRows?.[0]
           ? { appName:settingsRows[0].app_name, loginEmail:settingsRows[0].login_email, loginPassword:settingsRows[0].login_password, logoUrl:settingsRows[0].logo_url||null }
           : defaultState.settings;
+        // Se tasks vier vazio mas temos sessão válida, pode ser falha temporária — retry
+        if (tasks.length === 0 && auth.getUserId()) {
+          console.warn("[load] tasks veio vazio com sessão válida — retentando em 1s...");
+          setTimeout(async () => {
+            const retryTasks = await db.select("tasks").catch(() => []);
+            if (retryTasks.length > 0) {
+              console.log("[load] retry OK — carregadas", retryTasks.length, "tarefas");
+              setState(prev => ({ ...prev, tasks: retryTasks.map(taskFromDb) }));
+            }
+          }, 1000);
+        }
         setState({
           tasks: tasks.map(taskFromDb), habits: habits.map(habitFromDb),
           clients: clients.map(clientFromDb), weeklyGoals: goals.map(goalFromDb),
