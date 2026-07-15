@@ -781,6 +781,13 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
               <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{currentProfile?.role === "admin" ? "Administrador" : currentProfile?.role === "colaborador" ? "Colaborador" : currentProfile?.role === "visualizador" ? "Visualizador" : ""}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>Administrador</p>
             </div>
+            <button onClick={() => setShowDiag(true)} title="Diagnóstico do sistema"
+              className="flex-shrink-0 p-1.5 rounded-lg transition-all mr-1"
+              style={{ color:"rgba(184,150,90,0.4)" }}
+              onMouseEnter={e=>e.currentTarget.style.color="#B8965A"}
+              onMouseLeave={e=>e.currentTarget.style.color="rgba(184,150,90,0.4)"}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </button>
             <button onClick={onLogout} title="Sair"
               className="flex-shrink-0 p-1.5 rounded-lg transition-colors"
               style={{ color: "rgba(255,255,255,0.35)" }}
@@ -10856,8 +10863,105 @@ function SOPs() {
 
 // APP ROOT
 // ============================================================
+// ── Painel de Diagnóstico ─────────────────────────────
+function DiagPanel({ onClose }) {
+  const { tasks } = useApp();
+  const [info, setInfo] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  const SUPABASE_URL = "https://kpgpcqjefrixzshmskls.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwZ3BjcWplZnJpeHpzaG1za2xzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTkxMDIsImV4cCI6MjA4ODU3NTEwMn0.ySbLkrOa_OALIm-V8D0ZNG7RUiGbv8cHidu22OpDH2g";
+
+  const runDiag = async () => {
+    setTesting(true);
+    const result = {};
+    try {
+      const raw = localStorage.getItem("sb_session");
+      if (!raw) { result.session = "ERRO: Nenhuma sessao salva no browser"; }
+      else {
+        const s = JSON.parse(raw);
+        const diff = Math.round(s.expires_at - Date.now()/1000);
+        result.session = `OK: token salvo, expira em ${diff}s`;
+        result.token = s.access_token;
+        result.userId = s.user?.id;
+      }
+    } catch(e) { result.session = "ERRO: " + e.message; }
+
+    try {
+      const raw = localStorage.getItem("sb_session");
+      const s = JSON.parse(raw||"{}");
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${s.access_token||""}` }
+      });
+      const body = await res.text();
+      result.auth = res.ok ? `OK (${res.status})` : `ERRO (${res.status}): ${body.slice(0,120)}`;
+    } catch(e) { result.auth = "ERRO rede: " + e.message; }
+
+    try {
+      const raw = localStorage.getItem("sb_session");
+      const s = JSON.parse(raw||"{}");
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/tasks?order=created_at.desc&limit=3`, {
+        headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${s.access_token||""}`, "Content-Type": "application/json" }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        result.select = `OK: ${data.length} tarefas retornadas`;
+        result.ultima = data[0]?.title||"—";
+      } else {
+        const body = await res.text();
+        result.select = `ERRO (${res.status}): ${body.slice(0,150)}`;
+      }
+    } catch(e) { result.select = "ERRO: " + e.message; }
+
+    result.react = `${tasks.length} tarefas no React`;
+    const d = new Date();
+    result.hoje = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    result.utc = new Date().toISOString().split("T")[0];
+    setInfo(result);
+    setTesting(false);
+  };
+
+  useEffect(() => { runDiag(); }, []);
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background:"rgba(0,0,0,0.9)", backdropFilter:"blur(8px)" }}>
+      <div className="w-full max-w-lg rounded-2xl" style={{ background:"#0D1F15", border:"1px solid rgba(184,150,90,0.3)" }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(184,150,90,0.15)" }}>
+          <p className="font-black text-sm" style={{ color:"#B8965A" }}>🔍 Diagnóstico</p>
+          <button onClick={onClose} style={{ color:"rgba(255,255,255,0.5)", fontSize:20, lineHeight:1 }}>×</button>
+        </div>
+        <div className="p-5 space-y-2">
+          {testing && <p className="text-sm text-center py-4" style={{ color:"rgba(255,255,255,0.5)" }}>Testando...</p>}
+          {info && [
+            ["Sessão local", info.session],
+            ["UserId", info.userId||"—"],
+            ["Auth Supabase", info.auth],
+            ["Select tasks", info.select],
+            ["Última tarefa no banco", info.ultima],
+            ["Tarefas no React", info.react],
+            ["Data local (Recife)", info.hoje],
+            ["Data UTC", info.utc],
+          ].map(([k,v]) => (
+            <div key={k} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.05)" }}>
+              <p className="text-[10px] font-black uppercase mb-0.5" style={{ color:"rgba(184,150,90,0.7)" }}>{k}</p>
+              <p className="text-xs font-mono break-all" style={{ color: v?.startsWith("ERRO") ? "#ef4444" : "#10b981" }}>{v}</p>
+            </div>
+          ))}
+          <button onClick={runDiag} disabled={testing} className="w-full py-2 rounded-xl text-sm font-bold mt-2"
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", color:"#fff" }}>
+            ↺ Testar novamente
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function AppContent({ onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [showDiag, setShowDiag] = useState(false);
   const { currentProfile } = useApp();
   const isAdmin    = !currentProfile || currentProfile.role === "admin";
   const isColab    = currentProfile?.role === "colaborador";
@@ -10992,6 +11096,7 @@ function LoginScreen({ onLogin }) {
         </div>
         <p style={{ textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:11, marginTop:24 }}>YOETZ Inteligência Empresarial © 2025</p>
       </div>
+      {showDiag && <DiagPanel onClose={() => setShowDiag(false)} />}
     </div>
   );
 }
