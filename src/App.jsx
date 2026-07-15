@@ -1600,15 +1600,17 @@ function Tasks() {
   });
 
   const filtered = visibleTasks.filter(t => {
-    if (t.parentId) return false; // Subtarefas não aparecem na lista principal
+    if (t.parentId) return false;
     if (filterStatus === "completed" && !t.completed) return false;
     if (filterStatus === "pending" && t.completed) return false;
     if (hideCompleted && t.completed) return false;
     if (filterCat !== "all" && t.categoryId !== filterCat) return false;
     if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-    // Só filtrar por data se a tarefa TEM data E não está concluída
-    if (t.dueDate && !t.completed) {
+    // Filtro de data: tarefas pendentes SEM data sempre aparecem
+    // Tarefas pendentes COM data: mostrar sempre (sem corte)
+    // Tarefas concluídas: usar o range de datas para limitar o histórico
+    if (t.completed && t.dueDate) {
       if (t.dueDate < startDate || t.dueDate > endDate) return false;
     }
     return true;
