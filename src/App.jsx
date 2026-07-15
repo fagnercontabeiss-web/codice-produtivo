@@ -17,7 +17,7 @@ const defaultCategories = [
 ];
 const defaultContexts = [
   { id: "pessoal", name: "Pessoal", color: "#ec4899" },
-  { id: "codice-contabilidade", name: "YOETZ Inteligência Empresarial", color: "#2B5E46" },
+  { id: "codice-contabilidade", name: "YOETZ", color: "#2B5E46" },
   { id: "codice-start", name: "YOETZ Start", color: "#10b981" },
   { id: "iabv", name: "IABV", color: "#B8965A" },
   { id: "direito", name: "Direito (Faculdade)", color: "#6366f1" },
@@ -36,7 +36,7 @@ const defaultState = {
   aiAnalyses: [],
   teamUsers: [], // perfis da equipe
   currentProfile: null, // perfil do usuário logado
-  settings: { appName: "YOETZ Inteligência Empresarial", loginEmail: "Fagner", loginPassword: "Codice", logoUrl: null }
+  settings: { appName: "YOETZ", loginEmail: "Fagner", loginPassword: "Codice", logoUrl: null }
 };
 
 // ============================================================
@@ -1748,7 +1748,7 @@ function Tasks() {
 
   const saveMulti = () => {
     const lines = multiText.split("\n").map(l => l.trim()).filter(Boolean);
-    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "YOETZ Inteligência Empresarial") || contexts[0])?.id, dueDate: today(), completed: false, isRecurring: false, checklist: [] }));
+    lines.forEach(line => addTask({ id: uid(), title: line, categoryId: categories[0]?.id || "outro", contextId: (contexts.find(c => c.name === "YOETZ") || contexts[0])?.id, dueDate: today(), completed: false, isRecurring: false, checklist: [] }));
     setMultiText(""); setIsMultiOpen(false);
   };
 
@@ -6247,7 +6247,7 @@ function SeveranceSimulation() {
   const [verbas, setVerbas]         = useState([]);
   const [formData, setFormData]     = useState(null);
   const [erroCalc, setErroCalc]     = useState("");
-  const [sigLeft, setSigLeft]       = useState("YOETZ Inteligência Empresarial");
+  const [sigLeft, setSigLeft]       = useState("YOETZ");
   const [sigRight, setSigRight]     = useState("");
   const [editObs, setEditObs]           = useState("");
   const [editingObs, setEditingObs]     = useState(false);
@@ -6396,7 +6396,7 @@ function SeveranceSimulation() {
       "<div class='section'><h3>4. Observações</h3><div class='obs-box'>" + editObs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") + "</div></div>" +
 
       "<div class='assinatura'>" +
-        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigLeft||"YOETZ Inteligência Empresarial") + "</div></div>" +
+        "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigLeft||"YOETZ") + "</div></div>" +
         "<div class='assinatura-col'><div class='linha-assinatura'>" + (sigRight||reportData.employeeInfo.name) + (reportData.employeeInfo.cpf ? "<br/><span style='font-size:11px;color:#94a3b8;font-weight:400'>CPF: " + reportData.employeeInfo.cpf + "</span>" : "") + "</div></div>" +
       "</div>" +
 
@@ -7121,7 +7121,7 @@ function LogoUploader({ settings: settingsProp, updateSettings: updateSettingsPr
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>Preview na sidebar</p>
           <div className="flex items-center gap-3">
             <img src={preview} alt="Preview" className="h-8 w-auto object-contain" style={{ maxWidth:80 }}/>
-            <p className="text-sm font-black" style={{ color:"rgba(255,255,255,0.9)" }}>{settings.appName||"YOETZ Inteligência Empresarial"}</p>
+            <p className="text-sm font-black" style={{ color:"rgba(255,255,255,0.9)" }}>{settings.appName||"YOETZ"}</p>
           </div>
         </div>
       )}
@@ -7362,7 +7362,7 @@ function SettingsPage() {
       {/* APLICATIVO */}
       <Section title="Aplicativo" icon="⚙️">
         <Row label="Nome do sistema" sub="Exibido na barra lateral">
-          <input value={settings.appName||"YOETZ Inteligência Empresarial"}
+          <input value={settings.appName||"YOETZ"}
             onChange={e=>updateSettings({...settings,appName:e.target.value})}
             className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-600 w-44"
             style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}/>
@@ -9577,7 +9577,7 @@ function Projects() {
 // CÓDICE IA — Central de Inteligência Operacional
 // ============================================================
 
-async function callCodiceAI(type, context, messages, sessionToken) {
+async function callYoetzAI(type, context, messages, sessionToken) {
   const res = await fetch("https://kpgpcqjefrixzshmskls.supabase.co/functions/v1/codice-ai", {
     method: "POST",
     headers: {
@@ -9630,7 +9630,7 @@ function AIInsightCard({ icon, title, content, color, urgent }) {
   );
 }
 
-function CodiceIA() {
+function YoetzIA() {
   const { tasks, habits, projects, teamUsers, clients, onboardings, currentProfile, aiAnalyses, saveAiAnalysis } = useApp();
   const [loading, setLoading] = useState({ full:false, burnout:false, workload:false, habits:false });
   const [analysis, setAnalysis] = useState(null);
@@ -9677,7 +9677,7 @@ function CodiceIA() {
     setLoading(p=>({...p,[type]:true}));
     try {
       const ctx = buildContext();
-      const data = await callCodiceAI(type, ctx, null, getSession());
+      const data = await callYoetzAI(type, ctx, null, getSession());
       if (type === "full") setAnalysis(data);
       await saveAiAnalysis(type, data);
     } catch(e) {
@@ -9706,7 +9706,7 @@ function CodiceIA() {
       if (chatMessages.length > 0) {
         msgs.unshift(...chatMessages.slice(-6));
       }
-      const reply = await callCodiceAI("chat", ctx, msgs, getSession());
+      const reply = await callYoetzAI("chat", ctx, msgs, getSession());
       setChatMessages(p => [...p, { role:"assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) }]);
     } catch(e) {
       setChatMessages(p => [...p, { role:"assistant", content: `Erro: ${e.message}` }]);
@@ -9747,7 +9747,7 @@ function CodiceIA() {
               </div>
             </div>
             <p className="text-xs max-w-lg" style={{ color:"rgba(255,255,255,0.45)" }}>
-              Análise estratégica em tempo real com GPT-4o. Dados reais do escritório transformados em inteligência acionável.
+              Análise estratégica com IA. Dados reais do escritório YOETZ transformados em inteligência acionável.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -10905,7 +10905,7 @@ function AppContent({ onLogout }) {
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
-      {activeTab === "codiceai" && <CodiceIA />}
+      {activeTab === "codiceai" && <YoetzIA />}
       {activeTab === "sops" && <SOPs />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
