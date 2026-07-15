@@ -1661,7 +1661,7 @@ function Tasks() {
     if (filterStatus === "pending" && t.completed) return false;
     if (hideCompleted && t.completed) return false;
     if (filterCat !== "all" && t.categoryId !== filterCat) return false;
-    if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
+    // Contexto não filtra tarefas — todas aparecem independente do contexto
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (isTodayMode && !t.completed) {
       if (t.dueDate && t.dueDate > todayStr) return false;
@@ -1734,14 +1734,14 @@ function Tasks() {
     }
     setEditing(task || null);
     const defaultCatId = categories.find(c => c.name?.toLowerCase().includes("admin"))?.id || categories[0]?.id || "";
-    const defaultCtxId = contexts.find(c => c.name?.toLowerCase().includes("yoetz") || c.name?.toLowerCase().includes("cód") || c.name?.toLowerCase().includes("cod"))?.id || contexts[0]?.id || "";
+    const defaultCtxId = "codice-contabilidade";
     setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||today(), clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
   const saveTask = () => {
     if (!tf.title.trim()) return;
-    const data = { id: editing?.id || uid(), ...tf, completed: editing?.completed || false, checklist: editing?.checklist || [], clientId: tf.clientId || undefined };
+    const data = { id: editing?.id || uid(), ...tf, contextId: tf.contextId || "codice-contabilidade", completed: editing?.completed || false, checklist: editing?.checklist || [], clientId: tf.clientId || undefined };
     editing ? updateTask(data) : addTask(data);
     setIsFormOpen(false); setEditing(null);
   };
