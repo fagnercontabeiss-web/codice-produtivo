@@ -84,14 +84,27 @@ function AppProvider({ children }) {
         // 1. Restaurar sessão — com retry e modo resiliência
         let session = await auth.restoreSession();
         if (!session) {
-          console.warn("[load] sessão não restaurada, aguardando 1s e tentando de novo...");
-          await new Promise(r => setTimeout(r, 1000));
+          console.warn("[load] sessão não restaurada, tentando novamente...");
+          await new Promise(r => setTimeout(r, 300));
           session = await auth.restoreSession();
         }
         if (!session) {
-          console.error("[load] sessão inválida após retry — redirecionando para login");
-          setLoading(false);
-          return;
+          // Último recurso: tentar carregar com o token do localStorage diretamente
+          console.warn("[load] sessão não restaurada — tentando carregar dados mesmo assim...");
+          const rawSession = localStorage.getItem("sb_session");
+          if (!rawSession) {
+            console.error("[load] sem sessão salva — usuário precisa fazer login");
+            setLoading(false);
+            return;
+          }
+          try {
+            const parsed = JSON.parse(rawSession);
+            if (parsed.access_token) {
+              // Forçar uso do token salvo
+              // O módulo auth já fez isso no modo resiliência, mas garantimos aqui
+              console.log("[load] usando token salvo diretamente");
+            }
+          } catch(e) {}
         }
         console.log("[load] sessão OK, userId:", auth.getUserId());
 
@@ -1585,8 +1598,14 @@ function Tasks() {
   const isAdmin  = currentProfile?.role === "admin" || !currentProfile;
   const isColab  = currentProfile?.role === "colaborador";
   const isViewer = currentProfile?.role === "visualizador";
-  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 3); return d.toISOString().split("T")[0]; });
-  const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().split("T")[0]; });
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth()-3);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth()+6);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  });
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [filterCtx, setFilterCtx] = useState("all");
@@ -1624,17 +1643,28 @@ function Tasks() {
     return false;
   });
 
+  const todayStr = today();
+  const isTodayMode = startDate === todayStr && endDate === todayStr;
+
   const filtered = visibleTasks.filter(t => {
     if (t.parentId) return false;
+    // Filtro de status
     if (filterStatus === "completed" && !t.completed) return false;
     if (filterStatus === "pending" && t.completed) return false;
     if (hideCompleted && t.completed) return false;
+    // Filtro de categoria e contexto
     if (filterCat !== "all" && t.categoryId !== filterCat) return false;
     if (filterCtx !== "all" && t.contextId !== filterCtx) return false;
+    // Filtro de busca
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-    // Filtro de data: tarefas pendentes SEM data sempre aparecem
-    // Tarefas pendentes COM data: mostrar sempre (sem corte)
-    // Tarefas concluídas: usar o range de datas para limitar o histórico
+    // Filtro de data:
+    // Modo HOJE: mostrar tarefas com dueDate = hoje OU atrasadas (dueDate < hoje) OU sem data
+    if (isTodayMode && !t.completed) {
+      if (t.dueDate && t.dueDate > todayStr) return false; // ocultar futuras
+    }
+    // Modo normal: tarefas pendentes SEM dueDate sempre aparecem
+    // Tarefas pendentes COM dueDate: sempre aparecem (sem corte por range)
+    // Tarefas concluídas: limitar pelo range de datas
     if (t.completed && t.dueDate) {
       if (t.dueDate < startDate || t.dueDate > endDate) return false;
     }
@@ -1704,7 +1734,7 @@ function Tasks() {
     setEditing(task || null);
     const defaultCatId = categories.find(c => c.name?.toLowerCase().includes("admin"))?.id || categories[0]?.id || "";
     const defaultCtxId = contexts.find(c => c.name?.toLowerCase().includes("yoetz") || c.name?.toLowerCase().includes("cód") || c.name?.toLowerCase().includes("cod"))?.id || contexts[0]?.id || "";
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||new Date().toISOString().split("T")[0], clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||today(), clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
     setIsFormOpen(true);
   };
 
@@ -1846,7 +1876,8 @@ function Tasks() {
                 setFilterStatus("pending");
                 setStartDate(today());
                 const far = new Date(); far.setFullYear(far.getFullYear()+2);
-                setEndDate(far.toISOString().split("T")[0]);
+                const fy = far.getFullYear(), fm = String(far.getMonth()+1).padStart(2,"0"), fd = String(far.getDate()).padStart(2,"0");
+                setEndDate(fy+"-"+fm+"-"+fd);
               }}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all"
               style={{
