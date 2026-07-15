@@ -168,7 +168,7 @@ async function withAuth(requestFn) {
 
 export const db = {
   async select(table, options) {
-    let url = SUPABASE_URL + "/rest/v1/" + table + "?order=created_at.asc";
+    let url = SUPABASE_URL + "/rest/v1/" + table + "?order=created_at.desc&limit=2000";
     if (options && options.filter) url += "&" + options.filter;
 
     const res = await withAuth(headers => fetch(url, { headers }));
