@@ -97,25 +97,33 @@ export const auth = {
       if (!s.access_token || !s.expires_at) return null;
 
       const now = Date.now() / 1000;
-      // Token ainda válido (com margem de 2 min)
+
+      // Token ainda válido (com margem de 2 min) — usar direto
       if (now < s.expires_at - 120) {
         _session = s;
         scheduleRefresh(s);
-        console.log("[supabase] Sessão restaurada do localStorage — expira em", Math.round(s.expires_at - now), "s");
+        console.log("[supabase] Sessão válida restaurada — expira em", Math.round(s.expires_at - now), "s");
         return s;
       }
 
       // Token expirado — tentar renovar
       if (s.refresh_token) {
         console.log("[supabase] Token expirado — tentando renovar...");
-        const refreshed = await auth.refreshSession();
-        if (refreshed) return refreshed;
+        try {
+          const refreshed = await auth.refreshSession();
+          if (refreshed) return refreshed;
+        } catch(refreshErr) {
+          console.warn("[supabase] Refresh falhou (possível instabilidade):", refreshErr.message);
+        }
       }
 
-      // Sessão totalmente expirada
-      console.warn("[supabase] Sessão expirada e sem refresh_token válido — limpando");
-      localStorage.removeItem(SESSION_KEY);
-      _session = null;
+      // MODO RESILIÊNCIA: se o refresh falhar (ex: instabilidade Supabase),
+      // usar o token salvo mesmo que tecnicamente expirado.
+      // O servidor pode aceitar durante janelas de tolerância.
+      console.warn("[supabase] Usando token salvo em modo resiliência (auth instável)");
+      _session = s;
+      return s;
+
     } catch(e) {
       console.error("[supabase] Erro ao restaurar sessão:", e.message);
     }
