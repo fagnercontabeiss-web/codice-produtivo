@@ -650,7 +650,7 @@ function GlobalSearchResults({ query, onSelect, setActiveTab }) {
   );
 }
 
-function Layout({ children, activeTab, setActiveTab, onLogout }) {
+function Layout({ children, activeTab, setActiveTab, onLogout, onDiag }) {
   const { settings, currentProfile } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
@@ -781,11 +781,11 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
               <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{currentProfile?.role === "admin" ? "Administrador" : currentProfile?.role === "colaborador" ? "Colaborador" : currentProfile?.role === "visualizador" ? "Visualizador" : ""}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>Administrador</p>
             </div>
-            <button onClick={() => setShowDiag(true)} title="Diagnóstico do sistema"
-              className="flex-shrink-0 p-1.5 rounded-lg transition-all mr-1"
-              style={{ color:"rgba(184,150,90,0.4)" }}
+            <button onClick={onDiag} title="Diagnóstico do sistema"
+              className="flex-shrink-0 p-1.5 rounded-lg transition-all"
+              style={{ color:"rgba(184,150,90,0.35)" }}
               onMouseEnter={e=>e.currentTarget.style.color="#B8965A"}
-              onMouseLeave={e=>e.currentTarget.style.color="rgba(184,150,90,0.4)"}>
+              onMouseLeave={e=>e.currentTarget.style.color="rgba(184,150,90,0.35)"}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </button>
             <button onClick={onLogout} title="Sair"
@@ -10995,7 +10995,7 @@ function AppContent({ onLogout }) {
   }, [isAdmin, isViewer]);
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} onDiag={() => setShowDiag(true)}>
       {activeTab === "dashboard" && <Dashboard />}
       {activeTab === "tasks" && <Tasks />}
       {!isViewer && activeTab === "habits" && <Habits />}
