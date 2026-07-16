@@ -69,8 +69,8 @@ function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
-  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all", parentId:r.parent_id||null });
-  const taskToDb   = t => ({ id:t.id, user_id:auth.getUserId(), title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId, client_id:t.clientId, due_date:t.dueDate||null, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null });
+  const taskFromDb = r => ({ id:r.id, title:r.title, description:r.description||"", categoryId:r.category_id, contextId:r.context_id, clientId:r.client_id, dueDate:r.due_date, completed:r.completed, isRecurring:r.is_recurring, recurrenceType:r.recurrence_type||null, recurrenceEndDate:r.recurrence_end_date||null, checklist:r.checklist||[], assignedTo:r.assigned_to||null, visibility:r.visibility||"all", parentId:r.parent_id||null, priority:r.priority||"normal", notes:r.notes||"" });
+  const taskToDb   = t => ({ id:t.id, user_id:auth.getUserId(), title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId||"codice-contabilidade", client_id:t.clientId, due_date:t.dueDate||null, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null, priority:t.priority||"normal", notes:t.notes||"" });
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2B5E46", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
   const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
@@ -853,7 +853,7 @@ function StatCard({ title, value, icon, trend, trendColor, accent = "#2B5E46" })
 }
 
 function Dashboard() {
-  const { tasks, habits, clients, weeklyGoals, categories, teamUsers, currentProfile, onboardings, relationships } = useApp();
+  const { tasks, habits, clients, weeklyGoals, categories, teamUsers, currentProfile, onboardings, relationships, globalObligationsDb } = useApp();
   const t = today();
   const now = new Date();
   const hour = now.getHours();
@@ -863,6 +863,15 @@ function Dashboard() {
   // ── Métricas core ──────────────────────────────────────────
   const overdue      = tasks.filter(x => !x.completed && x.dueDate && x.dueDate < t);
   const dueToday     = tasks.filter(x => !x.completed && x.dueDate === t);
+
+  // ── Widgets novos ──────────────────────────────────────────
+  // Tarefas críticas do dia (urgente/alta/atrasadas)
+  const criticalToday = [...tasks.filter(x=>!x.completed&&x.dueDate<t), ...tasks.filter(x=>!x.completed&&x.dueDate===t&&(x.priority==="urgente"||x.priority==="alta"))].filter((v,i,a)=>a.findIndex(t2=>t2.id===v.id)===i).sort((a,b)=>{const p={urgente:0,alta:1,normal:2};return(p[a.priority]||2)-(p[b.priority]||2);}).slice(0,3);
+
+  // Obrigações próximas (7 dias)
+  const in7days = (() => { const d=new Date(); d.setDate(d.getDate()+7); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
+  const nextObs = (globalObligationsDb||[]).filter(o=>o.dueDate>=t&&o.dueDate<=in7days).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,5);
+  const alertObs = (globalObligationsDb||[]).filter(o=>{ const diff=Math.ceil((new Date(o.dueDate+"T12:00:00")-new Date())/(1000*60*60*24)); return diff>=0&&diff<=3; });
   const completed7d  = tasks.filter(x => x.completed && x.dueDate >= (() => { const d=new Date(); d.setDate(d.getDate()-7); return d.toISOString().split("T")[0]; })());
   const pending      = tasks.filter(x => !x.completed);
   const totalDone    = tasks.filter(x => x.completed).length;
@@ -1114,6 +1123,100 @@ function Dashboard() {
           accent="#B8965A"
           icon="✅"
         />
+      </div>
+
+      {/* ═══ ALERTA OBRIGAÇÕES VENCENDO EM 3 DIAS ═══════════ */}
+      {alertObs.length > 0 && (
+        <div className="rounded-2xl px-5 py-4 flex items-center gap-4"
+          style={{background:"linear-gradient(135deg,rgba(239,68,68,0.08),rgba(239,68,68,0.04))",border:"1.5px solid rgba(239,68,68,0.3)"}}>
+          <div className="text-2xl">🚨</div>
+          <div className="flex-1">
+            <p className="text-sm font-black" style={{color:"#dc2626"}}>Atenção! {alertObs.length} obrigação{alertObs.length>1?"s":""} vence{alertObs.length>1?"m":""} em até 3 dias</p>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {alertObs.map(o=>(
+                <span key={o.id} className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{background:"rgba(239,68,68,0.12)",color:"#dc2626"}}>
+                  {o.name} — {new Date(o.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TAREFAS CRÍTICAS + OBRIGAÇÕES PRÓXIMAS ══════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Tarefas críticas do dia */}
+        <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.7)",boxShadow:"0 4px 24px rgba(17,24,20,0.06)"}}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-black" style={{color:"#111110"}}>🎯 Prioridade do Dia</h3>
+              <p className="text-xs mt-0.5" style={{color:"#6B7C50"}}>Tarefas urgentes e atrasadas</p>
+            </div>
+            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:"rgba(239,68,68,0.08)",color:"#ef4444"}}>{criticalToday.length} críticas</span>
+          </div>
+          {criticalToday.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-2xl mb-1">✅</p>
+              <p className="text-xs font-medium" style={{color:"#6B7C50"}}>Nenhuma tarefa crítica hoje</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {criticalToday.map(task => {
+                const cat = categories.find(c=>c.id===task.categoryId);
+                const isOd = task.dueDate < t;
+                return (
+                  <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl"
+                    style={{background:isOd?"rgba(239,68,68,0.04)":task.priority==="urgente"?"rgba(239,68,68,0.04)":"rgba(249,115,22,0.04)",border:isOd?"1px solid rgba(239,68,68,0.2)":task.priority==="urgente"?"1px solid rgba(239,68,68,0.2)":"1px solid rgba(249,115,22,0.2)"}}>
+                    {cat && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:cat.color}}/>}
+                    <p className="flex-1 text-xs font-semibold truncate" style={{color:"#111110"}}>{task.title}</p>
+                    {isOd && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>ATRASADA</span>}
+                    {!isOd && task.priority==="urgente" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>🔴 URGENTE</span>}
+                    {!isOd && task.priority==="alta" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(249,115,22,0.12)",color:"#f97316"}}>⚠️ ALTA</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Próximas obrigações */}
+        <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.7)",boxShadow:"0 4px 24px rgba(17,24,20,0.06)"}}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-black" style={{color:"#111110"}}>📅 Obrigações — 7 dias</h3>
+              <p className="text-xs mt-0.5" style={{color:"#6B7C50"}}>Próximos vencimentos fiscais</p>
+            </div>
+            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:"rgba(184,150,90,0.1)",color:"#B8965A"}}>{nextObs.length} vencimentos</span>
+          </div>
+          {nextObs.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-2xl mb-1">✅</p>
+              <p className="text-xs font-medium" style={{color:"#6B7C50"}}>Nenhuma obrigação nos próximos 7 dias</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {nextObs.map(o => {
+                const diff = Math.ceil((new Date(o.dueDate+"T12:00:00")-new Date())/(1000*60*60*24));
+                const typeColor = {fiscal:"#ef4444",trabalhista:"#f97316",contabil:"#3b82f6",societario:"#8b5cf6"}[o.type]||"#6B7C50";
+                const typeBg = {fiscal:"rgba(239,68,68,0.08)",trabalhista:"rgba(249,115,22,0.08)",contabil:"rgba(59,130,246,0.08)",societario:"rgba(139,92,246,0.08)"}[o.type]||"rgba(107,124,80,0.08)";
+                return (
+                  <div key={o.id} className="flex items-center gap-3 p-3 rounded-xl" style={{background:typeBg,border:`1px solid ${typeColor}30`}}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{color:"#111110"}}>{o.name}</p>
+                      <span className="text-[9px] font-bold uppercase" style={{color:typeColor}}>{o.type||"fiscal"}</span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-black" style={{color:diff<=3?"#ef4444":diff<=5?"#f97316":"#6B7C50"}}>{new Date(o.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</p>
+                      <p className="text-[9px]" style={{color:diff<=3?"#ef4444":"#94a3b8"}}>{diff===0?"Hoje":diff===1?"Amanhã":`${diff}d`}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ═══ GRÁFICO + INSIGHTS ══════════════════════════════ */}
@@ -1679,7 +1782,7 @@ function Tasks() {
   for (let i = 0; i < firstDay; i++) calDays.push(null);
   for (let i = 1; i <= daysInMonth; i++) calDays.push(i);
 
-  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
+  const [tf, setTf] = useState({ title:"", description:"", categoryId:"", contextId:"", dueDate:"", clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all", priority:"normal", notes:"" });
   const [multiText, setMultiText] = useState("");
   const canEditTask = (task) => {
     if (!currentProfile || currentProfile.role === "admin") return true;
@@ -1735,7 +1838,7 @@ function Tasks() {
     setEditing(task || null);
     const defaultCatId = categories.find(c => c.name?.toLowerCase().includes("admin"))?.id || categories[0]?.id || "";
     const defaultCtxId = "codice-contabilidade";
-    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||today(), clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all" });
+    setTf(task ? { title:task.title||"", description:task.description||"", categoryId:task.categoryId||defaultCatId, contextId:task.contextId||defaultCtxId, dueDate:task.dueDate||today(), clientId:task.clientId||"", isRecurring:!!task.isRecurring, recurrenceType:task.recurrenceType||null, recurrenceEndDate:task.recurrenceEndDate||null, assignedTo:task.assignedTo||"", visibility:task.visibility||"all", priority:task.priority||"normal", notes:task.notes||"" } : { title:"", description:"", categoryId:defaultCatId, contextId:defaultCtxId, dueDate:today(), clientId:"", isRecurring:false, recurrenceType:null, recurrenceEndDate:null, assignedTo:"", visibility:"all", priority:"normal", notes:"" });
     setIsFormOpen(true);
   };
 
@@ -2052,6 +2155,25 @@ function Tasks() {
               </div>
             )}
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-2">Prioridade</label>
+              <div className="flex gap-2">
+                {[{v:"normal",l:"Normal",c:"#6B7C50",bg:"rgba(107,124,80,0.1)"},{v:"alta",l:"⚠️ Alta",c:"#f97316",bg:"rgba(249,115,22,0.1)"},{v:"urgente",l:"🔴 Urgente",c:"#ef4444",bg:"rgba(239,68,68,0.1)"}].map(p=>(
+                  <button key={p.v} type="button" onClick={()=>setTf(x=>({...x,priority:p.v}))}
+                    className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+                    style={{background:tf.priority===p.v?p.bg:"#f8fafc",color:tf.priority===p.v?p.c:"#94a3b8",border:tf.priority===p.v?`1.5px solid ${p.c}60`:"1px solid rgba(206,186,150,0.4)"}}>
+                    {p.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Observação</label>
+              <textarea value={tf.notes||""} onChange={e=>setTf(x=>({...x,notes:e.target.value}))} rows={2}
+                placeholder="Ex: aguardando documento do cliente..."
+                className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-amber-600 outline-none"
+                style={{borderColor:"rgba(206,186,150,0.5)"}}/>
+            </div>
             <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button type="button" onClick={saveTask} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)" }}>Salvar</button></div>
           </div>
         </Modal>
@@ -2550,6 +2672,9 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
         </button>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
         <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
+        {task.priority==="urgente" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>🔴 URGENTE</span>}
+        {task.priority==="alta" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{background:"rgba(249,115,22,0.12)",color:"#f97316"}}>⚠️ ALTA</span>}
+        {task.notes && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{background:"rgba(184,150,90,0.1)",color:"#B8965A"}}>💬 {task.notes.slice(0,30)}{task.notes.length>30?"...":""}</span>}
         {subtasks.length > 0 && <span className="text-[10px]" style={{ color:"#6B7C50" }}>{subtasksDone}/{subtasks.length}</span>}
         {task.dueDate && <span className="text-[10px] font-medium flex-shrink-0" style={{ color:od&&!task.completed?"#ef4444":"#6B7C50" }}>{new Date(task.dueDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>}
         {assignedUser && <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0" style={{ background:assignedUser.avatarColor||"#2B5E46" }}>{assignedUser.name.charAt(0)}</div>}
@@ -2584,6 +2709,9 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             {/* Título */}
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
               style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
+            {/* Badge prioridade */}
+            {task.priority==="urgente"&&!task.completed && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>🔴 URGENTE</span>}
+            {task.priority==="alta"&&!task.completed && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(249,115,22,0.12)",color:"#f97316"}}>⚠️ ALTA</span>}
 
             {/* Badge subtarefas */}
             {subtasks.length > 0 && (
@@ -5430,6 +5558,78 @@ function Obligations() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* ── CALENDÁRIO VISUAL DO MÊS ── */}
+          <div className="p-5" style={{borderTop:"1px solid #e8edf5"}}>
+            <p className="text-xs font-black uppercase tracking-wide mb-4" style={{color:"#6B7C50"}}>📅 Calendário do Mês</p>
+            {(() => {
+              const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+              const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+              const todayDay = new Date().getDate();
+              const todayMonth = new Date().getMonth();
+              const todayYear = new Date().getFullYear();
+              const isCurrentMonth = todayMonth===currentMonth && todayYear===currentYear;
+              const typeColor = {fiscal:"#ef4444",trabalhista:"#f97316",contabil:"#3b82f6",societario:"#8b5cf6",outro:"#6B7C50"};
+
+              // Agrupar obrigações por dia
+              const byDay = {};
+              globalObs.forEach(g => {
+                const day = typeof g.dueDate === "number" ? g.dueDate : parseInt(g.dueDate?.split("-")[2]||0);
+                if (!byDay[day]) byDay[day] = [];
+                byDay[day].push(g);
+              });
+              allForMonth.forEach(item => {
+                if (item.isGlobal) return;
+                const day = item.eff.dueDate;
+                if (day && day >= 1 && day <= 31) {
+                  if (!byDay[day]) byDay[day] = [];
+                  if (!byDay[day].find(x=>x.id===item.ob.id)) byDay[day].push({...item.ob, type:item.ob.type||"fiscal", _completed:item.eff.isCompleted});
+                }
+              });
+
+              const cells = [];
+              for (let i=0; i<(firstDay===0?6:firstDay-1); i++) cells.push(null);
+              for (let d=1; d<=daysInMonth; d++) cells.push(d);
+
+              return (
+                <div>
+                  <div className="grid grid-cols-7 gap-1 mb-1">
+                    {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(d=>(
+                      <div key={d} className="text-center text-[9px] font-black uppercase" style={{color:"#94a3b8"}}>{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {cells.map((d,i) => {
+                      if (!d) return <div key={i}/>;
+                      const obs = byDay[d]||[];
+                      const isToday = isCurrentMonth && d===todayDay;
+                      const hasUrgent = obs.some(o=>o.type==="fiscal"||o.type==="trabalhista");
+                      return (
+                        <div key={i} className="rounded-lg p-1 min-h-[44px] relative"
+                          style={{background:isToday?"rgba(184,150,90,0.15)":obs.length>0?"rgba(43,94,70,0.04)":"transparent",border:isToday?"1.5px solid #B8965A":obs.length>0?"1px solid rgba(206,186,150,0.4)":"1px solid transparent"}}>
+                          <p className="text-[10px] font-black text-center" style={{color:isToday?"#B8965A":d<todayDay&&isCurrentMonth?"#94a3b8":"#374151"}}>{d}</p>
+                          <div className="flex flex-wrap gap-0.5 mt-0.5 justify-center">
+                            {obs.slice(0,3).map((o,oi)=>(
+                              <div key={oi} title={o.name} className="w-2 h-2 rounded-full" style={{background:typeColor[o.type]||"#6B7C50",opacity:o._completed?0.3:1}}/>
+                            ))}
+                            {obs.length>3 && <div className="w-2 h-2 rounded-full bg-gray-300 flex items-center justify-center"><span style={{fontSize:5,color:"#fff",fontWeight:900}}>+</span></div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-3">
+                    {Object.entries(typeColor).map(([t,c])=>(
+                      <div key={t} className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full" style={{background:c}}/>
+                        <span className="text-[9px] font-bold capitalize" style={{color:"#6B7C50"}}>{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Global obligations manager */}
