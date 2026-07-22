@@ -826,12 +826,10 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
             </div>
           </div>
         </header>
-        {activeTab === "habits" ? (
-          <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
+        {["dashboard"].includes(activeTab) ? (
+          <div className="flex-1 overflow-y-auto p-5">{children}</div>
         ) : (
-          <div className="flex-1 overflow-auto p-4 sm:p-6">
-            <div className="max-w-7xl mx-auto">{children}</div>
-          </div>
+          <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
         )}
       </main>
     </div>
@@ -3305,7 +3303,7 @@ function Habits() {
   const isAdmin = !currentProfile || currentProfile.role === "admin";
   const MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   const DAY_ABBR    = ["Q","Q","S","S","D","S","T"]; // começando de segunda
-  const PALETTE     = ["#111110","#2B5E46","#B8965A","#3b82f6","#8b5cf6","#ef4444","#f97316","#10b981"];
+  const PALETTE     = ["#2B5E46","#B8965A","#1A3829","#6B7C50","#CEBA96","#4A7454","#B8965A","#2B5E46"];
 
   // ── Helpers ───────────────────────────────────────────────
   const getDaysInMonth = (y,m) => new Date(y,m+1,0).getDate();
@@ -3412,8 +3410,8 @@ function Habits() {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{height:80}}>
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6B7280" stopOpacity="0.25"/>
-            <stop offset="100%" stopColor="#6B7280" stopOpacity="0.02"/>
+            <stop offset="0%" stopColor="#2B5E46" stopOpacity="0.25"/>
+            <stop offset="100%" stopColor="#2B5E46" stopOpacity="0.02"/>
           </linearGradient>
         </defs>
         {/* Linhas de grid horizontais */}
@@ -3422,21 +3420,21 @@ function Habits() {
             stroke="rgba(0,0,0,0.04)" strokeWidth="0.5"/>
         ))}
         <polygon points={area} fill="url(#areaGrad)"/>
-        <polyline points={pts.join(" ")} fill="none" stroke="#374151" strokeWidth="1"
+        <polyline points={pts.join(" ")} fill="none" stroke="#2B5E46" strokeWidth="1"
           strokeLinecap="round" strokeLinejoin="round"/>
         {smooth.map((v,i)=>(
-          <circle key={i} cx={(i/(n-1||1))*W} cy={H-(v/100)*H*0.85} r="1.2" fill="#374151"/>
+          <circle key={i} cx={(i/(n-1||1))*W} cy={H-(v/100)*H*0.85} r="1.2" fill="#2B5E46"/>
         ))}
       </svg>
     );
   };
 
   // Formulário
-  const [hf,setHf]=useState({title:"",description:"",freq:"daily",color:"#111110"});
+  const [hf,setHf]=useState({title:"",description:"",freq:"daily",color:"#2B5E46"});
   const openForm = (h=null) => {
     setEditingHabit(h);
     setHf(h?{title:h.title||"",description:h.description||"",freq:h.freq||"daily",color:h.color||"#111110"}
-            :{title:"",description:"",freq:"daily",color:"#111110"});
+            :{title:"",description:"",freq:"daily",color:"#2B5E46"});
     setIsFormOpen(true);
   };
   const saveHabit = () => {
@@ -3476,7 +3474,7 @@ function Habits() {
             <svg viewBox="0 0 24 24" fill="none" stroke="#6B7C50" strokeWidth="2" style={{width:16,height:16}}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div className="w-2.5 h-2.5 rounded-full" style={{background:color}}/>
-          <h2 className="text-base font-black flex-1" style={{color:"#111110"}}>{h.title}</h2>
+          <h2 className="text-base font-black flex-1" style={{color:"#2B5E46"}}>{h.title}</h2>
           {isAdmin&&<div className="flex gap-2">
             <button onClick={()=>openForm(h)} className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{background:"#f1f5f9",color:"#6B7C50"}}>Editar</button>
             <button onClick={()=>toggleHabitCompletion(h.id,t)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
@@ -3490,12 +3488,12 @@ function Habits() {
             {[{l:"Sequência",v:`${streak}d`},{l:`${MONTH_NAMES[viewMonth].slice(0,3)}`,v:`${ms.done}/${ms.total}`},{l:"Taxa",v:`${ms.pct}%`}].map(k=>(
               <div key={k.l} className="rounded-2xl p-4 text-center" style={{background:"#fff",border:"1px solid #f1f5f9"}}>
                 <p className="text-[10px] font-bold uppercase mb-1" style={{color:"#94a3b8"}}>{k.l}</p>
-                <p className="text-2xl font-black" style={{color:"#111110"}}>{k.v}</p>
+                <p className="text-2xl font-black" style={{color:"#2B5E46"}}>{k.v}</p>
               </div>
             ))}
           </div>
           <div className="rounded-2xl p-5" style={{background:"#fff",border:"1px solid #f1f5f9"}}>
-            <p className="text-sm font-black mb-1" style={{color:"#111110"}}>Últimos 90 dias</p>
+            <p className="text-sm font-black mb-1" style={{color:"#2B5E46"}}>Últimos 90 dias</p>
             <div className="flex gap-0.5 overflow-x-auto pb-1">
               {heat90.map((wk,wi)=>(
                 <div key={wi} className="flex flex-col gap-0.5">
@@ -3509,7 +3507,7 @@ function Habits() {
             </div>
           </div>
           <div className="rounded-2xl p-5" style={{background:"#fff",border:"1px solid #f1f5f9"}}>
-            <p className="text-sm font-black mb-3" style={{color:"#111110"}}>{MONTH_NAMES[viewMonth]} — grade de dias</p>
+            <p className="text-sm font-black mb-3" style={{color:"#2B5E46"}}>{MONTH_NAMES[viewMonth]} — grade de dias</p>
             <div className="grid grid-cols-7 gap-1 mb-1">
               {["S","T","Q","Q","S","S","D"].map((d,i)=><p key={i} className="text-center text-[9px] font-black" style={{color:"#94a3b8"}}>{d}</p>)}
             </div>
@@ -3526,7 +3524,7 @@ function Habits() {
                       className="aspect-square rounded-full flex items-center justify-center text-[8px] font-bold cursor-pointer transition-all"
                       style={{background:done?color:isToday?"rgba(184,150,90,0.15)":"#f1f5f9",
                         color:done?"white":isToday?"#B8965A":"#94a3b8",
-                        outline:isToday?"1.5px solid #B8965A":"none",opacity:isFuture?0.35:1}}>
+                        outline:isToday?"1.5px solid #2B5E46":"none",opacity:isFuture?0.35:1}}>
                       {done?<svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" style={{width:8,height:8}}><polyline points="20 6 9 17 4 12"/></svg>:day}
                     </div>
                   );
@@ -3545,7 +3543,7 @@ function Habits() {
       {/* Header */}
       <div className="px-6 py-4 flex items-center justify-between" style={{borderBottom:"1px solid #f1f5f9"}}>
         <div>
-          <h2 className="text-sm font-black" style={{color:"#111110"}}>Hábitos</h2>
+          <h2 className="text-sm font-black" style={{color:"#2B5E46"}}>Hábitos</h2>
           <p className="text-xs mt-0.5" style={{color:"#94a3b8"}}>{stats.doneToday}/{stats.total} hoje · {stats.monthPct}% no mês</p>
         </div>
         <div className="flex items-center gap-3">
@@ -3556,7 +3554,7 @@ function Habits() {
             <button onClick={()=>{if(viewMonth===11){setViewMonth(0);setViewYear(y=>y+1);}else setViewMonth(m=>m+1);}} className="px-1 font-black" style={{color:"#6B7C50"}}>›</button>
           </div>
           {isAdmin&&(
-            <button onClick={()=>openForm()} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold" style={{background:"#111110",color:"#fff"}}>
+            <button onClick={()=>openForm()} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold" style={{background:"linear-gradient(135deg,#1A3829,#2B5E46)",color:"#fff"}}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:12,height:12}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Novo
             </button>
@@ -3567,7 +3565,7 @@ function Habits() {
       {habits.length===0?(
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
           <p className="text-sm font-medium" style={{color:"#6B7C50"}}>Nenhum hábito cadastrado</p>
-          {isAdmin&&<button onClick={()=>openForm()} className="mt-2 px-5 py-2 rounded-full text-sm font-bold text-white" style={{background:"#111110"}}>Criar hábito</button>}
+          {isAdmin&&<button onClick={()=>openForm()} className="mt-2 px-5 py-2 rounded-full text-sm font-bold text-white" style={{background:"linear-gradient(135deg,#1A3829,#2B5E46)"}}>Criar hábito</button>}
         </div>
       ):(
         <div className="flex-1 overflow-y-auto">
@@ -3638,7 +3636,7 @@ function Habits() {
                   {weekStatsByHabit.map((ws,wi)=>(
                     <div key={wi} className="flex-1 text-center">
                       <p className="text-[8px] font-bold" style={{color:"#94a3b8"}}>
-                        {ws.done}/{ws.total} <span style={{color:ws.pct>=70?"#374151":"#d1d5db"}}>{ws.pct}%</span>
+                        {ws.done}/{ws.total} <span style={{color:ws.pct>=70?"#2B5E46":"#d1d5db"}}>{ws.pct}%</span>
                       </p>
                     </div>
                   ))}
@@ -3691,13 +3689,13 @@ function Habits() {
                       <div style={{width:120,paddingLeft:12}}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[9px] font-black" style={{color:"#374151"}}>{ms.done}/{ms.total}</span>
-                          <span className="text-[9px] font-black" style={{color:ms.pct>=70?"#10b981":ms.pct>=40?"#f97316":"#ef4444"}}>{ms.pct}%</span>
+                          <span className="text-[9px] font-black" style={{color:ms.pct>=70?"#2B5E46":ms.pct>=40?"#B8965A":"#ef4444"}}>{ms.pct}%</span>
                         </div>
                         <div className="h-1 rounded-full overflow-hidden" style={{background:"#f1f5f9"}}>
                           <div className="h-full rounded-full transition-all"
-                            style={{width:`${ms.pct}%`,background:ms.pct>=70?"#374151":"#d1d5db"}}/>
+                            style={{width:`${ms.pct}%`,background:ms.pct>=70?"#2B5E46":ms.pct>=40?"#B8965A":"rgba(206,186,150,0.3)"}}/>
                         </div>
-                        {streak>0&&<p className="text-[8px] mt-0.5 text-right" style={{color:"#94a3b8"}}>{streak}d</p>}
+                        {streak>0&&<p className="text-[8px] mt-0.5 text-right" style={{color:"#B8965A"}}>{streak}d 🔥</p>}
                       </div>
                     </div>
                   );
@@ -3713,7 +3711,7 @@ function Habits() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(0,0,0,0.4)",backdropFilter:"blur(4px)"}}>
           <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl" style={{background:"#fff",border:"1px solid #f1f5f9"}}>
             <div className="px-5 py-4 flex items-center justify-between" style={{borderBottom:"1px solid #f8fafc"}}>
-              <h3 className="font-black text-sm" style={{color:"#111110"}}>{editingHabit?"Editar Hábito":"Novo Hábito"}</h3>
+              <h3 className="font-black text-sm" style={{color:"#2B5E46"}}>{editingHabit?"Editar Hábito":"Novo Hábito"}</h3>
               <button onClick={()=>setIsFormOpen(false)} style={{color:"#94a3b8",fontSize:20,lineHeight:1}}>×</button>
             </div>
             <div className="p-5 space-y-4">
@@ -3721,14 +3719,14 @@ function Habits() {
                 <label className="block text-xs font-semibold mb-1" style={{color:"#374151"}}>Nome</label>
                 <input value={hf.title} onChange={e=>setHf(x=>({...x,title:e.target.value}))}
                   placeholder="Ex: Meditar, Exercício, Leitura..."
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                   style={{borderColor:"#e5e7eb",color:"#374151"}}/>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{color:"#374151"}}>Descrição (opcional)</label>
                 <input value={hf.description} onChange={e=>setHf(x=>({...x,description:e.target.value}))}
                   placeholder="Meta ou detalhe..."
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                   style={{borderColor:"#e5e7eb",color:"#374151"}}/>
               </div>
               <div>
@@ -3758,7 +3756,7 @@ function Habits() {
                   <button onClick={()=>{deleteHabit(editingHabit.id);setIsFormOpen(false);setEditingHabit(null);}}
                     className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:"#ef4444"}}>Excluir</button>
                 )}
-                <button onClick={saveHabit} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{background:"#111110"}}>Salvar</button>
+                <button onClick={saveHabit} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#1A3829,#2B5E46)"}}>Salvar</button>
               </div>
             </div>
           </div>
