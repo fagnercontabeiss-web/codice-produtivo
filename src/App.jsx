@@ -826,10 +826,12 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
             </div>
           </div>
         </header>
-        {["dashboard"].includes(activeTab) ? (
-          <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {activeTab === "dashboard" ? (
+          <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        ) : activeTab === "habits" ? (
+          <div className="flex-1 overflow-hidden flex flex-col px-5 pt-0">{children}</div>
         ) : (
-          <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
+          <div className="flex-1 overflow-hidden flex flex-col px-5 pt-4">{children}</div>
         )}
       </main>
     </div>
