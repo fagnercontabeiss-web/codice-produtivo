@@ -826,9 +826,13 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-4 sm:p-6">
-          <div className="max-w-7xl mx-auto">{children}</div>
-        </div>
+        {activeTab === "habits" ? (
+          <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
+        ) : (
+          <div className="flex-1 overflow-auto p-4 sm:p-6">
+            <div className="max-w-7xl mx-auto">{children}</div>
+          </div>
+        )}
       </main>
     </div>
   );
