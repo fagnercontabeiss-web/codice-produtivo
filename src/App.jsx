@@ -3286,6 +3286,7 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
 
 
 
+
 function Habits() {
   const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, currentProfile } = useApp();
   const [view, setView] = useState("radial"); // radial | list | detail
@@ -3468,7 +3469,7 @@ function Habits() {
           const lx = cx + rLabel * Math.cos(midAngle);
           const ly = cy + rLabel * Math.sin(midAngle);
           const anchor = lx < cx - 5 ? "end" : lx > cx + 5 ? "start" : "middle";
-          const shortName = h.name.length > 10 ? h.name.slice(0,10)+"…" : h.name;
+          const shortName = h.title.length > 10 ? h.title.slice(0,10)+"…" : h.title;
           return (
             <g key={hi} style={{cursor:"pointer"}} onClick={() => { setSelectedHabit(h.id); setView("detail"); }}>
               <circle cx={lx} cy={ly-5} r="3" fill={color}/>
@@ -3531,15 +3532,15 @@ function Habits() {
   };
 
   // ── Formulário ────────────────────────────────────────────
-  const [hf, setHf] = useState({name:"",description:"",frequency:"daily",color:"#2B5E46"});
+  const [hf, setHf] = useState({title:"",description:"",freq:"daily",color:"#2B5E46"});
   const openForm = (h=null) => {
     setEditingHabit(h);
-    setHf(h?{name:h.name||"",description:h.description||"",frequency:h.frequency||"daily",color:h.color||"#2B5E46"}:{name:"",description:"",frequency:"daily",color:"#2B5E46"});
+    setHf(h?{name:h.title||"",description:h.description||"",freq:h.freq||"daily",color:h.color||"#2B5E46"}:{title:"",description:"",freq:"daily",color:"#2B5E46"});
     setIsFormOpen(true);
   };
   const saveHabit = () => {
-    if (!hf.name.trim()) return;
-    const data = {id:editingHabit?.id||uid(),...hf,completedDates:editingHabit?.completedDates||[]};
+    if (!hf.title.trim()) return;
+    const data = {id:editingHabit?.id||uid(),...hf,title:hf.title,freq:hf.freq||"daily",freqDays:[1,2,3,4,5,6,7],completedDates:editingHabit?.completedDates||[],emoji:"⭐",difficulty:2,identity:"",isFavorite:false,timeOfDay:"morning",targetStreak:21,archived:false};
     editingHabit ? updateHabit(data) : addHabit(data);
     setIsFormOpen(false); setEditingHabit(null);
   };
@@ -3572,7 +3573,7 @@ function Habits() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div className="w-3 h-3 rounded-full" style={{background:color}}/>
-          <h2 className="text-base font-black flex-1" style={{color:"#111110"}}>{h.name}</h2>
+          <h2 className="text-base font-black flex-1" style={{color:"#111110"}}>{h.title}</h2>
           {isAdmin && (
             <div className="flex gap-2">
               <button onClick={()=>openForm(h)} className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{background:"rgba(206,186,150,0.15)",color:"#6B7C50"}}>Editar</button>
@@ -3713,7 +3714,7 @@ function Habits() {
                       onClick={()=>{setSelectedHabit(h.id);setView("detail");}}>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:color}}/>
-                        <p className="text-sm font-black flex-1 truncate" style={{color:"#111110"}}>{h.name}</p>
+                        <p className="text-sm font-black flex-1 truncate" style={{color:"#111110"}}>{h.title}</p>
                         <div className="flex items-center gap-2">
                           {streak > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{streak}d</span>}
                           <button onClick={e=>{e.stopPropagation();toggleHabitCompletion(h.id);}}
@@ -3751,7 +3752,7 @@ function Habits() {
                 <div key={h.id} className="rounded-2xl overflow-hidden" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.4)"}}>
                   <div className="flex items-center gap-3 px-4 py-3" style={{borderBottom:"1px solid rgba(206,186,150,0.2)"}}>
                     <div className="w-2 h-2 rounded-full" style={{background:color}}/>
-                    <p className="text-sm font-black flex-1" style={{color:"#111110"}}>{h.name}</p>
+                    <p className="text-sm font-black flex-1" style={{color:"#111110"}}>{h.title}</p>
                     <span className="text-[10px] font-bold" style={{color:"#94a3b8"}}>{c30}% · {streak}d</span>
                     <button onClick={e=>{e.stopPropagation();toggleHabitCompletion(h.id);}}
                       className="w-6 h-6 rounded-full flex items-center justify-center"
@@ -3804,7 +3805,7 @@ function Habits() {
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nome</label>
-                <input value={hf.name} onChange={e=>setHf(x=>({...x,name:e.target.value}))} placeholder="Ex: Meditação, Leitura, Exercício..."
+                <input value={hf.title} onChange={e=>setHf(x=>({...x,title:e.target.value}))} placeholder="Ex: Meditação, Leitura, Exercício..."
                   className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600 outline-none"
                   style={{borderColor:"rgba(206,186,150,0.5)"}}/>
               </div>
@@ -3826,7 +3827,7 @@ function Habits() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Frequência</label>
-                <select value={hf.frequency} onChange={e=>setHf(x=>({...x,frequency:e.target.value}))}
+                <select value={hf.freq} onChange={e=>setHf(x=>({...x,freq:e.target.value}))}
                   className="w-full border rounded-xl px-3 py-2 text-sm outline-none"
                   style={{borderColor:"rgba(206,186,150,0.5)"}}>
                   <option value="daily">Diário</option>
