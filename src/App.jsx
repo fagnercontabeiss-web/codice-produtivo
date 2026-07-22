@@ -2668,9 +2668,21 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
     return (
       <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150"
         style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(17,24,20,0.04)" }}>
-        <button onClick={()=>onToggle(task.id)} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-          style={{ borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
-          {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg>}
+        <button onClick={()=>onToggle(task.id)}
+          className="flex items-center gap-0.5 flex-shrink-0 transition-all duration-200"
+          style={{
+            padding:"2px 7px",
+            borderRadius:20,
+            fontSize:9,
+            fontWeight:700,
+            background: task.completed ? "linear-gradient(135deg,#1A3829,#2B5E46)" : "rgba(206,186,150,0.1)",
+            color: task.completed ? "#fff" : "#94a3b8",
+            border: task.completed ? "none" : "1px solid rgba(206,186,150,0.3)",
+          }}>
+          {task.completed
+            ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg> Feito</>
+            : "Fazer"
+          }
         </button>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
         <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
@@ -2702,10 +2714,28 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
 
           {/* ── ROW PRINCIPAL ── */}
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Checkbox */}
-            <button onClick={()=>onToggle(task.id)} className="rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-              style={{ width:18,height:18, borderColor:task.completed?"#10b981":od?"#ef4444":"#d1d5db", background:task.completed?"#10b981":"transparent" }}>
-              {task.completed && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg>}
+            {/* Botão de conclusão */}
+            <button onClick={()=>onToggle(task.id)}
+              className="flex items-center gap-1 flex-shrink-0 transition-all duration-200 select-none"
+              style={{
+                padding:"3px 10px",
+                borderRadius:20,
+                fontSize:11,
+                fontWeight:700,
+                letterSpacing:"0.02em",
+                background: task.completed
+                  ? "linear-gradient(135deg,#1A3829,#2B5E46)"
+                  : od ? "rgba(254,226,226,0.6)" : "rgba(206,186,150,0.12)",
+                color: task.completed ? "#fff" : od ? "#dc2626" : "#6B7C50",
+                border: task.completed
+                  ? "none"
+                  : od ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(206,186,150,0.4)",
+                boxShadow: task.completed ? "0 2px 8px rgba(43,94,70,0.25)" : "none",
+              }}>
+              {task.completed
+                ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg> Feito</>
+                : od ? "Atrasado" : "Fazer"
+              }
             </button>
 
             {/* Título */}
