@@ -3,6 +3,35 @@ import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
 
+// ── Animações do botão de tarefa ─────────────────────────
+const taskBtnStyle = document.createElement("style");
+taskBtnStyle.textContent = `
+  @keyframes task-pop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(0.78); }
+    65%  { transform: scale(1.22); }
+    82%  { transform: scale(0.94); }
+    100% { transform: scale(1); }
+  }
+  @keyframes task-glow {
+    0%   { box-shadow: 0 0 0 0 rgba(43,94,70,0.55); }
+    70%  { box-shadow: 0 0 0 9px rgba(43,94,70,0); }
+    100% { box-shadow: 0 0 0 0 rgba(43,94,70,0); }
+  }
+  @keyframes task-undo {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(0.84); }
+    100% { transform: scale(1); }
+  }
+  .tchk { transition: transform 0.12s ease, border-color 0.18s ease, background 0.18s ease; cursor: pointer; }
+  .tchk:not(.tchk-done):hover { border-color: #2B5E46 !important; background: rgba(43,94,70,0.07) !important; transform: scale(1.1); }
+  .tchk:not(.tchk-done):active { transform: scale(0.84) !important; }
+  .tchk.tchk-pop { animation: task-pop 0.32s cubic-bezier(.36,.07,.19,.97) forwards, task-glow 0.45s ease-out forwards; }
+  .tchk.tchk-undo { animation: task-undo 0.18s ease forwards; }
+  .tchk.tchk-done:hover { opacity: 0.7; transform: scale(1.06); }
+`;
+if (!document.getElementById("tchk-style")) { taskBtnStyle.id = "tchk-style"; document.head.appendChild(taskBtnStyle); }
+
 // ============================================================
 // TYPES & DEFAULTS
 // ============================================================
@@ -2570,6 +2599,53 @@ function QuickDropdown({ label, color, items, selectedId, onSelect, menuTitle })
     </div>
   );
 }
+// ── Botão de conclusão de tarefa com animação ────────────
+function TaskCheckBtn({ completed, overdue, onClick, size = "normal" }) {
+  const [anim, setAnim] = useState("");
+  const sz = size === "compact" ? 18 : 22;
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    setAnim(completed ? "tchk-undo" : "tchk-pop");
+    setTimeout(() => setAnim(""), 400);
+    onClick();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`tchk flex items-center justify-center flex-shrink-0 ${completed ? "tchk-done" : ""} ${anim}`}
+      title={completed ? "Marcar como pendente" : "Marcar como concluída"}
+      style={{
+        width: sz, height: sz,
+        borderRadius: 6,
+        border: completed
+          ? "none"
+          : overdue
+            ? "2px solid rgba(239,68,68,0.5)"
+            : "2px solid rgba(206,186,150,0.6)",
+        background: completed
+          ? "linear-gradient(135deg,#1A3829,#2B5E46)"
+          : overdue
+            ? "rgba(254,226,226,0.4)"
+            : "transparent",
+        boxShadow: completed ? "0 2px 6px rgba(43,94,70,0.3)" : "none",
+        flexShrink: 0,
+      }}>
+      {completed && (
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ width: sz * 0.5, height: sz * 0.5 }}>
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      )}
+      {!completed && overdue && (
+        <div style={{ width: sz * 0.3, height: sz * 0.3, borderRadius: 2, background: "rgba(239,68,68,0.4)" }}/>
+      )}
+    </button>
+  );
+}
+
+
 function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, categories, contexts, teamUsers, currentProfile, compact, onDuplicate }) {
   const { tasks, addTask } = useApp();
   // Sempre ler do estado global para evitar stale closure
@@ -2668,22 +2744,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
     return (
       <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-150"
         style={{ background:bg, border:`1px solid ${borderColor}`, boxShadow:"0 1px 3px rgba(17,24,20,0.04)" }}>
-        <button onClick={()=>onToggle(task.id)}
-          className="flex items-center gap-0.5 flex-shrink-0 transition-all duration-200"
-          style={{
-            padding:"2px 7px",
-            borderRadius:20,
-            fontSize:9,
-            fontWeight:700,
-            background: task.completed ? "linear-gradient(135deg,#1A3829,#2B5E46)" : "rgba(206,186,150,0.1)",
-            color: task.completed ? "#fff" : "#94a3b8",
-            border: task.completed ? "none" : "1px solid rgba(206,186,150,0.3)",
-          }}>
-          {task.completed
-            ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" style={{width:7,height:7}}><polyline points="20 6 9 17 4 12"/></svg> Feito</>
-            : "Fazer"
-          }
-        </button>
+        <TaskCheckBtn completed={task.completed} overdue={od} onClick={()=>onToggle(task.id)} size="compact"/>
         {cat && <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ background:cat.color, opacity:0.8 }}/>}
         <p className={"flex-1 text-xs font-medium truncate "+(task.completed?"line-through opacity-40":"")} style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
         {task.priority==="urgente" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>🔴 URGENTE</span>}
@@ -2715,28 +2776,7 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
           {/* ── ROW PRINCIPAL ── */}
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Botão de conclusão */}
-            <button onClick={()=>onToggle(task.id)}
-              className="flex items-center gap-1 flex-shrink-0 transition-all duration-200 select-none"
-              style={{
-                padding:"3px 10px",
-                borderRadius:20,
-                fontSize:11,
-                fontWeight:700,
-                letterSpacing:"0.02em",
-                background: task.completed
-                  ? "linear-gradient(135deg,#1A3829,#2B5E46)"
-                  : od ? "rgba(254,226,226,0.6)" : "rgba(206,186,150,0.12)",
-                color: task.completed ? "#fff" : od ? "#dc2626" : "#6B7C50",
-                border: task.completed
-                  ? "none"
-                  : od ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(206,186,150,0.4)",
-                boxShadow: task.completed ? "0 2px 8px rgba(43,94,70,0.25)" : "none",
-              }}>
-              {task.completed
-                ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width:9,height:9}}><polyline points="20 6 9 17 4 12"/></svg> Feito</>
-                : od ? "Atrasado" : "Fazer"
-              }
-            </button>
+            <TaskCheckBtn completed={task.completed} overdue={od} onClick={()=>onToggle(task.id)} size="normal"/>
 
             {/* Título */}
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
