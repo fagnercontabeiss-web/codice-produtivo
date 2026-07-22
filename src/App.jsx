@@ -3285,19 +3285,28 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
 }
 
 
+
 function Habits() {
   const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, currentProfile } = useApp();
-  const [view, setView] = useState("overview"); // overview | detail | manage
+  const [view, setView] = useState("radial"); // radial | list | detail
   const [selectedHabit, setSelectedHabit] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
-  const [period, setPeriod] = useState(30); // 7 | 30 | 90
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const t = today();
   const isAdmin = !currentProfile || currentProfile.role === "admin";
 
+  const PALETTE = [
+    "#2B5E46","#B8965A","#3b82f6","#8b5cf6","#ef4444",
+    "#f97316","#10b981","#6B7C50","#ec4899","#14b8a6",
+    "#f59e0b","#6366f1"
+  ];
+
   // ── Helpers ───────────────────────────────────────────────
-  const isCompletedToday = h => (h.completedDates||[]).includes(t);
+  const isCompletedOn = (h, ds) => (h.completedDates||[]).includes(ds);
+  const isCompletedToday = h => isCompletedOn(h, t);
 
   const getStreak = h => {
     const dates = [...(h.completedDates||[])].sort();
@@ -3324,85 +3333,180 @@ function Habits() {
     return Math.round(count/days*100);
   };
 
-  // Dados do gráfico de linha — consistência diária acumulada
-  const getLineData = (h, days) => {
-    const dates = h.completedDates||[];
-    return Array.from({length: days}, (_,i) => {
-      const d = new Date(); d.setDate(d.getDate()-(days-1-i));
-      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      const label = d.getDate()+"/"+(d.getMonth()+1);
-      return { date: ds, label, done: dates.includes(ds) ? 1 : 0 };
-    });
-  };
+  const getDaysInMonth = (y, m) => new Date(y, m+1, 0).getDate();
+  const getDayStr = (y, m, d) => `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 
-  // Taxa de conclusão por semana (para gráfico de barras)
-  const getWeeklyRate = (h, weeks=12) => {
-    const dates = h.completedDates||[];
-    return Array.from({length: weeks}, (_,i) => {
-      const weekDone = Array.from({length:7}, (_,d) => {
-        const day = new Date(); day.setDate(day.getDate()-((weeks-1-i)*7+d));
-        const ds = day.getFullYear()+"-"+String(day.getMonth()+1).padStart(2,"0")+"-"+String(day.getDate()).padStart(2,"0");
-        return dates.includes(ds) ? 1 : 0;
-      }).reduce((a,b)=>a+b,0);
-      const weekStart = new Date(); weekStart.setDate(weekStart.getDate()-(((weeks-1-i)+1)*7));
-      return { week: `S${weeks-i}`, rate: Math.round(weekDone/7*100), done: weekDone };
-    });
-  };
+  const monthName = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][currentMonth];
 
-  // Stats gerais
   const stats = useMemo(() => {
     const total = habits.length;
     const doneToday = habits.filter(isCompletedToday).length;
     const avgConsistency = total ? Math.round(habits.reduce((s,h)=>s+getConsistency(h,30),0)/total) : 0;
-    const totalStreak = habits.reduce((s,h)=>s+getStreak(h),0);
-    return { total, doneToday, avgConsistency, totalStreak };
+    return { total, doneToday, avgConsistency };
   }, [habits, t]);
 
-  // Formulário
-  const [hf, setHf] = useState({ name:"", description:"", frequency:"daily", targetDays:[], color:"#2B5E46", icon:"circle" });
-  const openForm = (h=null) => { setEditingHabit(h); setHf(h ? { name:h.name||"", description:h.description||"", frequency:h.frequency||"daily", targetDays:h.targetDays||[], color:h.color||"#2B5E46", icon:h.icon||"circle" } : { name:"", description:"", frequency:"daily", targetDays:[], color:"#2B5E46", icon:"circle" }); setIsFormOpen(true); };
-  const saveHabit = () => {
-    if (!hf.name.trim()) return;
-    const data = { id: editingHabit?.id||uid(), ...hf, completedDates: editingHabit?.completedDates||[] };
-    editingHabit ? updateHabit(data) : addHabit(data);
-    setIsFormOpen(false); setEditingHabit(null);
-  };
+  // ── Gráfico Radial (gráfico tipo roda) ───────────────────
+  const RadialChart = ({ width = 420 }) => {
+    const cx = width/2, cy = width/2;
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const n = habits.length;
+    if (n === 0) return (
+      <div className="flex items-center justify-center" style={{width, height: width*0.6}}>
+        <p className="text-sm" style={{color:"#94a3b8"}}>Nenhum hábito cadastrado</p>
+      </div>
+    );
 
-  const COLORS = ["#2B5E46","#B8965A","#3b82f6","#8b5cf6","#ef4444","#f97316","#10b981","#6B7C50"];
+    // Cada hábito ocupa uma fatia angular
+    // Dias do mês vão do centro para a borda (anéis)
+    const innerR = width * 0.12;
+    const outerR = width * 0.47;
+    const ringW = (outerR - innerR) / daysInMonth;
 
-  // ── Gráfico de linha SVG ─────────────────────────────────
-  const LineChart = ({ data, color="#2B5E46", height=80 }) => {
-    if (!data.length) return null;
-    const w = 100; const h = height;
-    // Calcular média móvel (janela 7 dias)
-    const smoothed = data.map((_,i) => {
-      const window = data.slice(Math.max(0,i-6), i+1);
-      return window.reduce((s,d)=>s+d.done,0)/window.length;
+    // Ângulo por hábito
+    const anglePerHabit = (2 * Math.PI) / n;
+    const gapAngle = 0.02; // gap entre hábitos
+
+    const polarToXY = (r, angle) => ({
+      x: cx + r * Math.cos(angle - Math.PI/2),
+      y: cy + r * Math.sin(angle - Math.PI/2)
     });
-    const points = smoothed.map((v,i) => `${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ");
-    const area = `0,${h} ` + smoothed.map((v,i) => `${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ") + ` ${w},${h}`;
+
+    const describeArc = (r1, r2, startAngle, endAngle) => {
+      const s1 = polarToXY(r1, startAngle);
+      const s2 = polarToXY(r2, startAngle);
+      const e1 = polarToXY(r1, endAngle);
+      const e2 = polarToXY(r2, endAngle);
+      const large = endAngle - startAngle > Math.PI ? 1 : 0;
+      return `M ${s2.x} ${s2.y} A ${r2} ${r2} 0 ${large} 1 ${e2.x} ${e2.y} L ${e1.x} ${e1.y} A ${r1} ${r1} 0 ${large} 0 ${s1.x} ${s1.y} Z`;
+    };
+
+    const today_d = new Date();
+    const isCurrentMonth = today_d.getMonth() === currentMonth && today_d.getFullYear() === currentYear;
+
     return (
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{height}}>
-        <defs>
-          <linearGradient id={`lg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
-            <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
-          </linearGradient>
-        </defs>
-        <polygon points={area} fill={`url(#lg-${color.replace("#","")})`}/>
-        <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        {smoothed.map((v,i) => v > 0.5 && (
-          <circle key={i} cx={(i/(data.length-1))*w} cy={h-(v*h*0.85)-4} r="1.5" fill={color}/>
-        ))}
+      <svg width={width} height={width} viewBox={`0 0 ${width} ${width}`} className="mx-auto">
+        {/* Anéis de fundo (dias) */}
+        {Array.from({length: daysInMonth}, (_,di) => {
+          const r1 = innerR + di * ringW;
+          const r2 = r1 + ringW - 0.5;
+          return (
+            <circle key={di} cx={cx} cy={cy} r={(r1+r2)/2}
+              fill="none" stroke="rgba(206,186,150,0.08)" strokeWidth={ringW-0.5}/>
+          );
+        })}
+
+        {/* Células por hábito × dia */}
+        {habits.map((h, hi) => {
+          const color = h.color || PALETTE[hi % PALETTE.length];
+          const startAngle = hi * anglePerHabit + gapAngle;
+          const endAngle = (hi+1) * anglePerHabit - gapAngle;
+
+          return Array.from({length: daysInMonth}, (_,di) => {
+            const day = di + 1;
+            const ds = getDayStr(currentYear, currentMonth, day);
+            const done = isCompletedOn(h, ds);
+            const isToday = isCurrentMonth && day === today_d.getDate();
+            const isPast = new Date(ds) < new Date(t);
+            const r1 = innerR + di * ringW + 0.5;
+            const r2 = r1 + ringW - 1;
+
+            return (
+              <path key={`${hi}-${di}`}
+                d={describeArc(r1, r2, startAngle, endAngle)}
+                fill={done ? color : isToday ? `${color}25` : isPast ? "rgba(206,186,150,0.06)" : "rgba(206,186,150,0.04)"}
+                stroke={isToday ? color : "transparent"}
+                strokeWidth={isToday ? 0.5 : 0}
+                style={{cursor:"pointer", transition:"fill 0.15s"}}
+                onClick={() => toggleHabitCompletion(h.id, ds)}
+              />
+            );
+          });
+        })}
+
+        {/* Linhas divisórias entre hábitos */}
+        {habits.map((_,hi) => {
+          const angle = hi * anglePerHabit;
+          const p1 = polarToXY(innerR, angle);
+          const p2 = polarToXY(outerR + 2, angle);
+          return <line key={hi} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="rgba(255,255,255,0.9)" strokeWidth="1.5"/>;
+        })}
+
+        {/* Números dos dias (anel externo) */}
+        {Array.from({length: daysInMonth}, (_,di) => {
+          const day = di+1;
+          const isToday = isCurrentMonth && day === today_d.getDate();
+          const r = outerR + 10;
+          const angle = Math.PI; // posição fixada no lado esquerdo — varia por dia
+          // Posicionar dia no centro angular do arco externo
+          // Para n hábitos, o label fica no ângulo médio (centralizado)
+          // Usar n=0 (primeiro hábito) como referência de posição angular
+          const labelAngle = -Math.PI/2 + (di / daysInMonth) * 2 * Math.PI - Math.PI/2;
+          // Na verdade, colocar números em volta do anel externo
+          const rLabel = outerR + 14;
+          const lAngle = (di / daysInMonth) * 2 * Math.PI - Math.PI/2;
+          const lx = cx + rLabel * Math.cos(lAngle);
+          const ly = cy + rLabel * Math.sin(lAngle);
+          return (
+            <text key={di} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+              fontSize={isToday ? 8 : 6.5} fontWeight={isToday ? "900" : "600"}
+              fill={isToday ? "#B8965A" : "rgba(107,124,80,0.7)"}>
+              {day}
+            </text>
+          );
+        })}
+
+        {/* Centro — mês/ano */}
+        <circle cx={cx} cy={cy} r={innerR-2} fill="white"/>
+        <text x={cx} y={cy-6} textAnchor="middle" fontSize="11" fontWeight="900" fill="#111110">{monthName}</text>
+        <text x={cx} y={cy+7} textAnchor="middle" fontSize="8" fontWeight="600" fill="#94a3b8">{currentYear}</text>
+
+        {/* Legenda dos hábitos (labels externos em arco) */}
+        {habits.map((h, hi) => {
+          const color = h.color || PALETTE[hi % PALETTE.length];
+          const midAngle = (hi + 0.5) * anglePerHabit - Math.PI/2;
+          const rLabel = outerR + 32;
+          const lx = cx + rLabel * Math.cos(midAngle);
+          const ly = cy + rLabel * Math.sin(midAngle);
+          const anchor = lx < cx - 5 ? "end" : lx > cx + 5 ? "start" : "middle";
+          const shortName = h.name.length > 10 ? h.name.slice(0,10)+"…" : h.name;
+          return (
+            <g key={hi} style={{cursor:"pointer"}} onClick={() => { setSelectedHabit(h.id); setView("detail"); }}>
+              <circle cx={lx} cy={ly-5} r="3" fill={color}/>
+              <text x={lx} y={ly+4} textAnchor={anchor} fontSize="6.5" fontWeight="700" fill="#374151">{shortName}</text>
+            </g>
+          );
+        })}
       </svg>
     );
   };
 
-  // Heatmap dos últimos 12 semanas
+  // ── Gráfico de linha mini ─────────────────────────────────
+  const LineChart = ({ data, color="#2B5E46", height=60 }) => {
+    if (!data.length) return null;
+    const w=100, h=height;
+    const smoothed = data.map((_,i) => {
+      const win = data.slice(Math.max(0,i-6),i+1);
+      return win.reduce((s,d)=>s+d.done,0)/win.length;
+    });
+    const points = smoothed.map((v,i)=>`${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ");
+    const area = `0,${h} `+smoothed.map((v,i)=>`${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ")+` ${w},${h}`;
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{height}}>
+        <defs><linearGradient id={`glg${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+        </linearGradient></defs>
+        <polygon points={area} fill={`url(#glg${color.replace("#","")})`}/>
+        <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  };
+
+  // ── Heatmap ───────────────────────────────────────────────
   const HeatMap = ({ h: habit }) => {
     const dates = habit.completedDates||[];
-    const weeks = 13;
-    const days = 7;
+    const weeks=13, days=7;
+    const color = habit.color || "#2B5E46";
     const cells = [];
     for (let w=0; w<weeks; w++) {
       for (let d=0; d<days; d++) {
@@ -3413,14 +3517,12 @@ function Habits() {
     }
     return (
       <div className="flex gap-0.5">
-        {Array.from({length: weeks}, (_,w) => (
+        {Array.from({length:weeks},(_,w)=>(
           <div key={w} className="flex flex-col gap-0.5">
-            {Array.from({length: days}, (_,d) => {
-              const cell = cells[w*days+d];
-              return (
-                <div key={d} title={cell.ds} className="w-3 h-3 rounded-sm"
-                  style={{ background: cell.done ? (habit.color||"#2B5E46") : "rgba(206,186,150,0.15)", outline: cell.isToday ? "1px solid #B8965A" : "none" }}/>
-              );
+            {Array.from({length:days},(_,d)=>{
+              const cell=cells[w*days+d];
+              return <div key={d} title={cell.ds} className="w-3 h-3 rounded-sm"
+                style={{background:cell.done?color:"rgba(206,186,150,0.15)",outline:cell.isToday?"1px solid #B8965A":"none"}}/>;
             })}
           </div>
         ))}
@@ -3428,134 +3530,114 @@ function Habits() {
     );
   };
 
-  // ── RENDER ────────────────────────────────────────────────
-  if (selectedHabit && view === "detail") {
-    const h = habits.find(x => x.id === selectedHabit) || selectedHabit;
-    if (!h) { setSelectedHabit(null); setView("overview"); return null; }
-    const streak = getStreak(h);
-    const consistency30 = getConsistency(h, 30);
-    const consistency7 = getConsistency(h, 7);
-    const consistency90 = getConsistency(h, 90);
-    const lineData = getLineData(h, period);
-    const weeklyData = getWeeklyRate(h, 12);
+  // ── Formulário ────────────────────────────────────────────
+  const [hf, setHf] = useState({name:"",description:"",frequency:"daily",color:"#2B5E46"});
+  const openForm = (h=null) => {
+    setEditingHabit(h);
+    setHf(h?{name:h.name||"",description:h.description||"",frequency:h.frequency||"daily",color:h.color||"#2B5E46"}:{name:"",description:"",frequency:"daily",color:"#2B5E46"});
+    setIsFormOpen(true);
+  };
+  const saveHabit = () => {
+    if (!hf.name.trim()) return;
+    const data = {id:editingHabit?.id||uid(),...hf,completedDates:editingHabit?.completedDates||[]};
+    editingHabit ? updateHabit(data) : addHabit(data);
+    setIsFormOpen(false); setEditingHabit(null);
+  };
+
+  // ── DETALHE ───────────────────────────────────────────────
+  if (view === "detail" && selectedHabit) {
+    const h = habits.find(x=>x.id===selectedHabit);
+    if (!h) { setView("radial"); return null; }
     const color = h.color || "#2B5E46";
+    const streak = getStreak(h);
+    const c30 = getConsistency(h,30), c7 = getConsistency(h,7), c90 = getConsistency(h,90);
+    const lineData = Array.from({length:30},(_,i)=>{
+      const d=new Date(); d.setDate(d.getDate()-(29-i));
+      const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      return {date:ds,label:d.getDate()+"/"+(d.getMonth()+1),done:(h.completedDates||[]).includes(ds)?1:0};
+    });
+    const weeklyData = Array.from({length:12},(_,i)=>{
+      const done=Array.from({length:7},(_,d)=>{
+        const day=new Date(); day.setDate(day.getDate()-((11-i)*7+d));
+        const ds=day.getFullYear()+"-"+String(day.getMonth()+1).padStart(2,"0")+"-"+String(day.getDate()).padStart(2,"0");
+        return (h.completedDates||[]).includes(ds)?1:0;
+      }).reduce((a,b)=>a+b,0);
+      return {week:`S${12-i}`,rate:Math.round(done/7*100),done};
+    });
 
     return (
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="px-5 py-4 flex items-center gap-3" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)", background:"rgba(255,255,255,0.98)" }}>
-          <button onClick={() => { setSelectedHabit(null); setView("overview"); }} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" style={{ color:"#6B7C50" }}>
+        <div className="px-5 py-4 flex items-center gap-3" style={{borderBottom:"1px solid rgba(206,186,150,0.4)",background:"rgba(255,255,255,0.98)"}}>
+          <button onClick={()=>{setView("radial");setSelectedHabit(null);}} className="p-1.5 rounded-lg hover:bg-slate-100" style={{color:"#6B7C50"}}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
-          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }}/>
-          <h2 className="text-base font-black" style={{ color:"#111110" }}>{h.name}</h2>
+          <div className="w-3 h-3 rounded-full" style={{background:color}}/>
+          <h2 className="text-base font-black flex-1" style={{color:"#111110"}}>{h.name}</h2>
           {isAdmin && (
-            <div className="ml-auto flex gap-2">
-              <button onClick={() => { openForm(h); }} className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:"rgba(206,186,150,0.15)", color:"#6B7C50" }}>Editar</button>
-              <button onClick={() => toggleHabitCompletion(h.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: isCompletedToday(h) ? "#6B7C50" : color }}>
-                {isCompletedToday(h) ? "Concluído hoje" : "Marcar hoje"}
+            <div className="flex gap-2">
+              <button onClick={()=>openForm(h)} className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{background:"rgba(206,186,150,0.15)",color:"#6B7C50"}}>Editar</button>
+              <button onClick={()=>toggleHabitCompletion(h.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{background:isCompletedToday(h)?"#6B7C50":color}}>
+                {isCompletedToday(h)?"Concluído hoje":"Marcar hoje"}
               </button>
             </div>
           )}
         </div>
-
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* KPIs */}
           <div className="grid grid-cols-3 gap-4">
-            {[
-              { label:"Sequência atual", value: streak, unit:"dias", highlight: streak >= 7 },
-              { label:"Consistência 30d", value: `${consistency30}%`, unit:"", highlight: consistency30 >= 70 },
-              { label:"Últimos 7 dias", value: `${consistency7}%`, unit:"", highlight: consistency7 >= 70 },
-            ].map(k => (
-              <div key={k.label} className="rounded-2xl p-4 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-                <p className="text-xs font-medium mb-1" style={{ color:"#6B7C50" }}>{k.label}</p>
-                <p className="text-2xl font-black" style={{ color: k.highlight ? color : "#111110" }}>{k.value}</p>
-                {k.unit && <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>{k.unit}</p>}
+            {[{l:"Sequência",v:streak+"d",hi:streak>=7},{l:"Consistência 30d",v:c30+"%",hi:c30>=70},{l:"Últimos 7d",v:c7+"%",hi:c7>=70}].map(k=>(
+              <div key={k.l} className="rounded-2xl p-4 text-center" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+                <p className="text-xs font-medium mb-1" style={{color:"#6B7C50"}}>{k.l}</p>
+                <p className="text-2xl font-black" style={{color:k.hi?color:"#111110"}}>{k.v}</p>
               </div>
             ))}
           </div>
 
-          {/* Seletor de período */}
-          <div className="flex gap-2">
-            {[{v:7,l:"7 dias"},{v:30,l:"30 dias"},{v:90,l:"90 dias"}].map(p => (
-              <button key={p.v} onClick={() => setPeriod(p.v)}
-                className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
-                style={{ background: period===p.v ? color : "rgba(206,186,150,0.1)", color: period===p.v ? "#fff" : "#6B7C50" }}>
-                {p.l}
-              </button>
-            ))}
-          </div>
-
-          {/* Gráfico de linha */}
-          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm font-black" style={{ color:"#111110" }}>Evolução — últimos {period} dias</p>
-                <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Média móvel de 7 dias</p>
-              </div>
-              <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background:`${color}15`, color }}>
-                {getConsistency(h, period)}%
-              </span>
+          <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-black" style={{color:"#111110"}}>Evolução — 30 dias</p>
+              <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:`${color}15`,color}}>{c30}%</span>
             </div>
-            <LineChart data={lineData} color={color} height={100}/>
-            <div className="flex justify-between mt-2">
-              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[0]?.label}</span>
-              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[Math.floor(lineData.length/2)]?.label}</span>
-              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[lineData.length-1]?.label}</span>
+            <LineChart data={lineData} color={color} height={90}/>
+            <div className="flex justify-between mt-1">
+              <span className="text-[9px]" style={{color:"#94a3b8"}}>{lineData[0]?.label}</span>
+              <span className="text-[9px]" style={{color:"#94a3b8"}}>{lineData[lineData.length-1]?.label}</span>
             </div>
           </div>
 
-          {/* Gráfico de barras semanal */}
-          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-            <p className="text-sm font-black mb-4" style={{ color:"#111110" }}>Taxa semanal — 12 semanas</p>
-            <div className="flex items-end gap-1 h-20">
-              {weeklyData.map((w,i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full rounded-t-sm transition-all" title={`${w.week}: ${w.rate}%`}
-                    style={{ height: `${Math.max(w.rate, 2)}%`, background: w.rate >= 70 ? color : w.rate >= 40 ? `${color}80` : "rgba(206,186,150,0.3)", maxHeight:"100%" }}/>
+          <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+            <p className="text-sm font-black mb-3" style={{color:"#111110"}}>Taxa semanal — 12 semanas</p>
+            <div className="flex items-end gap-1 h-16">
+              {weeklyData.map((w,i)=>(
+                <div key={i} className="flex-1 flex flex-col items-center">
+                  <div className="w-full rounded-t-sm" title={`${w.week}: ${w.rate}%`}
+                    style={{height:`${Math.max(w.rate,3)}%`,background:w.rate>=70?color:w.rate>=40?`${color}80`:"rgba(206,186,150,0.25)",maxHeight:"100%"}}/>
                 </div>
               ))}
             </div>
-            <div className="flex items-end gap-1 mt-1">
-              {weeklyData.map((w,i) => (
-                <div key={i} className="flex-1 text-center">
-                  <span className="text-[8px]" style={{ color:"#94a3b8" }}>{w.week}</span>
-                </div>
-              ))}
+            <div className="flex gap-1 mt-1">
+              {weeklyData.map((w,i)=><div key={i} className="flex-1 text-center"><span className="text-[8px]" style={{color:"#94a3b8"}}>{w.week}</span></div>)}
             </div>
           </div>
 
-          {/* Heatmap */}
-          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-black" style={{ color:"#111110" }}>Calendário de consistência</p>
-              <div className="flex items-center gap-2 text-[10px]" style={{ color:"#94a3b8" }}>
-                <div className="w-2 h-2 rounded-sm" style={{ background:"rgba(206,186,150,0.2)" }}/>Sem registro
-                <div className="w-2 h-2 rounded-sm" style={{ background: color }}/>Concluído
-              </div>
-            </div>
-            <div className="flex gap-1 text-[8px] mb-1" style={{ color:"#94a3b8" }}>
-              {["S","T","Q","Q","S","S","D"].map((d,i) => <span key={i} className="w-3 text-center">{d}</span>)}
+          <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+            <p className="text-sm font-black mb-3" style={{color:"#111110"}}>Calendário de consistência</p>
+            <div className="flex gap-1 text-[8px] mb-1" style={{color:"#94a3b8"}}>
+              {["S","T","Q","Q","S","S","D"].map((d,i)=><span key={i} className="w-3 text-center">{d}</span>)}
             </div>
             <HeatMap h={h}/>
           </div>
 
-          {/* Stats 90 dias */}
-          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-            <p className="text-sm font-black mb-4" style={{ color:"#111110" }}>Análise de performance</p>
+          <div className="rounded-2xl p-5" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+            <p className="text-sm font-black mb-4" style={{color:"#111110"}}>Performance por período</p>
             <div className="space-y-3">
-              {[
-                { label:"Consistência 7 dias", value: consistency7, target:80 },
-                { label:"Consistência 30 dias", value: consistency30, target:70 },
-                { label:"Consistência 90 dias", value: consistency90, target:60 },
-              ].map(s => (
-                <div key={s.label}>
+              {[{l:"7 dias",v:c7,target:80},{l:"30 dias",v:c30,target:70},{l:"90 dias",v:c90,target:60}].map(s=>(
+                <div key={s.l}>
                   <div className="flex justify-between text-xs mb-1">
-                    <span style={{ color:"#374151" }}>{s.label}</span>
-                    <span className="font-black" style={{ color: s.value >= s.target ? "#10b981" : s.value >= s.target*0.6 ? "#f97316" : "#ef4444" }}>{s.value}%</span>
+                    <span style={{color:"#374151"}}>{s.l}</span>
+                    <span className="font-black" style={{color:s.v>=s.target?"#10b981":s.v>=s.target*0.6?"#f97316":"#ef4444"}}>{s.v}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.2)" }}>
-                    <div className="h-full rounded-full transition-all" style={{ width:`${s.value}%`, background: s.value >= s.target ? "#10b981" : s.value >= s.target*0.6 ? "#f97316" : "#ef4444" }}/>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{background:"rgba(206,186,150,0.2)"}}>
+                    <div className="h-full rounded-full" style={{width:`${s.v}%`,background:s.v>=s.target?"#10b981":s.v>=s.target*0.6?"#f97316":"#ef4444"}}/>
                   </div>
                 </div>
               ))}
@@ -3566,141 +3648,179 @@ function Habits() {
     );
   }
 
-  // ── OVERVIEW ──────────────────────────────────────────────
+  // ── VISÃO PRINCIPAL ───────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)", background:"rgba(255,255,255,0.98)" }}>
+      <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3" style={{borderBottom:"1px solid rgba(206,186,150,0.4)",background:"rgba(255,255,255,0.98)"}}>
         <div>
-          <h2 className="text-lg font-black" style={{ color:"#111110" }}>Hábitos</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>{stats.doneToday} de {stats.total} concluídos hoje</p>
+          <h2 className="text-lg font-black" style={{color:"#111110"}}>Hábitos</h2>
+          <p className="text-xs mt-0.5" style={{color:"#6B7C50"}}>{stats.doneToday}/{stats.total} concluídos hoje · {stats.avgConsistency}% consistência</p>
         </div>
-        {isAdmin && (
-          <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white"
-            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
-            <Icon.Plus/> Novo Hábito
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Navegação mês */}
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl" style={{background:"rgba(206,186,150,0.12)",border:"1px solid rgba(206,186,150,0.3)"}}>
+            <button onClick={()=>{if(currentMonth===0){setCurrentMonth(11);setCurrentYear(y=>y-1);}else setCurrentMonth(m=>m-1);}} className="px-1 font-black text-sm" style={{color:"#6B7C50"}}>‹</button>
+            <span className="text-xs font-bold px-1" style={{color:"#111110",minWidth:50,textAlign:"center"}}>{monthName} {currentYear}</span>
+            <button onClick={()=>{if(currentMonth===11){setCurrentMonth(0);setCurrentYear(y=>y+1);}else setCurrentMonth(m=>m+1);}} className="px-1 font-black text-sm" style={{color:"#6B7C50"}}>›</button>
+          </div>
+          {/* Toggle view */}
+          <div className="flex rounded-xl overflow-hidden" style={{border:"1px solid rgba(206,186,150,0.4)"}}>
+            {[{v:"radial",icon:"◎"},{v:"list",icon:"≡"}].map(b=>(
+              <button key={b.v} onClick={()=>setView(b.v)}
+                className="px-3 py-1.5 text-sm font-bold transition-all"
+                style={{background:view===b.v?"linear-gradient(135deg,#1A3829,#2B5E46)":"transparent",color:view===b.v?"#fff":"#6B7C50"}}>
+                {b.icon}
+              </button>
+            ))}
+          </div>
+          {isAdmin && (
+            <button onClick={()=>openForm()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:"linear-gradient(135deg,#1A3829,#2B5E46)"}}>
+              <Icon.Plus/> Novo
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        {/* KPIs globais */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label:"Hoje", value:`${stats.doneToday}/${stats.total}`, sub:"concluídos" },
-            { label:"Consistência média", value:`${stats.avgConsistency}%`, sub:"últimos 30 dias" },
-            { label:"Sequência total", value:stats.totalStreak, sub:"dias combinados" },
-            { label:"Hábitos ativos", value:stats.total, sub:"cadastrados" },
-          ].map(k => (
-            <div key={k.label} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
-              <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color:"#94a3b8" }}>{k.label}</p>
-              <p className="text-2xl font-black" style={{ color:"#111110" }}>{k.value}</p>
-              <p className="text-[10px] mt-0.5" style={{ color:"#6B7C50" }}>{k.sub}</p>
+      <div className="flex-1 overflow-y-auto">
+        {view === "radial" ? (
+          <div className="p-5 space-y-5">
+            {/* Gráfico radial */}
+            <div className="rounded-2xl p-5 flex flex-col items-center" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.5)"}}>
+              <p className="text-xs font-bold uppercase tracking-wide mb-4 self-start" style={{color:"#94a3b8"}}>Tracker mensal — clique nas células para marcar</p>
+              <RadialChart width={Math.min(460, typeof window !== "undefined" ? window.innerWidth - 80 : 400)}/>
+              {habits.length > 0 && (
+                <p className="text-[10px] mt-2" style={{color:"#94a3b8"}}>Clique no nome do hábito para ver detalhes</p>
+              )}
             </div>
-          ))}
-        </div>
 
-        {/* Lista de hábitos com mini gráfico */}
-        <div className="space-y-3">
-          {habits.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px dashed rgba(206,186,150,0.5)" }}>
-              <p className="text-sm font-medium mb-2" style={{ color:"#6B7C50" }}>Nenhum hábito cadastrado</p>
-              <p className="text-xs" style={{ color:"#94a3b8" }}>Crie seu primeiro hábito para começar a acompanhar sua evolução</p>
-            </div>
-          ) : habits.map(h => {
-            const streak = getStreak(h);
-            const consistency = getConsistency(h, 30);
-            const done = isCompletedToday(h);
-            const lineData = getLineData(h, 30);
-            const color = h.color || "#2B5E46";
-
-            return (
-              <div key={h.id} className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-md"
-                style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${done ? color+"40" : "rgba(206,186,150,0.5)"}` }}
-                onClick={() => { setSelectedHabit(h.id); setView("detail"); }}>
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
-                    {/* Indicador de cor */}
-                    <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color, opacity: done ? 1 : 0.4 }}/>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-black truncate" style={{ color:"#111110" }}>{h.name}</p>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {streak > 0 && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:`${color}15`, color }}>
-                              {streak}d
-                            </span>
-                          )}
-                          <button
-                            onClick={e => { e.stopPropagation(); toggleHabitCompletion(h.id); }}
-                            className="w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0"
-                            style={{ background: done ? color : "transparent", border: `2px solid ${done ? color : "rgba(206,186,150,0.5)"}` }}>
-                            {done && <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
+            {/* Lista resumida */}
+            {habits.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {habits.map((h, hi) => {
+                  const color = h.color || PALETTE[hi % PALETTE.length];
+                  const streak = getStreak(h);
+                  const c30 = getConsistency(h, 30);
+                  const done = isCompletedToday(h);
+                  const lineData = Array.from({length:14},(_,i)=>{
+                    const d=new Date(); d.setDate(d.getDate()-(13-i));
+                    const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+                    return {done:(h.completedDates||[]).includes(ds)?1:0};
+                  });
+                  return (
+                    <div key={h.id} className="rounded-2xl p-4 cursor-pointer transition-all hover:shadow-sm"
+                      style={{background:"rgba(255,255,255,0.98)",border:`1px solid ${done?color+"40":"rgba(206,186,150,0.4)"}`}}
+                      onClick={()=>{setSelectedHabit(h.id);setView("detail");}}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:color}}/>
+                        <p className="text-sm font-black flex-1 truncate" style={{color:"#111110"}}>{h.name}</p>
+                        <div className="flex items-center gap-2">
+                          {streak > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{streak}d</span>}
+                          <button onClick={e=>{e.stopPropagation();toggleHabitCompletion(h.id);}}
+                            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{background:done?color:"transparent",border:`2px solid ${done?color:"rgba(206,186,150,0.5)"}`}}>
+                            {done&&<svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" style={{width:10,height:10}}><polyline points="20 6 9 17 4 12"/></svg>}
                           </button>
                         </div>
                       </div>
-
-                      {h.description && <p className="text-[11px] mt-0.5 truncate" style={{ color:"#94a3b8" }}>{h.description}</p>}
-
-                      {/* Mini gráfico de linha */}
-                      <div className="mt-3 h-8">
-                        <LineChart data={lineData} color={color} height={32}/>
+                      <div className="h-6 mb-2">
+                        <LineChart data={lineData} color={color} height={24}/>
                       </div>
-
-                      {/* Stats */}
-                      <div className="flex items-center gap-4 mt-2">
-                        <div>
-                          <p className="text-[9px] uppercase font-bold" style={{ color:"#94a3b8" }}>Consistência 30d</p>
-                          <p className="text-xs font-black" style={{ color: consistency>=70?"#10b981":consistency>=40?"#f97316":"#ef4444" }}>{consistency}%</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{background:"rgba(206,186,150,0.2)"}}>
+                          <div className="h-full rounded-full" style={{width:`${c30}%`,background:c30>=70?"#10b981":c30>=40?"#f97316":"#ef4444"}}/>
                         </div>
-                        <div>
-                          <p className="text-[9px] uppercase font-bold" style={{ color:"#94a3b8" }}>Sequência</p>
-                          <p className="text-xs font-black" style={{ color:"#111110" }}>{streak} dias</p>
-                        </div>
-                        <div className="flex-1">
-                          <div className="h-1 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.2)" }}>
-                            <div className="h-full rounded-full" style={{ width:`${consistency}%`, background: consistency>=70?"#10b981":consistency>=40?"#f97316":"#ef4444" }}/>
+                        <span className="text-[10px] font-black" style={{color:c30>=70?"#10b981":c30>=40?"#f97316":"#ef4444"}}>{c30}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ── Vista em lista ── */
+          <div className="p-5 space-y-3">
+            {habits.map((h, hi) => {
+              const color = h.color || PALETTE[hi % PALETTE.length];
+              const streak = getStreak(h);
+              const c30 = getConsistency(h, 30);
+              const done = isCompletedToday(h);
+              const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+              return (
+                <div key={h.id} className="rounded-2xl overflow-hidden" style={{background:"rgba(255,255,255,0.98)",border:"1px solid rgba(206,186,150,0.4)"}}>
+                  <div className="flex items-center gap-3 px-4 py-3" style={{borderBottom:"1px solid rgba(206,186,150,0.2)"}}>
+                    <div className="w-2 h-2 rounded-full" style={{background:color}}/>
+                    <p className="text-sm font-black flex-1" style={{color:"#111110"}}>{h.name}</p>
+                    <span className="text-[10px] font-bold" style={{color:"#94a3b8"}}>{c30}% · {streak}d</span>
+                    <button onClick={e=>{e.stopPropagation();toggleHabitCompletion(h.id);}}
+                      className="w-6 h-6 rounded-full flex items-center justify-center"
+                      style={{background:done?color:"transparent",border:`2px solid ${done?color:"rgba(206,186,150,0.5)"}`}}>
+                      {done&&<svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" style={{width:10,height:10}}><polyline points="20 6 9 17 4 12"/></svg>}
+                    </button>
+                    <button onClick={()=>{setSelectedHabit(h.id);setView("detail");}} className="text-xs px-2 py-1 rounded-lg" style={{color:"#6B7C50",background:"rgba(206,186,150,0.1)"}}>Ver</button>
+                  </div>
+                  {/* Grid de dias */}
+                  <div className="px-4 py-3">
+                    <div className="grid gap-0.5" style={{gridTemplateColumns:`repeat(${daysInMonth}, minmax(0,1fr))`}}>
+                      {Array.from({length:daysInMonth},(_,di)=>{
+                        const day=di+1;
+                        const ds=getDayStr(currentYear,currentMonth,day);
+                        const isDone=isCompletedOn(h,ds);
+                        const isToday=new Date().getDate()===day&&new Date().getMonth()===currentMonth&&new Date().getFullYear()===currentYear;
+                        const isPast=new Date(ds)<new Date(t);
+                        return (
+                          <div key={di} title={`${day}/${currentMonth+1}`}
+                            className="rounded-sm flex items-center justify-center text-[7px] font-bold cursor-pointer transition-all"
+                            style={{
+                              aspectRatio:"1",
+                              background:isDone?color:isToday?`${color}20`:"rgba(206,186,150,0.08)",
+                              color:isDone?"white":isToday?color:"#94a3b8",
+                              outline:isToday?`1px solid ${color}`:"none",
+                              opacity:!isDone&&isPast&&!isToday?0.4:1
+                            }}
+                            onClick={()=>toggleHabitCompletion(h.id,ds)}>
+                            {day}
                           </div>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modal formulário */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(0,0,0,0.5)", backdropFilter:"blur(4px)" }}>
-          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl" style={{ background:"#fff" }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(206,186,150,0.3)" }}>
-              <h3 className="font-black text-sm" style={{ color:"#111110" }}>{editingHabit ? "Editar Hábito" : "Novo Hábito"}</h3>
-              <button onClick={() => setIsFormOpen(false)} style={{ color:"#94a3b8", fontSize:20 }}>×</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl" style={{background:"#fff"}}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{borderBottom:"1px solid rgba(206,186,150,0.3)"}}>
+              <h3 className="font-black text-sm" style={{color:"#111110"}}>{editingHabit?"Editar Hábito":"Novo Hábito"}</h3>
+              <button onClick={()=>setIsFormOpen(false)} style={{color:"#94a3b8",fontSize:20}}>×</button>
             </div>
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nome</label>
                 <input value={hf.name} onChange={e=>setHf(x=>({...x,name:e.target.value}))} placeholder="Ex: Meditação, Leitura, Exercício..."
                   className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600 outline-none"
-                  style={{ borderColor:"rgba(206,186,150,0.5)" }}/>
+                  style={{borderColor:"rgba(206,186,150,0.5)"}}/>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Descrição (opcional)</label>
                 <input value={hf.description} onChange={e=>setHf(x=>({...x,description:e.target.value}))} placeholder="Meta ou detalhe..."
                   className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600 outline-none"
-                  style={{ borderColor:"rgba(206,186,150,0.5)" }}/>
+                  style={{borderColor:"rgba(206,186,150,0.5)"}}/>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-2">Cor</label>
                 <div className="flex gap-2 flex-wrap">
-                  {COLORS.map(c => (
-                    <button key={c} onClick={() => setHf(x=>({...x,color:c}))}
+                  {PALETTE.map(c=>(
+                    <button key={c} onClick={()=>setHf(x=>({...x,color:c}))}
                       className="w-7 h-7 rounded-full transition-all"
-                      style={{ background:c, outline: hf.color===c ? `3px solid ${c}` : "none", outlineOffset:2 }}/>
+                      style={{background:c,outline:hf.color===c?`3px solid ${c}`:"none",outlineOffset:2}}/>
                   ))}
                 </div>
               </div>
@@ -3708,19 +3828,19 @@ function Habits() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Frequência</label>
                 <select value={hf.frequency} onChange={e=>setHf(x=>({...x,frequency:e.target.value}))}
                   className="w-full border rounded-xl px-3 py-2 text-sm outline-none"
-                  style={{ borderColor:"rgba(206,186,150,0.5)" }}>
+                  style={{borderColor:"rgba(206,186,150,0.5)"}}>
                   <option value="daily">Diário</option>
                   <option value="weekdays">Dias úteis (Seg-Sex)</option>
                   <option value="weekly">Semanal</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => { setIsFormOpen(false); setEditingHabit(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+                <button onClick={()=>{setIsFormOpen(false);setEditingHabit(null);}} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
                 {editingHabit && (
-                  <button onClick={() => { deleteHabit(editingHabit.id); setIsFormOpen(false); setEditingHabit(null); }}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{ background:"#ef4444" }}>Excluir</button>
+                  <button onClick={()=>{deleteHabit(editingHabit.id);setIsFormOpen(false);setEditingHabit(null);}}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:"#ef4444"}}>Excluir</button>
                 )}
-                <button onClick={saveHabit} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Salvar</button>
+                <button onClick={saveHabit} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#1A3829,#2B5E46)"}}>Salvar</button>
               </div>
             </div>
           </div>
