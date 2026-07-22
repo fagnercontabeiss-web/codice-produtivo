@@ -3286,17 +3286,15 @@ function HabitCard({ habitId, onToggle, onEdit, onDelete }) {
 
 
 function Habits() {
-  const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, categories, currentProfile } = useApp();
-  const [view, setView] = useState("dashboard"); // dashboard | list | identity | insights
+  const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompletion, currentProfile } = useApp();
+  const [view, setView] = useState("overview"); // overview | detail | manage
+  const [selectedHabit, setSelectedHabit] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
-  const [aiInsight, setAiInsight] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [filterIdentity, setFilterIdentity] = useState("all");
-  const [filterTime, setFilterTime] = useState("all");
+  const [period, setPeriod] = useState(30); // 7 | 30 | 90
 
   const t = today();
-  const now = new Date();
+  const isAdmin = !currentProfile || currentProfile.role === "admin";
 
   // ── Helpers ───────────────────────────────────────────────
   const isCompletedToday = h => (h.completedDates||[]).includes(t);
@@ -3305,10 +3303,9 @@ function Habits() {
     const dates = [...(h.completedDates||[])].sort();
     if (!dates.length) return 0;
     let streak = 0;
-    let check = new Date();
-    check.setHours(0,0,0,0);
+    let check = new Date(); check.setHours(0,0,0,0);
     while (true) {
-      const ds = check.toISOString().split("T")[0];
+      const ds = check.getFullYear()+"-"+String(check.getMonth()+1).padStart(2,"0")+"-"+String(check.getDate()).padStart(2,"0");
       if (dates.includes(ds)) { streak++; check.setDate(check.getDate()-1); }
       else { if (ds === t && streak === 0) { check.setDate(check.getDate()-1); continue; } break; }
       if (streak > 365) break;
@@ -3316,593 +3313,423 @@ function Habits() {
     return streak;
   };
 
-  const getBestStreak = h => {
-    const dates = [...(h.completedDates||[])].sort();
-    if (!dates.length) return 0;
-    let best = 0, cur = 1;
-    for (let i=1; i<dates.length; i++) {
-      const d1 = new Date(dates[i-1]+"T12:00:00"), d2 = new Date(dates[i]+"T12:00:00");
-      const diff = (d2-d1)/(1000*60*60*24);
-      if (diff === 1) { cur++; best = Math.max(best,cur); }
-      else cur = 1;
-    }
-    return Math.max(best, cur);
-  };
-
-  const getConsistency = h => {
+  const getConsistency = (h, days=30) => {
     const dates = h.completedDates||[];
-    if (!dates.length) return 0;
-    const d30 = new Date(); d30.setDate(d30.getDate()-30);
-    const d30s = d30.toISOString().split("T")[0];
-    // Calcular dias esperados nos últimos 30 dias
-    let expectedDays = 0;
-    for (let i=0; i<30; i++) {
+    let count = 0;
+    for (let i=0; i<days; i++) {
       const d = new Date(); d.setDate(d.getDate()-i);
-      const dow = d.getDay(); // 0=Dom, 1=Seg...
-      const ds = d.toISOString().split("T")[0];
-      if (ds <= today()) {
-        if (h.freq === "weekly" && h.freqDays?.length) {
-          if (h.freqDays.includes(dow)) expectedDays++;
-        } else {
-          expectedDays++; // diário
-        }
-      }
+      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      if (dates.includes(ds)) count++;
     }
-    if (expectedDays === 0) return 0;
-    const last30 = dates.filter(d => d >= d30s);
-    return Math.round(last30.length / expectedDays * 100);
+    return Math.round(count/days*100);
   };
 
-  const getLast7 = h => {
-    return Array.from({length:7}, (_,i) => {
-      const d = new Date(); d.setDate(d.getDate()-6+i);
-      const ds = d.toISOString().split("T")[0];
-      return { date:ds, done:(h.completedDates||[]).includes(ds), isToday:ds===t, day:d.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") };
+  // Dados do gráfico de linha — consistência diária acumulada
+  const getLineData = (h, days) => {
+    const dates = h.completedDates||[];
+    return Array.from({length: days}, (_,i) => {
+      const d = new Date(); d.setDate(d.getDate()-(days-1-i));
+      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      const label = d.getDate()+"/"+(d.getMonth()+1);
+      return { date: ds, label, done: dates.includes(ds) ? 1 : 0 };
     });
   };
 
-  const getHeatmap = h => {
-    const weeks = 12;
-    const days = weeks * 7;
-    return Array.from({length:days}, (_,i) => {
-      const d = new Date(); d.setDate(d.getDate() - (days-1-i));
-      const ds = d.toISOString().split("T")[0];
-      return { date:ds, done:(h.completedDates||[]).includes(ds), dow:d.getDay(), week:Math.floor(i/7) };
+  // Taxa de conclusão por semana (para gráfico de barras)
+  const getWeeklyRate = (h, weeks=12) => {
+    const dates = h.completedDates||[];
+    return Array.from({length: weeks}, (_,i) => {
+      const weekDone = Array.from({length:7}, (_,d) => {
+        const day = new Date(); day.setDate(day.getDate()-((weeks-1-i)*7+d));
+        const ds = day.getFullYear()+"-"+String(day.getMonth()+1).padStart(2,"0")+"-"+String(day.getDate()).padStart(2,"0");
+        return dates.includes(ds) ? 1 : 0;
+      }).reduce((a,b)=>a+b,0);
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate()-(((weeks-1-i)+1)*7));
+      return { week: `S${weeks-i}`, rate: Math.round(weekDone/7*100), done: weekDone };
     });
   };
 
-  // ── Identidades únicas ────────────────────────────────────
-  const identities = useMemo(() => {
-    const ids = [...new Set((habits||[]).map(h=>h.identity).filter(Boolean))];
-    return ids.map(id => {
-      const related = habits.filter(h=>h.identity===id);
-      const avgConsistency = related.length > 0 ? Math.round(related.reduce((s,h)=>s+getConsistency(h),0)/related.length) : 0;
-      return { name:id, habits:related, consistency:avgConsistency };
-    });
-  }, [habits]);
-
-  // ── Stats globais ────────────────────────────────────────
+  // Stats gerais
   const stats = useMemo(() => {
     const total = habits.length;
     const doneToday = habits.filter(isCompletedToday).length;
+    const avgConsistency = total ? Math.round(habits.reduce((s,h)=>s+getConsistency(h,30),0)/total) : 0;
     const totalStreak = habits.reduce((s,h)=>s+getStreak(h),0);
-    const avgConsistency = total > 0 ? Math.round(habits.reduce((s,h)=>s+getConsistency(h),0)/total) : 0;
-    const bestOverall = Math.max(...habits.map(getBestStreak), 0);
-    return { total, doneToday, totalStreak, avgConsistency, bestOverall };
-  }, [habits]);
+    return { total, doneToday, avgConsistency, totalStreak };
+  }, [habits, t]);
 
-  // ── Formulário ────────────────────────────────────────────
-  const EMOJIS = ["⭐","📚","💪","🧘","💧","🏃","✍️","🎯","🧠","🌱","💊","🎵","🍎","😴","🧹","📝","💰","🤝","🎨","⚡"];
-  const IDENTITIES_PRESETS = ["Tornar-me leitor","Tornar-me disciplinado","Tornar-me saudável","Tornar-me produtivo","Tornar-me atleta","Tornar-me calmo","Tornar-me criativo","Tornar-me organizado"];
-  const TIME_OPTIONS = [{ v:"morning", l:"☀️ Manhã", sub:"6h–12h" },{ v:"afternoon", l:"🌤 Tarde", sub:"12h–18h" },{ v:"evening", l:"🌙 Noite", sub:"18h–22h" },{ v:"anytime", l:"🔄 Qualquer hora", sub:"" }];
-  const DIFF_OPTIONS = [{ v:1,l:"Fácil",c:"#10b981" },{ v:2,l:"Médio",c:"#B8965A" },{ v:3,l:"Difícil",c:"#ef4444" }];
-
-  const emptyForm = { title:"", emoji:"⭐", color:"#B8965A", freq:"daily", identity:"", difficulty:2, timeOfDay:"morning", description:"", targetStreak:21, isFavorite:false, completedDates:[] };
-  const [hf, setHf] = useState(emptyForm);
-
-  const openForm = (h=null) => {
-    setEditingHabit(h);
-    setHf(h ? { title:h.title, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", freq:h.freq||"daily", identity:h.identity||"", difficulty:h.difficulty||2, timeOfDay:h.timeOfDay||"morning", description:h.description||"", targetStreak:h.targetStreak||21, isFavorite:h.isFavorite||false, completedDates:h.completedDates||[] } : emptyForm);
-    setIsFormOpen(true);
-  };
-
-  const saveHabit = async () => {
-    if (!hf.title.trim()) return;
-    const habit = { ...hf, id: editingHabit ? editingHabit.id : uid(), freqDays:[1,2,3,4,5,6,7] };
-    if (editingHabit) await updateHabit(habit);
-    else await addHabit(habit);
+  // Formulário
+  const [hf, setHf] = useState({ name:"", description:"", frequency:"daily", targetDays:[], color:"#2B5E46", icon:"circle" });
+  const openForm = (h=null) => { setEditingHabit(h); setHf(h ? { name:h.name||"", description:h.description||"", frequency:h.frequency||"daily", targetDays:h.targetDays||[], color:h.color||"#2B5E46", icon:h.icon||"circle" } : { name:"", description:"", frequency:"daily", targetDays:[], color:"#2B5E46", icon:"circle" }); setIsFormOpen(true); };
+  const saveHabit = () => {
+    if (!hf.name.trim()) return;
+    const data = { id: editingHabit?.id||uid(), ...hf, completedDates: editingHabit?.completedDates||[] };
+    editingHabit ? updateHabit(data) : addHabit(data);
     setIsFormOpen(false); setEditingHabit(null);
   };
 
-  // toggle aceita id + data opcional (para marcar dias passados)
-  const toggle = async (id, date) => {
-    const targetDate = date || t;
-    const current = (habits||[]).find(x => x.id === id);
-    if (!current) return;
-    const dates = [...(current.completedDates||[])];
-    const newDates = dates.includes(targetDate)
-      ? dates.filter(d => d !== targetDate)
-      : [...dates, targetDate].sort();
-    await updateHabit({ ...current, completedDates: newDates });
+  const COLORS = ["#2B5E46","#B8965A","#3b82f6","#8b5cf6","#ef4444","#f97316","#10b981","#6B7C50"];
+
+  // ── Gráfico de linha SVG ─────────────────────────────────
+  const LineChart = ({ data, color="#2B5E46", height=80 }) => {
+    if (!data.length) return null;
+    const w = 100; const h = height;
+    // Calcular média móvel (janela 7 dias)
+    const smoothed = data.map((_,i) => {
+      const window = data.slice(Math.max(0,i-6), i+1);
+      return window.reduce((s,d)=>s+d.done,0)/window.length;
+    });
+    const points = smoothed.map((v,i) => `${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ");
+    const area = `0,${h} ` + smoothed.map((v,i) => `${(i/(data.length-1))*w},${h-(v*h*0.85)-4}`).join(" ") + ` ${w},${h}`;
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{height}}>
+        <defs>
+          <linearGradient id={`lg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
+            <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <polygon points={area} fill={`url(#lg-${color.replace("#","")})`}/>
+        <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {smoothed.map((v,i) => v > 0.5 && (
+          <circle key={i} cx={(i/(data.length-1))*w} cy={h-(v*h*0.85)-4} r="1.5" fill={color}/>
+        ))}
+      </svg>
+    );
   };
 
-  const COLORS = ["#2B5E46","#10b981","#B8965A","#f97316","#ef4444","#B8965A","#ec4899","#06b6d4","#64748b","#111110"];
-
-  // ── Análise IA ────────────────────────────────────────────
-  const generateInsight = async () => {
-    setAiLoading(true); setAiInsight(null);
-    try {
-      const habitData = habits.map(h => ({
-        nome: h.title, streak: getStreak(h), melhorStreak: getBestStreak(h),
-        consistencia: getConsistency(h), concluido_hoje: isCompletedToday(h),
-        identidade: h.identity||"sem identidade", dificuldade: h.difficulty,
-        horario: h.timeOfDay, dias_completados: (h.completedDates||[]).length
-      }));
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1200,
-          messages:[{ role:"user", content:
-            `Você é um coach de produtividade especialista em neurociência comportamental e no livro Hábitos Atômicos de James Clear.
-
-Analise esses hábitos de um contador profissional:
-${JSON.stringify(habitData, null, 2)}
-
-Total hoje: ${stats.doneToday}/${stats.total} | Consistência média: ${stats.avgConsistency}% | Melhor streak: ${stats.bestOverall} dias
-
-Responda APENAS com JSON puro (sem markdown), com esta estrutura:
-{
-  "manchete": "Uma frase de impacto sobre o momento atual",
-  "diagnostico": "Análise comportamental em 2-3 frases, mencionando padrões específicos",
-  "habito_mais_forte": "Nome e por quê",
-  "habito_em_risco": "Nome e sinal de risco detectado",
-  "insight_atomico": "Um insight do livro Hábitos Atômicos aplicado aos dados",
-  "acao_hoje": "Uma ação específica e pequena para hoje",
-  "previsao": "Previsão comportamental para os próximos 7 dias",
-  "sugestao_identidade": "Sugestão de identidade baseada nos hábitos"
-}` }]
-        })
-      });
-      const data = await resp.json();
-      const text = data.content?.[0]?.text||"";
-      setAiInsight(JSON.parse(text.replace(/```json|```/g,"").trim()));
-    } catch(e) { setAiInsight({ manchete:"Erro ao gerar análise.", diagnostico:"Tente novamente.", habito_mais_forte:"—", habito_em_risco:"—", insight_atomico:"—", acao_hoje:"—", previsao:"—", sugestao_identidade:"—" }); }
-    finally { setAiLoading(false); }
-  };
-
-  // ── Componente HabitCard ──────────────────────────────────
-
-  // ── Frase motivacional ────────────────────────────────────
-  const PHRASES = [
-    "Cada check é um voto na identidade que você quer construir.",
-    "Pequenas ações diárias superam grandes esforços esporádicos.",
-    "Você não sobe ao nível de seus objetivos. Você cai ao nível de seus sistemas.",
-    "A consistência é mais poderosa que a intensidade.",
-    "Hábitos são os juros compostos da auto-melhoria.",
-    "A mudança real vem de mudança de identidade, não de metas.",
-    "O segredo é fazer do próximo passo algo impossível de não fazer.",
-    "Reduzir o atrito é mais eficaz do que aumentar a motivação.",
-  ];
-  const dailyPhrase = PHRASES[new Date().getDate() % PHRASES.length];
-
-  const visibleHabits = (habits||[])
-    .filter(h => !h.archived)
-    .filter(h => filterIdentity==="all" || h.identity===filterIdentity)
-    .filter(h => filterTime==="all" || h.timeOfDay===filterTime);
-
-  const TABS = [["dashboard","📊 Dashboard"],["list","📋 Hábitos"],["identity","🧠 Identidade"],["insights","✨ Insights IA"]];
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Hábitos & Rotina</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Sistema inteligente de construção de identidade</p>
-        </div>
-        <button onClick={()=>openForm()} className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-          style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
-          <Icon.Plus />Novo Hábito
-        </button>
-      </div>
-
-      {/* Frase do dia */}
-      <div className="rounded-2xl px-5 py-3 flex items-center gap-3"
-        style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.1)" }}>
-        <span className="text-lg flex-shrink-0">💡</span>
-        <p className="text-xs italic" style={{ color:"rgba(255,255,255,0.7)", fontStyle:"italic" }}>{dailyPhrase}</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-2xl" style={{ background:"rgba(241,245,249,0.7)", width:"fit-content" }}>
-        {TABS.map(([id,label]) => (
-          <button key={id} onClick={()=>setView(id)}
-            className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background:view===id?"rgba(255,255,255,0.98)":"transparent", color:view===id?"#1A3829":"#6B7C50",
-              boxShadow:view===id?"0 2px 8px rgba(17,24,20,0.08)":"none" }}>
-            {label}
-          </button>
+  // Heatmap dos últimos 12 semanas
+  const HeatMap = ({ h: habit }) => {
+    const dates = habit.completedDates||[];
+    const weeks = 13;
+    const days = 7;
+    const cells = [];
+    for (let w=0; w<weeks; w++) {
+      for (let d=0; d<days; d++) {
+        const date = new Date(); date.setDate(date.getDate()-((weeks-1-w)*7+(days-1-d)));
+        const ds = date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-"+String(date.getDate()).padStart(2,"0");
+        cells.push({ ds, done: dates.includes(ds), isToday: ds===t });
+      }
+    }
+    return (
+      <div className="flex gap-0.5">
+        {Array.from({length: weeks}, (_,w) => (
+          <div key={w} className="flex flex-col gap-0.5">
+            {Array.from({length: days}, (_,d) => {
+              const cell = cells[w*days+d];
+              return (
+                <div key={d} title={cell.ds} className="w-3 h-3 rounded-sm"
+                  style={{ background: cell.done ? (habit.color||"#2B5E46") : "rgba(206,186,150,0.15)", outline: cell.isToday ? "1px solid #B8965A" : "none" }}/>
+              );
+            })}
+          </div>
         ))}
       </div>
+    );
+  };
 
-      {/* ── DASHBOARD ── */}
-      {view === "dashboard" && (
-        <div className="space-y-5">
+  // ── RENDER ────────────────────────────────────────────────
+  if (selectedHabit && view === "detail") {
+    const h = habits.find(x => x.id === selectedHabit) || selectedHabit;
+    if (!h) { setSelectedHabit(null); setView("overview"); return null; }
+    const streak = getStreak(h);
+    const consistency30 = getConsistency(h, 30);
+    const consistency7 = getConsistency(h, 7);
+    const consistency90 = getConsistency(h, 90);
+    const lineData = getLineData(h, period);
+    const weeklyData = getWeeklyRate(h, 12);
+    const color = h.color || "#2B5E46";
+
+    return (
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center gap-3" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)", background:"rgba(255,255,255,0.98)" }}>
+          <button onClick={() => { setSelectedHabit(null); setView("overview"); }} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" style={{ color:"#6B7C50" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }}/>
+          <h2 className="text-base font-black" style={{ color:"#111110" }}>{h.name}</h2>
+          {isAdmin && (
+            <div className="ml-auto flex gap-2">
+              <button onClick={() => { openForm(h); }} className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:"rgba(206,186,150,0.15)", color:"#6B7C50" }}>Editar</button>
+              <button onClick={() => toggleHabitCompletion(h.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: isCompletedToday(h) ? "#6B7C50" : color }}>
+                {isCompletedToday(h) ? "Concluído hoje" : "Marcar hoje"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {[
-              { label:"Hoje", value:`${stats.doneToday}/${stats.total}`, sub:"concluídos", color:"#B8965A", icon:"📋" },
-              { label:"Streak combinado", value:stats.totalStreak, sub:"dias totais", color:"#B8965A", icon:"🔥" },
-              { label:"Consistência", value:`${stats.avgConsistency}%`, sub:"últimos 30 dias", color:stats.avgConsistency>=70?"#10b981":stats.avgConsistency>=40?"#B8965A":"#ef4444", icon:"📈" },
-              { label:"Melhor sequência", value:stats.bestOverall, sub:"dias consecutivos", color:"#B8965A", icon:"🏆" },
+              { label:"Sequência atual", value: streak, unit:"dias", highlight: streak >= 7 },
+              { label:"Consistência 30d", value: `${consistency30}%`, unit:"", highlight: consistency30 >= 70 },
+              { label:"Últimos 7 dias", value: `${consistency7}%`, unit:"", highlight: consistency7 >= 70 },
             ].map(k => (
-              <div key={k.label} className="rounded-2xl p-4 transition-all"
-                style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
-                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color:"#6B7C50" }}>{k.label}</p>
-                    <p className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color:"#6B7C50" }}>{k.sub}</p>
-                  </div>
-                  <span className="text-xl">{k.icon}</span>
-                </div>
+              <div key={k.label} className="rounded-2xl p-4 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+                <p className="text-xs font-medium mb-1" style={{ color:"#6B7C50" }}>{k.label}</p>
+                <p className="text-2xl font-black" style={{ color: k.highlight ? color : "#111110" }}>{k.value}</p>
+                {k.unit && <p className="text-[10px] mt-0.5" style={{ color:"#94a3b8" }}>{k.unit}</p>}
               </div>
             ))}
           </div>
 
-          {/* Lista rápida hoje */}
-          {visibleHabits.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)" }}>
-              <p className="text-5xl mb-4">🌱</p>
-              <p className="font-bold text-lg" style={{ color:"#111110" }}>Nenhum hábito ainda</p>
-              <p className="text-sm mt-1" style={{ color:"#6B7C50" }}>Crie seu primeiro hábito para começar a construir sua identidade</p>
-              <button onClick={()=>openForm()} className="mt-4 px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Criar primeiro hábito</button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleHabits.sort((a,b)=>(isCompletedToday(a)?1:0)-(isCompletedToday(b)?1:0)).map(h => <HabitCard key={h.id} habitId={h.id} onToggle={(id, date) => toggle(id, date)} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── LISTA ── */}
-      {view === "list" && (
-        <div className="space-y-4">
-          {/* Filtros */}
-          <div className="flex gap-2 flex-wrap">
-            <select value={filterIdentity} onChange={e=>setFilterIdentity(e.target.value)}
-              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-              style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-              <option value="all">Todas identidades</option>
-              {identities.map(id => <option key={id.name} value={id.name}>{id.name}</option>)}
-            </select>
-            <select value={filterTime} onChange={e=>setFilterTime(e.target.value)}
-              className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-              style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-              <option value="all">Todos horários</option>
-              {TIME_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-            </select>
+          {/* Seletor de período */}
+          <div className="flex gap-2">
+            {[{v:7,l:"7 dias"},{v:30,l:"30 dias"},{v:90,l:"90 dias"}].map(p => (
+              <button key={p.v} onClick={() => setPeriod(p.v)}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{ background: period===p.v ? color : "rgba(206,186,150,0.1)", color: period===p.v ? "#fff" : "#6B7C50" }}>
+                {p.l}
+              </button>
+            ))}
           </div>
-          {visibleHabits.length === 0 ? (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)" }}>
-              <p className="text-3xl mb-2">🔍</p>
-              <p className="font-bold" style={{ color:"#111110" }}>Nenhum hábito encontrado</p>
+
+          {/* Gráfico de linha */}
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-black" style={{ color:"#111110" }}>Evolução — últimos {period} dias</p>
+                <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Média móvel de 7 dias</p>
+              </div>
+              <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background:`${color}15`, color }}>
+                {getConsistency(h, period)}%
+              </span>
             </div>
-          ) : (
+            <LineChart data={lineData} color={color} height={100}/>
+            <div className="flex justify-between mt-2">
+              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[0]?.label}</span>
+              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[Math.floor(lineData.length/2)]?.label}</span>
+              <span className="text-[9px]" style={{ color:"#94a3b8" }}>{lineData[lineData.length-1]?.label}</span>
+            </div>
+          </div>
+
+          {/* Gráfico de barras semanal */}
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+            <p className="text-sm font-black mb-4" style={{ color:"#111110" }}>Taxa semanal — 12 semanas</p>
+            <div className="flex items-end gap-1 h-20">
+              {weeklyData.map((w,i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full rounded-t-sm transition-all" title={`${w.week}: ${w.rate}%`}
+                    style={{ height: `${Math.max(w.rate, 2)}%`, background: w.rate >= 70 ? color : w.rate >= 40 ? `${color}80` : "rgba(206,186,150,0.3)", maxHeight:"100%" }}/>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-end gap-1 mt-1">
+              {weeklyData.map((w,i) => (
+                <div key={i} className="flex-1 text-center">
+                  <span className="text-[8px]" style={{ color:"#94a3b8" }}>{w.week}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Heatmap */}
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-black" style={{ color:"#111110" }}>Calendário de consistência</p>
+              <div className="flex items-center gap-2 text-[10px]" style={{ color:"#94a3b8" }}>
+                <div className="w-2 h-2 rounded-sm" style={{ background:"rgba(206,186,150,0.2)" }}/>Sem registro
+                <div className="w-2 h-2 rounded-sm" style={{ background: color }}/>Concluído
+              </div>
+            </div>
+            <div className="flex gap-1 text-[8px] mb-1" style={{ color:"#94a3b8" }}>
+              {["S","T","Q","Q","S","S","D"].map((d,i) => <span key={i} className="w-3 text-center">{d}</span>)}
+            </div>
+            <HeatMap h={h}/>
+          </div>
+
+          {/* Stats 90 dias */}
+          <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+            <p className="text-sm font-black mb-4" style={{ color:"#111110" }}>Análise de performance</p>
             <div className="space-y-3">
-              {visibleHabits.map(h => <HabitCard key={h.id} habitId={h.id} onToggle={(id, date) => toggle(id, date)} onEdit={openForm} onDelete={hid => deleteHabit(hid)}/>)}
+              {[
+                { label:"Consistência 7 dias", value: consistency7, target:80 },
+                { label:"Consistência 30 dias", value: consistency30, target:70 },
+                { label:"Consistência 90 dias", value: consistency90, target:60 },
+              ].map(s => (
+                <div key={s.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span style={{ color:"#374151" }}>{s.label}</span>
+                    <span className="font-black" style={{ color: s.value >= s.target ? "#10b981" : s.value >= s.target*0.6 ? "#f97316" : "#ef4444" }}>{s.value}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.2)" }}>
+                    <div className="h-full rounded-full transition-all" style={{ width:`${s.value}%`, background: s.value >= s.target ? "#10b981" : s.value >= s.target*0.6 ? "#f97316" : "#ef4444" }}/>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ── IDENTIDADE ── */}
-      {view === "identity" && (
-        <div className="space-y-4">
-          <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.1)" }}>
-            <h3 className="text-sm font-black mb-1" style={{ color:"#fff" }}>Sistema de Identidade</h3>
-            <p className="text-xs" style={{ color:"rgba(255,255,255,0.5)" }}>
-              "Cada ação é um voto para o tipo de pessoa que você deseja se tornar." — James Clear
-            </p>
           </div>
-          {identities.length === 0 ? (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)" }}>
-              <p className="text-4xl mb-3">🧠</p>
-              <p className="font-bold" style={{ color:"#111110" }}>Nenhuma identidade definida</p>
-              <p className="text-xs mt-1" style={{ color:"#6B7C50" }}>Ao criar hábitos, defina uma identidade para agrupá-los</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── OVERVIEW ──────────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3" style={{ borderBottom:"1px solid rgba(206,186,150,0.4)", background:"rgba(255,255,255,0.98)" }}>
+        <div>
+          <h2 className="text-lg font-black" style={{ color:"#111110" }}>Hábitos</h2>
+          <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>{stats.doneToday} de {stats.total} concluídos hoje</p>
+        </div>
+        {isAdmin && (
+          <button onClick={() => openForm()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white"
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
+            <Icon.Plus/> Novo Hábito
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {/* KPIs globais */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label:"Hoje", value:`${stats.doneToday}/${stats.total}`, sub:"concluídos" },
+            { label:"Consistência média", value:`${stats.avgConsistency}%`, sub:"últimos 30 dias" },
+            { label:"Sequência total", value:stats.totalStreak, sub:"dias combinados" },
+            { label:"Hábitos ativos", value:stats.total, sub:"cadastrados" },
+          ].map(k => (
+            <div key={k.label} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.98)", border:"1px solid rgba(206,186,150,0.5)" }}>
+              <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color:"#94a3b8" }}>{k.label}</p>
+              <p className="text-2xl font-black" style={{ color:"#111110" }}>{k.value}</p>
+              <p className="text-[10px] mt-0.5" style={{ color:"#6B7C50" }}>{k.sub}</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {identities.map(id => {
-                const pct = id.consistency;
-                const color = pct >= 70 ? "#10b981" : pct >= 40 ? "#B8965A" : "#ef4444";
-                return (
-                  <div key={id.name} className="rounded-2xl p-5 transition-all"
-                    style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)" }}
-                    onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=`0 8px 24px ${color}15`;}}
-                    onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-black" style={{ color:"#111110" }}>{id.name}</p>
-                        <p className="text-[10px]" style={{ color:"#6B7C50" }}>{id.habits.length} hábito{id.habits.length!==1?"s":""} vinculado{id.habits.length!==1?"s":""}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-black" style={{ color }}>{pct}%</p>
-                        <p className="text-[9px]" style={{ color:"#6B7C50" }}>consistência</p>
-                      </div>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full mb-3" style={{ background:"rgba(206,186,150,0.5)" }}>
-                      <div className="h-1.5 rounded-full transition-all duration-700" style={{ width:pct+"%", background:`linear-gradient(90deg,${color},${color}cc)` }}/>
-                    </div>
-                    <div className="space-y-1.5">
-                      {id.habits.map(h => (
-                        <div key={h.id} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
-                          <span className="text-base flex-shrink-0">{h.emoji||"⭐"}</span>
-                          <span className="text-xs font-medium flex-1 truncate" style={{ color:"#374151" }}>{h.title}</span>
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background:isCompletedToday(h)?"#10b981":"rgba(203,213,225,0.7)" }}/>
+          ))}
+        </div>
+
+        {/* Lista de hábitos com mini gráfico */}
+        <div className="space-y-3">
+          {habits.length === 0 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.98)", border:"1px dashed rgba(206,186,150,0.5)" }}>
+              <p className="text-sm font-medium mb-2" style={{ color:"#6B7C50" }}>Nenhum hábito cadastrado</p>
+              <p className="text-xs" style={{ color:"#94a3b8" }}>Crie seu primeiro hábito para começar a acompanhar sua evolução</p>
+            </div>
+          ) : habits.map(h => {
+            const streak = getStreak(h);
+            const consistency = getConsistency(h, 30);
+            const done = isCompletedToday(h);
+            const lineData = getLineData(h, 30);
+            const color = h.color || "#2B5E46";
+
+            return (
+              <div key={h.id} className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-md"
+                style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${done ? color+"40" : "rgba(206,186,150,0.5)"}` }}
+                onClick={() => { setSelectedHabit(h.id); setView("detail"); }}>
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Indicador de cor */}
+                    <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color, opacity: done ? 1 : 0.4 }}/>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-black truncate" style={{ color:"#111110" }}>{h.name}</p>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {streak > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background:`${color}15`, color }}>
+                              {streak}d
+                            </span>
+                          )}
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleHabitCompletion(h.id); }}
+                            className="w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+                            style={{ background: done ? color : "transparent", border: `2px solid ${done ? color : "rgba(206,186,150,0.5)"}` }}>
+                            {done && <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" style={{width:12,height:12}}><polyline points="20 6 9 17 4 12"/></svg>}
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                      </div>
 
-      {/* ── INSIGHTS IA ── */}
-      {view === "insights" && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black" style={{ color:"#111110" }}>Análise Comportamental com IA</h3>
-              <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Baseada em neurociência e Hábitos Atômicos</p>
-            </div>
-            <button onClick={generateInsight} disabled={aiLoading || habits.length===0}
-              className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-              style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", boxShadow:"0 2px 8px rgba(184,150,90,0.25)" }}>
-              {aiLoading ? <><Icon.Loader />Analisando...</> : <><Icon.Sparkles />Gerar Análise</>}
-            </button>
-          </div>
+                      {h.description && <p className="text-[11px] mt-0.5 truncate" style={{ color:"#94a3b8" }}>{h.description}</p>}
 
-          {!aiInsight && !aiLoading && (
-            <div className="rounded-2xl p-12 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.4)" }}>
-              <div className="text-5xl mb-4">🧠</div>
-              <p className="font-bold" style={{ color:"#111110" }}>Análise Inteligente de Hábitos</p>
-              <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color:"#6B7C50" }}>
-                A IA analisa seus padrões comportamentais e gera insights personalizados baseados em neurociência e Hábitos Atômicos.
-              </p>
-              <button onClick={generateInsight} disabled={habits.length===0}
-                className="mt-4 px-6 py-2.5 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
-                {habits.length===0?"Crie hábitos primeiro":"Iniciar análise →"}
-              </button>
-            </div>
-          )}
+                      {/* Mini gráfico de linha */}
+                      <div className="mt-3 h-8">
+                        <LineChart data={lineData} color={color} height={32}/>
+                      </div>
 
-          {aiInsight && (
-            <div className="space-y-4">
-              {/* Manchete */}
-              <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(26,56,41,0.97),rgba(17,17,16,0.97))", border:"1px solid rgba(184,150,90,0.12)" }}>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"rgba(184,150,90,0.7)" }}>Diagnóstico atual</p>
-                <p className="text-lg font-black leading-tight" style={{ color:"#fff" }}>{aiInsight.manchete}</p>
-                <p className="text-xs mt-2" style={{ color:"rgba(255,255,255,0.5)" }}>{aiInsight.diagnostico}</p>
-              </div>
-
-              {/* Cards de insight */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { icon:"💪", title:"Hábito mais forte", content:aiInsight.habito_mais_forte, color:"#10b981" },
-                  { icon:"⚠️", title:"Em risco", content:aiInsight.habito_em_risco, color:"#B8965A" },
-                  { icon:"⚡", title:"Insight Atômico", content:aiInsight.insight_atomico, color:"#B8965A" },
-                  { icon:"🎯", title:"Ação para hoje", content:aiInsight.acao_hoje, color:"#B8965A" },
-                ].map(c => (
-                  <div key={c.title} className="rounded-2xl p-4 transition-all"
-                    style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${c.color}20`, boxShadow:`0 4px 16px ${c.color}08` }}
-                    onMouseEnter={e=>{e.currentTarget.style.transform="translateX(3px)";e.currentTarget.style.borderColor=c.color+"40";}}
-                    onMouseLeave={e=>{e.currentTarget.style.transform="translateX(0)";e.currentTarget.style.borderColor=c.color+"20";}}>
-                    <div className="flex items-start gap-3">
-                      <span className="text-xl flex-shrink-0">{c.icon}</span>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:c.color }}>{c.title}</p>
-                        <p className="text-xs" style={{ color:"#374151" }}>{c.content}</p>
+                      {/* Stats */}
+                      <div className="flex items-center gap-4 mt-2">
+                        <div>
+                          <p className="text-[9px] uppercase font-bold" style={{ color:"#94a3b8" }}>Consistência 30d</p>
+                          <p className="text-xs font-black" style={{ color: consistency>=70?"#10b981":consistency>=40?"#f97316":"#ef4444" }}>{consistency}%</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] uppercase font-bold" style={{ color:"#94a3b8" }}>Sequência</p>
+                          <p className="text-xs font-black" style={{ color:"#111110" }}>{streak} dias</p>
+                        </div>
+                        <div className="flex-1">
+                          <div className="h-1 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.2)" }}>
+                            <div className="h-full rounded-full" style={{ width:`${consistency}%`, background: consistency>=70?"#10b981":consistency>=40?"#f97316":"#ef4444" }}/>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Previsão + Identidade */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-2xl p-4" style={{ background:"rgba(184,150,90,0.06)", border:"1px solid rgba(184,150,90,0.15)" }}>
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#B8965A" }}>📅 Previsão 7 dias</p>
-                  <p className="text-xs" style={{ color:"#374151" }}>{aiInsight.previsao}</p>
-                </div>
-                <div className="rounded-2xl p-4" style={{ background:"rgba(16,185,129,0.06)", border:"1px solid rgba(16,185,129,0.15)" }}>
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color:"#10b981" }}>🧠 Identidade sugerida</p>
-                  <p className="text-xs" style={{ color:"#374151" }}>{aiInsight.sugestao_identidade}</p>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      {/* ── MODAL DE CRIAÇÃO/EDIÇÃO ── */}
+      {/* Modal formulário */}
       {isFormOpen && (
-        <Modal title={editingHabit ? "Editar Hábito" : "Novo Hábito"} onClose={()=>{setIsFormOpen(false);setEditingHabit(null);}} maxWidth="max-w-lg">
-          <div className="p-6 space-y-5">
-            {/* Emoji picker */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Ícone</label>
-              <div className="flex flex-wrap gap-2">
-                {EMOJIS.map(e => (
-                  <button key={e} type="button" onClick={()=>setHf(p=>({...p,emoji:e}))}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all"
-                    style={{ background:hf.emoji===e?"rgba(43,94,70,0.15)":"rgba(248,250,252,0.8)", border:hf.emoji===e?"1.5px solid rgba(184,150,90,0.4)":"1px solid rgba(206,186,150,0.6)", transform:hf.emoji===e?"scale(1.15)":"scale(1)" }}>
-                    {e}
-                  </button>
-                ))}
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(0,0,0,0.5)", backdropFilter:"blur(4px)" }}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl" style={{ background:"#fff" }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(206,186,150,0.3)" }}>
+              <h3 className="font-black text-sm" style={{ color:"#111110" }}>{editingHabit ? "Editar Hábito" : "Novo Hábito"}</h3>
+              <button onClick={() => setIsFormOpen(false)} style={{ color:"#94a3b8", fontSize:20 }}>×</button>
             </div>
-
-            {/* Nome */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Nome do hábito *</label>
-              <input value={hf.title} onChange={e=>setHf(p=>({...p,title:e.target.value}))} placeholder="Ex: Leitura de 20 minutos..."
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-600"
-                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }} />
-            </div>
-
-            {/* Identidade */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Identidade vinculada</label>
-              <input value={hf.identity} onChange={e=>setHf(p=>({...p,identity:e.target.value}))} list="identities-list"
-                placeholder="Ex: Tornar-me leitor"
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-600"
-                style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }} />
-              <datalist id="identities-list">
-                {IDENTITIES_PRESETS.map(i => <option key={i} value={i}/>)}
-                {identities.map(i => <option key={i.name} value={i.name}/>)}
-              </datalist>
-            </div>
-
-            {/* Cor + Dificuldade + Horário */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Cor</label>
-                <div className="flex gap-1.5 flex-wrap">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Nome</label>
+                <input value={hf.name} onChange={e=>setHf(x=>({...x,name:e.target.value}))} placeholder="Ex: Meditação, Leitura, Exercício..."
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600 outline-none"
+                  style={{ borderColor:"rgba(206,186,150,0.5)" }}/>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Descrição (opcional)</label>
+                <input value={hf.description} onChange={e=>setHf(x=>({...x,description:e.target.value}))} placeholder="Meta ou detalhe..."
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600 outline-none"
+                  style={{ borderColor:"rgba(206,186,150,0.5)" }}/>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">Cor</label>
+                <div className="flex gap-2 flex-wrap">
                   {COLORS.map(c => (
-                    <button key={c} type="button" onClick={()=>setHf(p=>({...p,color:c}))}
-                      className="w-6 h-6 rounded-lg transition-all"
-                      style={{ background:c, border:hf.color===c?"2.5px solid #111110":"2px solid transparent", transform:hf.color===c?"scale(1.2)":"scale(1)" }}/>
+                    <button key={c} onClick={() => setHf(x=>({...x,color:c}))}
+                      className="w-7 h-7 rounded-full transition-all"
+                      style={{ background:c, outline: hf.color===c ? `3px solid ${c}` : "none", outlineOffset:2 }}/>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Dificuldade</label>
-                <div className="flex gap-2">
-                  {DIFF_OPTIONS.map(d => (
-                    <button key={d.v} type="button" onClick={()=>setHf(p=>({...p,difficulty:d.v}))}
-                      className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
-                      style={{ background:hf.difficulty===d.v?d.c+"20":"rgba(248,250,252,0.8)", color:hf.difficulty===d.v?d.c:"#6B7C50", border:hf.difficulty===d.v?`1.5px solid ${d.c}50`:"1px solid rgba(206,186,150,0.6)" }}>
-                      {d.l}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Frequência</label>
+                <select value={hf.frequency} onChange={e=>setHf(x=>({...x,frequency:e.target.value}))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none"
+                  style={{ borderColor:"rgba(206,186,150,0.5)" }}>
+                  <option value="daily">Diário</option>
+                  <option value="weekdays">Dias úteis (Seg-Sex)</option>
+                  <option value="weekly">Semanal</option>
+                </select>
               </div>
-            </div>
-
-            {/* Frequência */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Frequência</label>
-              <div className="flex gap-2 mb-3">
-                {[["daily","Todos os dias"],["weekly","Dias específicos"]].map(([v,l]) => (
-                  <button key={v} type="button" onClick={()=>setHf(p=>({...p,freq:v,freqDays:v==="daily"?[1,2,3,4,5,6,7]:p.freqDays?.length?p.freqDays:[1,2,3,4,5]}))}
-                    className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:hf.freq===v?"linear-gradient(135deg,#111110,#1A3829)":"rgba(248,250,252,0.7)", color:hf.freq===v?"#B8965A":"#64748b", border:hf.freq===v?"1px solid rgba(184,150,90,0.2)":"1px solid rgba(206,186,150,0.6)" }}>
-                    {l}
-                  </button>
-                ))}
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => { setIsFormOpen(false); setEditingHabit(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+                {editingHabit && (
+                  <button onClick={() => { deleteHabit(editingHabit.id); setIsFormOpen(false); setEditingHabit(null); }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{ background:"#ef4444" }}>Excluir</button>
+                )}
+                <button onClick={saveHabit} className="px-4 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Salvar</button>
               </div>
-              {hf.freq === "weekly" && (
-                <div>
-                  <p className="text-[10px] mb-2" style={{ color:"#6B7C50" }}>Selecione os dias da semana:</p>
-                  <div className="flex gap-1.5">
-                    {[["Dom",0],["Seg",1],["Ter",2],["Qua",3],["Qui",4],["Sex",5],["Sáb",6]].map(([label,val]) => {
-                      const sel = (hf.freqDays||[]).includes(val);
-                      return (
-                        <button key={val} type="button"
-                          onClick={()=>setHf(p=>({ ...p, freqDays: sel ? (p.freqDays||[]).filter(d=>d!==val) : [...(p.freqDays||[]),val].sort() }))}
-                          className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
-                          style={{ background:sel?(hf.color||"#2B5E46"):"rgba(248,250,252,0.7)", color:sel?"#fff":"#6B7C50", border:sel?"none":"1px solid rgba(206,186,150,0.6)", boxShadow:sel?`0 2px 8px ${hf.color||"#2B5E46"}40`:"none" }}>
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {(hf.freqDays||[]).length === 0 && (
-                    <p className="text-[10px] mt-1.5" style={{ color:"#ef4444" }}>Selecione pelo menos um dia</p>
-                  )}
-                  <p className="text-[10px] mt-1.5" style={{ color:"#6B7C50" }}>
-                    {(hf.freqDays||[]).length} dia{(hf.freqDays||[]).length!==1?"s":""} por semana selecionado{(hf.freqDays||[]).length!==1?"s":""}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Horário */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Horário preferido</label>
-              <div className="grid grid-cols-2 gap-2">
-                {TIME_OPTIONS.map(o => (
-                  <button key={o.v} type="button" onClick={()=>setHf(p=>({...p,timeOfDay:o.v}))}
-                    className="p-2.5 rounded-xl text-left transition-all"
-                    style={{ background:hf.timeOfDay===o.v?"rgba(43,94,70,0.08)":"rgba(248,250,252,0.7)", border:hf.timeOfDay===o.v?"1.5px solid rgba(184,150,90,0.3)":"1px solid rgba(206,186,150,0.6)" }}>
-                    <p className="text-sm font-semibold" style={{ color:hf.timeOfDay===o.v?"#B8965A":"#374151" }}>{o.l}</p>
-                    {o.sub && <p className="text-[10px]" style={{ color:"#6B7C50" }}>{o.sub}</p>}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Descrição + Meta */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Descrição (opcional)</label>
-                <textarea value={hf.description} onChange={e=>setHf(p=>({...p,description:e.target.value}))}
-                  placeholder="Por que este hábito importa..." rows={2}
-                  className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:ring-2 focus:ring-amber-600"
-                  style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
-              </div>
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Meta de streak</label>
-                <div className="flex items-center gap-2">
-                  <input type="number" min={1} max={365} value={hf.targetStreak} onChange={e=>setHf(p=>({...p,targetStreak:Number(e.target.value)}))}
-                    className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-600"
-                    style={{ borderColor:"rgba(206,186,150,0.8)", background:"rgba(255,255,255,0.98)" }}/>
-                  <span className="text-xs" style={{ color:"#6B7C50" }}>dias</span>
-                </div>
-                <p className="text-[10px] mt-1" style={{ color:"#6B7C50" }}>21 dias = formação básica</p>
-              </div>
-            </div>
-
-            {/* Favorito */}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button type="button" onClick={()=>setHf(p=>({...p,isFavorite:!p.isFavorite}))}
-                className="relative w-10 h-5 rounded-full transition-all"
-                style={{ background:hf.isFavorite?"linear-gradient(135deg,#f59e0b,#d97706)":"rgba(206,186,150,0.8)" }}>
-                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                  style={{ left:hf.isFavorite?"calc(100% - 18px)":"2px" }}/>
-              </button>
-              <span className="text-sm font-medium" style={{ color:"#374151" }}>★ Hábito favorito</span>
-            </label>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={()=>{setIsFormOpen(false);setEditingHabit(null);}} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
-              <button onClick={saveHabit} disabled={!hf.title.trim()}
-                className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold disabled:opacity-50"
-                style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
-                {editingHabit ? "Salvar" : "Criar Hábito"}
-              </button>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
     </div>
   );
 }
 
-
-// ============================================================
-// IMPORT CLIENTS MODAL
-// ============================================================
-// Carrega SheetJS dinamicamente
 function loadSheetJS() {
   return new Promise((resolve, reject) => {
     if (window.XLSX) return resolve(window.XLSX);
