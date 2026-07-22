@@ -150,6 +150,50 @@ function AppProvider({ children }) {
         ]);
         console.log("[load] tasks carregadas:", tasks?.length, "| sessão userId:", auth.getUserId());
 
+        // ── Auto-criar tarefas recorrentes do mês atual ──────
+        const now = new Date();
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+        const lastRecKey = localStorage.getItem("yoetz_rec_month");
+        if (lastRecKey !== monthKey) {
+          const recurringTemplates = (tasks||[]).filter(t => t.is_recurring && t.recurrence_type === "monthly");
+          const newRecTasks = [];
+          for (const tmpl of recurringTemplates) {
+            const alreadyExists = (tasks||[]).some(t =>
+              t.title === tmpl.title &&
+              t.due_date?.startsWith(monthKey) &&
+              !t.is_recurring
+            );
+            if (!alreadyExists) {
+              const dueDay = tmpl.due_date ? tmpl.due_date.split("-")[2] : "10";
+              const newDue = `${monthKey}-${dueDay}`;
+              newRecTasks.push({
+                id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+                user_id: auth.getUserId(),
+                title: tmpl.title,
+                description: tmpl.description || "",
+                category_id: tmpl.category_id,
+                context_id: tmpl.context_id || "codice-contabilidade",
+                client_id: tmpl.client_id,
+                due_date: newDue,
+                completed: false,
+                is_recurring: false,
+                recurrence_type: null,
+                checklist: [],
+                visibility: "all",
+                priority: tmpl.priority || "normal",
+                notes: tmpl.notes || "",
+              });
+            }
+          }
+          if (newRecTasks.length > 0) {
+            console.log(`[recorrência] Criando ${newRecTasks.length} tarefas para ${monthKey}`);
+            await Promise.all(newRecTasks.map(t => db.upsert("tasks", t).catch(console.error)));
+            // Recarregar tasks
+            finalTasks = await db.select("tasks").catch(() => finalTasks);
+          }
+          localStorage.setItem("yoetz_rec_month", monthKey);
+        }
+
         // 3. Se tasks vier vazio com sessão válida, retry imediato
         let finalTasks = tasks;
         if (tasks.length === 0 && auth.getUserId()) {
@@ -864,6 +908,340 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
     </div>
   );
 }
+
+// ============================================================
+// GERADOR DE DOCUMENTOS COM 1 CLIQUE
+// ============================================================
+function DocGenerator({ client, onClose }) {
+  const { categories } = useApp();
+  const [docType, setDocType] = useState(null);
+  const [fields, setFields] = useState({});
+  const [generating, setGenerating] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const clientName = client?.name || client?.razaoSocial || "Cliente";
+  const clientCNPJ = client?.cnpj || "";
+  const clientEmail = client?.email || "";
+  const clientPhone = client?.phone || client?.telefone || "";
+
+  const today = () => {
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+  };
+
+  const DOC_TYPES = [
+    { id:"contrato_honorarios", icon:"📋", label:"Contrato de Honorários", color:"#2B5E46",
+      fields:[
+        {key:"valor_mensal",    label:"Valor mensal (R$)", type:"text",  placeholder:"R$ 500,00"},
+        {key:"servicos",        label:"Serviços incluídos", type:"textarea", placeholder:"Escrituração contábil, folha de pagamento..."},
+        {key:"dia_vencimento",  label:"Dia de vencimento", type:"text",  placeholder:"10"},
+        {key:"vigencia",        label:"Vigência (meses)",  type:"text",  placeholder:"12"},
+      ]
+    },
+    { id:"declaracao_faturamento", icon:"📄", label:"Declaração de Faturamento", color:"#B8965A",
+      fields:[
+        {key:"mes_ref",    label:"Mês de referência",  type:"text", placeholder:"Junho/2026"},
+        {key:"faturamento",label:"Faturamento (R$)",   type:"text", placeholder:"R$ 50.000,00"},
+        {key:"finalidade", label:"Finalidade",          type:"text", placeholder:"Comprovação de renda para financiamento"},
+      ]
+    },
+    { id:"procuracao", icon:"✍️", label:"Procuração", color:"#6B7C50",
+      fields:[
+        {key:"outorgante_qualif", label:"Qualificação do outorgante", type:"textarea", placeholder:"Nome, CPF, RG, endereço..."},
+        {key:"poderes",           label:"Poderes concedidos",          type:"textarea", placeholder:"Representar perante a Receita Federal..."},
+        {key:"validade",          label:"Validade",                    type:"text",     placeholder:"1 ano / indeterminado"},
+      ]
+    },
+    { id:"notificacao_documentos", icon:"📨", label:"Notificação de Documentos", color:"#4A7454",
+      fields:[
+        {key:"documentos",  label:"Documentos solicitados", type:"textarea", placeholder:"Extrato bancário, notas fiscais..."},
+        {key:"prazo",       label:"Prazo para entrega",     type:"text",     placeholder:"10/08/2026"},
+        {key:"motivo",      label:"Motivo",                 type:"text",     placeholder:"Declaração de Imposto de Renda 2026"},
+      ]
+    },
+    { id:"recibo_pagamento", icon:"💰", label:"Recibo de Pagamento", color:"#B8965A",
+      fields:[
+        {key:"valor",      label:"Valor (R$)",       type:"text", placeholder:"R$ 1.500,00"},
+        {key:"referente",  label:"Referente a",       type:"text", placeholder:"Honorários contábeis — Julho/2026"},
+        {key:"forma_pag",  label:"Forma de pagamento",type:"text", placeholder:"Pix / Transferência"},
+      ]
+    },
+    { id:"carta_encerramento", icon:"🔒", label:"Carta de Encerramento", color:"#ef4444",
+      fields:[
+        {key:"motivo",      label:"Motivo do encerramento", type:"textarea", placeholder:"A pedido do cliente / Encerramento das atividades..."},
+        {key:"data_enc",    label:"Data de encerramento",   type:"text",     placeholder:"31/07/2026"},
+        {key:"pendencias",  label:"Pendências a regularizar", type:"textarea", placeholder:"Nenhuma / DASN pendente..."},
+      ]
+    },
+  ];
+
+  const templates = {
+    contrato_honorarios: (f) => `CONTRATO DE PRESTAÇÃO DE SERVIÇOS CONTÁBEIS
+
+Recife/PE, ${today()}
+
+CONTRATANTE: ${clientName}
+${clientCNPJ ? `CNPJ: ${clientCNPJ}` : ""}
+${clientEmail ? `E-mail: ${clientEmail}` : ""}
+
+CONTRATADA: YOETZ Inteligência Empresarial
+CNPJ: 58.349.078/0001-04
+Responsável Técnico: Fagner Oliveira — CRC/PE 029.813/O
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OBJETO DO CONTRATO
+
+A CONTRATADA compromete-se a prestar os seguintes serviços:
+${f.servicos || "Escrituração contábil e fiscal"}
+
+HONORÁRIOS
+
+Valor mensal: ${f.valor_mensal || "a definir"}
+Vencimento: Todo dia ${f.dia_vencimento || "10"} de cada mês
+Forma de pagamento: Pix ou transferência bancária
+
+VIGÊNCIA
+
+${f.vigencia || "12"} (${f.vigencia || "doze"}) meses, com renovação automática.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+E assim, por estarem justos e contratados, assinam o presente em duas vias.
+
+___________________________________
+${clientName}
+CONTRATANTE
+
+___________________________________
+Fagner Oliveira — CRC/PE 029.813/O
+YOETZ Inteligência Empresarial
+CONTRATADA`,
+
+    declaracao_faturamento: (f) => `DECLARAÇÃO DE FATURAMENTO
+
+Recife/PE, ${today()}
+
+YOETZ Inteligência Empresarial, inscrita sob o CNPJ 58.349.078/0001-04, por meio de seu
+Contador Responsável Fagner Oliveira (CRC/PE 029.813/O), DECLARA para os devidos fins que:
+
+A empresa ${clientName}${clientCNPJ ? `, inscrita no CNPJ ${clientCNPJ},` : ","} apresentou
+faturamento no valor de ${f.faturamento || "R$ 0,00"} referente ao período de ${f.mes_ref || "—"}.
+
+Esta declaração é emitida para fins de ${f.finalidade || "comprovação"} e está de acordo
+com os registros contábeis desta empresa.
+
+___________________________________
+Fagner Oliveira
+Contador — CRC/PE 029.813/O
+YOETZ Inteligência Empresarial`,
+
+    procuracao: (f) => `PROCURAÇÃO
+
+Pelo presente instrumento particular de procuração,
+
+OUTORGANTE: ${f.outorgante_qualif || clientName}
+
+OUTORGADO: YOETZ Inteligência Empresarial, inscrita sob o CNPJ 58.349.078/0001-04,
+representada pelo Contador Fagner Oliveira, inscrito no CRC/PE sob o nº 029.813/O.
+
+PODERES: ${f.poderes || "Representar perante órgãos públicos e repartições fiscais"}
+
+VALIDADE: ${f.validade || "1 (um) ano a partir desta data"}
+
+Recife/PE, ${today()}
+
+___________________________________
+${clientName}
+OUTORGANTE`,
+
+    notificacao_documentos: (f) => `NOTIFICAÇÃO DE ENTREGA DE DOCUMENTOS
+
+Recife/PE, ${today()}
+
+Prezado(a) ${clientName},
+
+Solicitamos a gentileza de nos encaminhar, até ${f.prazo || "data a definir"}, os seguintes documentos:
+
+${f.documentos || "— Documentos a especificar"}
+
+A entrega é necessária para: ${f.motivo || "cumprimento de obrigação acessória"}
+
+Em caso de dúvidas, entre em contato pelo WhatsApp ou e-mail.
+
+Atenciosamente,
+
+___________________________________
+Fagner Oliveira — CRC/PE 029.813/O
+YOETZ Inteligência Empresarial`,
+
+    recibo_pagamento: (f) => `RECIBO DE PAGAMENTO
+
+Recife/PE, ${today()}
+
+Recebi de ${clientName}${clientCNPJ ? ` (CNPJ: ${clientCNPJ})` : ""} a quantia de
+${f.valor || "R$ 0,00"} (valor por extenso), referente a:
+
+${f.referente || "Honorários contábeis"}
+
+Forma de pagamento: ${f.forma_pag || "Pix"}
+
+Para maior clareza, firmo o presente recibo.
+
+___________________________________
+Fagner Oliveira — CRC/PE 029.813/O
+YOETZ Inteligência Empresarial
+CNPJ: 58.349.078/0001-04`,
+
+    carta_encerramento: (f) => `CARTA DE ENCERRAMENTO DE SERVIÇOS
+
+Recife/PE, ${today()}
+
+Prezado(a) ${clientName},
+
+Por meio desta, comunicamos o encerramento da prestação de serviços contábeis
+desta empresa junto ao cliente acima identificado.
+
+Data de encerramento: ${f.data_enc || today()}
+Motivo: ${f.motivo || "A pedido do cliente"}
+
+Pendências a regularizar: ${f.pendencias || "Nenhuma"}
+
+Informamos que os documentos e arquivos referentes ao período de nossa gestão
+estarão disponíveis para retirada mediante agendamento.
+
+Agradecemos pela confiança depositada.
+
+Atenciosamente,
+
+___________________________________
+Fagner Oliveira — CRC/PE 029.813/O
+YOETZ Inteligência Empresarial`,
+  };
+
+  const selectedDoc = DOC_TYPES.find(d => d.id === docType);
+
+  const generate = () => {
+    if (!docType) return;
+    setGenerating(true);
+    setTimeout(() => {
+      const text = templates[docType](fields);
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `${selectedDoc.label} — ${clientName} — ${today().replace(/\//g,"-")}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setGenerating(false);
+      setDone(true);
+      setTimeout(() => setDone(false), 3000);
+    }, 600);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{background:"rgba(0,0,0,0.6)",backdropFilter:"blur(6px)"}}>
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+        style={{background:"#fff",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+
+        {/* Header */}
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+          style={{borderBottom:"1px solid #f1f5f9"}}>
+          <div>
+            <h2 className="text-base font-black" style={{color:"#111110"}}>📄 Gerar Documento</h2>
+            <p className="text-xs mt-0.5" style={{color:"#94a3b8"}}>{clientName}</p>
+          </div>
+          <button onClick={onClose} style={{color:"#94a3b8",fontSize:22,lineHeight:1}}>×</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+          {/* Seleção de tipo */}
+          {!docType ? (
+            <div className="grid grid-cols-2 gap-3">
+              {DOC_TYPES.map(d => (
+                <button key={d.id} onClick={() => { setDocType(d.id); setFields({}); }}
+                  className="p-4 rounded-2xl text-left transition-all hover:shadow-md"
+                  style={{background:"#fafafa",border:`1.5px solid #f1f5f9`}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=d.color+"40";e.currentTarget.style.background=d.color+"08";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#f1f5f9";e.currentTarget.style.background="#fafafa";}}>
+                  <p className="text-xl mb-1">{d.icon}</p>
+                  <p className="text-sm font-black" style={{color:"#111110"}}>{d.label}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Voltar */}
+              <button onClick={()=>{setDocType(null);setFields({});}}
+                className="flex items-center gap-1.5 text-xs font-bold"
+                style={{color:"#6B7C50"}}>
+                ‹ Voltar
+              </button>
+
+              {/* Tipo selecionado */}
+              <div className="flex items-center gap-3 p-4 rounded-2xl"
+                style={{background:selectedDoc.color+"0D",border:`1px solid ${selectedDoc.color}25`}}>
+                <span className="text-2xl">{selectedDoc.icon}</span>
+                <div>
+                  <p className="text-sm font-black" style={{color:"#111110"}}>{selectedDoc.label}</p>
+                  <p className="text-xs" style={{color:"#94a3b8"}}>Cliente: {clientName}</p>
+                </div>
+              </div>
+
+              {/* Campos */}
+              <div className="space-y-3">
+                {selectedDoc.fields.map(field => (
+                  <div key={field.key}>
+                    <label className="block text-xs font-bold mb-1" style={{color:"#374151"}}>{field.label}</label>
+                    {field.type === "textarea" ? (
+                      <textarea value={fields[field.key]||""} onChange={e=>setFields(f=>({...f,[field.key]:e.target.value}))}
+                        placeholder={field.placeholder} rows={3}
+                        className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 resize-none"
+                        style={{borderColor:"#e5e7eb",color:"#374151"}}/>
+                    ) : (
+                      <input value={fields[field.key]||""} onChange={e=>setFields(f=>({...f,[field.key]:e.target.value}))}
+                        placeholder={field.placeholder} type={field.type}
+                        className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                        style={{borderColor:"#e5e7eb",color:"#374151"}}/>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Preview do documento */}
+              <div className="rounded-xl p-4 font-mono text-[10px] leading-relaxed overflow-hidden"
+                style={{background:"#f8fafc",border:"1px solid #f1f5f9",maxHeight:160,overflow:"hidden",position:"relative"}}>
+                <pre style={{margin:0,whiteSpace:"pre-wrap",color:"#374151"}}>{templates[docType](fields).slice(0,400)}...</pre>
+                <div style={{position:"absolute",bottom:0,left:0,right:0,height:40,background:"linear-gradient(transparent,#f8fafc)"}}/>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {docType && (
+          <div className="px-5 pb-5 pt-3 flex justify-end gap-3 flex-shrink-0"
+            style={{borderTop:"1px solid #f8fafc"}}>
+            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+            <button onClick={generate} disabled={generating}
+              className="flex items-center gap-2 px-5 py-2 text-white rounded-xl text-sm font-bold transition-all"
+              style={{background:done?"#10b981":"linear-gradient(135deg,#1A3829,#2B5E46)",minWidth:140}}>
+              {generating ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Gerando...</>
+              ) : done ? (
+                <>✓ Baixado!</>
+              ) : (
+                <>⬇ Gerar e Baixar</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // ============================================================
 // DASHBOARD
@@ -2781,6 +3159,8 @@ function TaskItem({ task: taskProp, onToggle, onEdit, onDelete, onUpdate, catego
             {/* Título */}
             <p className={"text-sm font-semibold flex-shrink-0 max-w-xs truncate "+(task.completed?"line-through opacity-40":"")}
               style={{ color:od&&!task.completed?"#dc2626":"#111110" }}>{task.title}</p>
+            {/* Badge recorrência */}
+            {task.isRecurring && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(43,94,70,0.1)",color:"#2B5E46"}}>↻</span>}
             {/* Badge prioridade */}
             {task.priority==="urgente"&&!task.completed && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(239,68,68,0.12)",color:"#ef4444"}}>🔴 URGENTE</span>}
             {task.priority==="alta"&&!task.completed && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{background:"rgba(249,115,22,0.12)",color:"#f97316"}}>⚠️ ALTA</span>}
@@ -4574,6 +4954,7 @@ function Clients() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [viewMode, setViewMode] = useState("cards"); // cards | list
   const [selectedClient, setSelectedClient] = useState(null);
+  const [docClient, setDocClient] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
 
@@ -4739,6 +5120,8 @@ function Clients() {
     const tabs = [["overview","📊 Resumo"],["tasks","📋 Tarefas"],["projects","🚀 Projetos"],["sops","📚 SOPs"]];
 
     return (
+      <div>
+      {docClient && <DocGenerator client={docClient} onClose={()=>setDocClient(null)}/>}
       <Modal title="" onClose={()=>setSelectedClient(null)} maxWidth="max-w-3xl">
         <div style={{ maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
           {/* Hero */}
@@ -4756,9 +5139,16 @@ function Clients() {
                   <span className="text-[10px] uppercase font-bold" style={{ color:"#6B7C50" }}>{c.type==="pf"?"Pessoa Física":"Pessoa Jurídica"}</span>
                 </div>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-2xl font-black" style={{ color:health>=70?"#10b981":health>=40?"#B8965A":"#ef4444" }}>{health}%</p>
-                <p className="text-[10px]" style={{ color:"#6B7C50" }}>saúde operacional</p>
+              <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+                <div>
+                  <p className="text-2xl font-black" style={{ color:health>=70?"#10b981":health>=40?"#B8965A":"#ef4444" }}>{health}%</p>
+                  <p className="text-[10px]" style={{ color:"#6B7C50" }}>saúde operacional</p>
+                </div>
+                <button onClick={()=>setDocClient(c)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                  style={{background:"rgba(184,150,90,0.12)",color:"#B8965A",border:"1px solid rgba(184,150,90,0.25)"}}>
+                  📄 Gerar Doc
+                </button>
               </div>
             </div>
 
@@ -4898,6 +5288,7 @@ function Clients() {
           </div>
         </div>
       </Modal>
+      </div>
     );
   };
 
