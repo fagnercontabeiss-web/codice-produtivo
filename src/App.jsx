@@ -11419,7 +11419,10 @@ function AppContent({ onLogout }) {
     return () => window.removeEventListener("keydown", handler);
   }, [isAdmin, isViewer]);
 
+  const canSimao = isAdmin || (!isViewer && (!currentProfile?.allowedTabs || currentProfile.allowedTabs.includes("jarvis")));
+
   return (
+    <>
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout}>
       {activeTab === "dashboard" && <Dashboard />}
       {activeTab === "tasks" && <Tasks />}
@@ -11433,11 +11436,13 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
       {activeTab === "codiceai" && <YoetzIA />}
-      {activeTab === "jarvis" && <Jarvis app={app} setActiveTab={setActiveTab} />}
       {activeTab === "sops" && <SOPs />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
+    {/* Simão: tela cheia na aba dele, núcleo flutuante nas demais. Uma instância só, para a escuta não cair ao trocar de tela. */}
+    {canSimao && <Jarvis app={app} setActiveTab={setActiveTab} mode={activeTab === "jarvis" ? "full" : "dock"} />}
+    </>
   );
 }
 

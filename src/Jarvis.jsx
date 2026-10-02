@@ -185,114 +185,182 @@ function trimHistory(api) {
 }
 
 const CSS = `
-.jv{--a:#5fd4ff;--a-rgb:95,212,255;--bg:#060a0f;--bg2:#0b1620;--ink:#e6f6ff;--dim:rgba(230,246,255,.55);--faint:rgba(230,246,255,.28);--warn:#ffb454;--bad:#ff6b6b;--ok:#5be3a4;
-  position:relative;flex:1;min-height:0;display:flex;flex-direction:column;color:var(--ink);overflow:hidden;
-  background:radial-gradient(ellipse 70% 55% at 50% 38%,var(--bg2) 0%,var(--bg) 70%);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
-.jv.jv-yoetz{--a:#cfb27a;--a-rgb:207,178,122;--bg:#070d0a;--bg2:#10231a;--ink:#f3efe6;--dim:rgba(243,239,230,.58);--faint:rgba(243,239,230,.3)}
-.jv.jv-full{position:fixed;inset:0;z-index:60}
+.jv{--a:#f0b860;--a-rgb:240,184,96;--bg:#040706;--bg2:#0e1c15;--ink:#f6f1e6;--dim:rgba(246,241,230,.6);--faint:rgba(246,241,230,.32);--warn:#ffb454;--bad:#ff6b5e;--ok:#63e6a8;
+  color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.jv.jv-blue{--a:#5fd4ff;--a-rgb:95,212,255;--bg:#04080d;--bg2:#0b1826;--ink:#e6f6ff;--dim:rgba(230,246,255,.58);--faint:rgba(230,246,255,.3)}
 .jv *{box-sizing:border-box}
-.jv::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
-  background-image:linear-gradient(rgba(var(--a-rgb),.045) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--a-rgb),.045) 1px,transparent 1px);background-size:44px 44px;
-  mask-image:radial-gradient(ellipse 75% 70% at 50% 40%,#000 20%,transparent 85%);-webkit-mask-image:radial-gradient(ellipse 75% 70% at 50% 40%,#000 20%,transparent 85%)}
 .jv-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
-.jv-top{position:relative;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid rgba(var(--a-rgb),.14);flex-wrap:wrap}
-.jv-brand{font-size:13px;font-weight:700;letter-spacing:.34em;color:var(--a)}
-.jv-state{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:7px}
-.jv-state i{width:6px;height:6px;border-radius:50%;background:var(--a);box-shadow:0 0 8px var(--a)}
-.jv-ctl{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-.jv-btn{font:inherit;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.2);border-radius:4px;padding:6px 10px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
-.jv-btn:hover{color:var(--ink);border-color:rgba(var(--a-rgb),.5)}
+.jv-btn{font:inherit;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.22);border-radius:3px;padding:7px 11px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.jv-btn:hover{color:var(--ink);border-color:rgba(var(--a-rgb),.55)}
 .jv-btn.on{color:var(--bg);background:var(--a);border-color:var(--a);font-weight:700}
 .jv-btn:disabled{opacity:.4;cursor:not-allowed}
-.jv-btn:focus-visible,.jv-core:focus-visible,.jv-in input:focus-visible{outline:2px solid var(--a);outline-offset:2px}
-.jv-body{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr) minmax(220px,280px);gap:18px;padding:18px;overflow:hidden}
-.jv-col{display:flex;flex-direction:column;gap:14px;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent}
-.jv-panel{position:relative;border:1px solid rgba(var(--a-rgb),.16);background:rgba(var(--a-rgb),.03);padding:13px 14px}
-.jv-panel::before,.jv-panel::after{content:"";position:absolute;width:9px;height:9px;border:1px solid var(--a)}
-.jv-panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
-.jv-panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
-.jv-h{font-size:9px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--a);margin:0 0 10px;display:flex;justify-content:space-between;gap:8px}
-.jv-h span{color:var(--faint);font-weight:500}
-.jv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-.jv-kpi b{display:block;font-size:24px;font-weight:300;line-height:1}
-.jv-kpi small{display:block;margin-top:4px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-.jv-row{display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(var(--a-rgb),.08);font-size:12px;line-height:1.35}
-.jv-row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
-.jv-row .d{font-size:10px;color:var(--faint);flex-shrink:0}
-.jv-dot{width:5px;height:5px;border-radius:50%;background:var(--faint);flex-shrink:0;transform:translateY(-1px)}
-.jv-dot.bad{background:var(--bad);box-shadow:0 0 6px var(--bad)}.jv-dot.warn{background:var(--warn)}.jv-dot.ok{background:var(--ok)}
-.jv-bar{height:3px;background:rgba(var(--a-rgb),.12);margin-top:5px}.jv-bar i{display:block;height:100%;background:var(--a);transition:width .4s}
-.jv-empty{font-size:11px;color:var(--faint);padding:4px 0}
-.jv-pair{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid rgba(var(--a-rgb),.08);font-size:12px}
-.jv-pair:first-of-type{border-top:0}.jv-pair span{color:var(--dim)}
-.jv-mid{display:flex;flex-direction:column;align-items:center;min-height:0;min-width:0}
-.jv-core{--amp:0;position:relative;width:min(300px,34vh,70vw);aspect-ratio:1;flex-shrink:0;border:0;background:none;padding:0;cursor:pointer;color:var(--a);border-radius:50%}
-.jv-core svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 14px rgba(var(--a-rgb),.35))}
-.jv-core .r{fill:none;stroke:currentColor;transform-origin:150px 150px}
-.jv-core .r1{animation:jv-spin 46s linear infinite}
-.jv-core .r2{animation:jv-spin 22s linear infinite reverse}
-.jv-core .r3{animation:jv-spin 14s linear infinite}
-.jv-core .r4{animation:jv-spin 30s linear infinite reverse}
-.jv-core .heart{transform-origin:150px 150px;transform:scale(calc(1 + var(--amp) * .35));transition:transform .08s linear}
+.jv-btn:focus-visible,.jv-core:focus-visible,.jv-in input:focus-visible,.jv-ro:focus-visible,.jv-orb:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+
+/* ── Tela cheia (aba do Simão) ── */
+.jv-full{position:fixed;top:56px;left:0;right:0;bottom:0;z-index:10;display:flex;flex-direction:column;overflow:hidden;
+  background:radial-gradient(ellipse 60% 55% at 50% 40%,var(--bg2) 0%,var(--bg) 72%)}
+@media (min-width:1024px){.jv-full{left:240px}}
+.jv-full.jv-max{top:0;left:0;z-index:60}
+.jv-full::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(var(--a-rgb),.05) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--a-rgb),.05) 1px,transparent 1px);background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 70% 65% at 50% 42%,#000 10%,transparent 78%);-webkit-mask-image:radial-gradient(ellipse 70% 65% at 50% 42%,#000 10%,transparent 78%)}
+.jv-full::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.jv-corner{position:absolute;width:26px;height:26px;border:1px solid rgba(var(--a-rgb),.55);pointer-events:none;z-index:1}
+.jv-corner.tl{top:10px;left:10px;border-right:0;border-bottom:0}.jv-corner.tr{top:10px;right:10px;border-left:0;border-bottom:0}
+.jv-corner.bl{bottom:10px;left:10px;border-right:0;border-top:0}.jv-corner.br{bottom:10px;right:10px;border-left:0;border-top:0}
+.jv-top{position:relative;z-index:7;display:flex;align-items:center;gap:14px;padding:18px 30px 0;flex-wrap:wrap}
+.jv-brand{font-size:13px;font-weight:700;letter-spacing:.42em;color:var(--a);text-shadow:0 0 14px rgba(var(--a-rgb),.6)}
+.jv-state{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:7px}
+.jv-state i{width:6px;height:6px;border-radius:50%;background:var(--a);box-shadow:0 0 8px var(--a);animation:jv-blink 2.4s ease-in-out infinite}
+.jv-clock{font-size:10px;letter-spacing:.18em;color:var(--faint)}
+.jv-ctl{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;position:relative}
+.jv-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:6px 24px 0}
+.jv-ring{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(14px,3vw,46px);width:100%;max-width:1040px;flex-shrink:0}
+.jv-side{display:flex;flex-direction:column;gap:clamp(18px,5vh,48px)}
+.jv-side.l{align-items:flex-end}.jv-side.r{align-items:flex-start}
+.jv-ro{position:relative;font:inherit;color:inherit;background:none;border:0;padding:0 0 6px;cursor:pointer;text-align:right;min-width:112px;border-bottom:1px solid rgba(var(--a-rgb),.35);transition:border-color .15s}
+.jv-side.r .jv-ro{text-align:left}
+.jv-ro:hover{border-color:var(--a)}
+.jv-ro::after{content:"";position:absolute;bottom:-1px;width:clamp(10px,2.4vw,36px);height:1px;background:linear-gradient(90deg,rgba(var(--a-rgb),.35),transparent)}
+.jv-side.l .jv-ro::after{left:100%}.jv-side.r .jv-ro::after{right:100%;transform:scaleX(-1)}
+.jv-ro b{display:block;font-size:clamp(30px,4.6vh,46px);font-weight:200;line-height:1;text-shadow:0 0 18px rgba(var(--a-rgb),.45)}
+.jv-ro b.bad{color:var(--bad);text-shadow:0 0 18px rgba(255,107,94,.5)}
+.jv-ro small{display:block;margin-top:6px;font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--a)}
+.jv-core{--amp:0;position:relative;width:min(46vh,380px,62vw);aspect-ratio:1;flex-shrink:0;border:0;background:none;padding:0;cursor:pointer;color:var(--a);border-radius:50%}
+.jv-core svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 18px rgba(var(--a-rgb),.4))}
+.jv-core .r{fill:none;stroke:currentColor;transform-origin:200px 200px}
+.jv-core .r1{animation:jv-spin 60s linear infinite}
+.jv-core .r2{animation:jv-spin 26s linear infinite reverse}
+.jv-core .r3{animation:jv-spin 16s linear infinite}
+.jv-core .r4{animation:jv-spin 38s linear infinite reverse}
+.jv-core .r5{animation:jv-spin 9s linear infinite}
+.jv-core .sweep{transform-origin:200px 200px;animation:jv-spin 7s linear infinite}
+.jv-core .heart{transform-origin:200px 200px;transform:scale(calc(1 + var(--amp) * .4));transition:transform .08s linear}
 .jv-core.is-listening .heart{animation:jv-pulse 1.1s ease-in-out infinite}
-.jv-core.is-thinking .r2{animation-duration:3s}.jv-core.is-thinking .r3{animation-duration:2s}.jv-core.is-thinking .r4{animation-duration:5s}
+.jv-core.is-thinking .r2{animation-duration:3s}.jv-core.is-thinking .r3{animation-duration:1.8s}.jv-core.is-thinking .r4{animation-duration:5s}.jv-core.is-thinking .sweep{animation-duration:1.6s}
 .jv-core.is-speaking.no-amp .heart{animation:jv-pulse .55s ease-in-out infinite}
-.jv-core.is-listening svg,.jv-core.is-speaking svg{filter:drop-shadow(0 0 26px rgba(var(--a-rgb),.7))}
+.jv-core.is-listening svg,.jv-core.is-speaking svg{filter:drop-shadow(0 0 34px rgba(var(--a-rgb),.8))}
 @keyframes jv-spin{to{transform:rotate(360deg)}}
-@keyframes jv-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
-.jv-hint{margin-top:10px;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint);min-height:14px;text-align:center}
-.jv-talk{flex:1;min-height:0;width:100%;max-width:640px;margin-top:12px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:0 4px;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent}
-.jv-m{font-size:14px;line-height:1.55;max-width:100%}
-.jv-m.u{align-self:flex-end;color:var(--dim);font-size:12.5px;text-align:right;max-width:85%}
-.jv-m.u::before{content:"› ";color:var(--a)}
-.jv-m.j{color:var(--ink)}
-.jv-m.j:last-of-type{font-size:16px}
-.jv-m.e{color:var(--bad);font-size:12.5px}
-.jv-m.i{color:var(--a);font-style:italic;align-self:flex-end;font-size:12.5px}
-.jv-act{align-self:flex-start;font-size:11px;color:var(--dim);border-left:2px solid var(--a);padding:2px 0 2px 9px}
-.jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-color:var(--bad)}.jv-act.done{border-color:var(--ok)}.jv-act.warn{border-color:var(--warn);color:var(--warn)}
-.jv-pop{position:absolute;right:18px;top:100%;margin-top:6px;z-index:5;width:250px;background:var(--bg);border:1px solid rgba(var(--a-rgb),.35);padding:12px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:var(--dim)}
-.jv-pop.wide{width:340px;max-height:60vh;overflow-y:auto}
+@keyframes jv-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.24)}}
+@keyframes jv-blink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes jv-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.jv-hint{margin:6px 0 0;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);min-height:14px;text-align:center}
+.jv-turn{flex:1;min-height:0;width:100%;max-width:760px;margin-top:10px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:9px;padding:0 6px 6px;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent}
+.jv-you{font-size:12.5px;color:var(--dim);text-align:center}
+.jv-you::before{content:"› ";color:var(--a)}
+.jv-you.i{color:var(--a);font-style:italic}
+.jv-cap{font-size:clamp(17px,2.5vh,23px);line-height:1.5;font-weight:300;text-align:center;text-wrap:balance;animation:jv-in .25s ease-out}
+.jv-cap.old{font-size:14px;color:var(--dim)}
+.jv-err{font-size:13px;color:var(--bad);text-align:center}
+.jv-act{font-size:11px;color:var(--dim);border:1px solid rgba(var(--a-rgb),.25);border-left:2px solid var(--a);padding:4px 10px;animation:jv-in .25s ease-out}
+.jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-left-color:var(--bad)}.jv-act.done{border-left-color:var(--ok)}.jv-act.warn{border-left-color:var(--warn);color:var(--warn)}
+.jv-confirm{width:100%;max-width:640px;border:1px solid var(--bad);background:rgba(255,107,94,.09);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.jv-confirm p{margin:0;flex:1;min-width:160px}
+.jv-foot{position:relative;z-index:3;padding:10px 30px 22px}
+.jv-in{display:flex;gap:8px;max-width:680px;margin:0 auto}
+.jv-in input{flex:1;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.25);border-radius:3px;padding:11px 13px}
+.jv-in input::placeholder{color:var(--faint)}
+.jv-in .jv-btn{padding:0 15px;font-size:10px}
+
+/* ── Ajustes e painel de detalhes ── */
+.jv-pop{position:absolute;right:0;top:100%;margin-top:8px;z-index:6;width:300px;max-height:70vh;overflow-y:auto;background:var(--bg);border:1px solid rgba(var(--a-rgb),.4);padding:14px;display:flex;flex-direction:column;gap:10px;font-size:11px;color:var(--dim);box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.jv-pop h4{margin:6px 0 0;font-size:9px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--a)}
+.jv-pop h4:first-child{margin-top:0}
+.jv-pop label{display:flex;flex-direction:column;gap:4px;letter-spacing:.1em;text-transform:uppercase;font-size:9px}
+.jv-pop select,.jv-pop input[type=range]{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(--bg2);border:1px solid rgba(var(--a-rgb),.25);padding:5px;accent-color:var(--a)}
+.jv-pop .row{display:flex;gap:6px;flex-wrap:wrap}
 .jv-mem{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink);padding:6px 0;border-top:1px solid rgba(var(--a-rgb),.1);line-height:1.4}
 .jv-mem span{flex:1}
 .jv-mem button{font:inherit;color:var(--faint);background:none;border:0;cursor:pointer;padding:0 4px;font-size:14px}
 .jv-mem button:hover{color:var(--bad)}
-.jv-m.live{opacity:.85}
-.jv-pop label{display:flex;flex-direction:column;gap:4px;letter-spacing:.1em;text-transform:uppercase;font-size:9px}
-.jv-pop select,.jv-pop input[type=range]{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(--bg2);border:1px solid rgba(var(--a-rgb),.25);padding:5px;accent-color:var(--a)}
-.jv-confirm{width:100%;max-width:640px;margin-top:10px;border:1px solid var(--bad);background:rgba(255,107,107,.08);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
-.jv-confirm p{margin:0;flex:1;min-width:180px}
-.jv-foot{position:relative;padding:12px 18px 16px;border-top:1px solid rgba(var(--a-rgb),.14)}
-.jv-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
-.jv-chip{font:inherit;font-size:11px;color:var(--dim);background:none;border:1px solid rgba(var(--a-rgb),.2);border-radius:999px;padding:5px 11px;cursor:pointer}
-.jv-chip:hover{color:var(--ink);border-color:var(--a)}
-.jv-in{display:flex;gap:8px;max-width:720px;margin:0 auto}
-.jv-in input{flex:1;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.25);border-radius:4px;padding:11px 13px}
-.jv-in input::placeholder{color:var(--faint)}
-.jv-in .jv-btn{padding:0 16px;font-size:11px}
-@media (max-width:1000px){.jv-body{display:flex;flex-direction:column;overflow-y:auto;gap:14px;padding:14px}.jv-col{overflow:visible;flex:none}.jv-mid{order:-1;flex:none;width:100%}.jv-talk{max-height:36vh;flex:none}.jv-core{width:min(200px,54vw)}.jv-chips{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}.jv-chip{flex-shrink:0}.jv-in input{font-size:16px}}
-@media (prefers-reduced-motion:reduce){.jv-core .r,.jv-core .heart{animation:none!important;transition:none}}
+.jv-drawer{position:absolute;top:0;right:0;bottom:0;z-index:5;width:min(360px,100%);background:linear-gradient(90deg,rgba(0,0,0,.2),var(--bg) 14%);border-left:1px solid rgba(var(--a-rgb),.3);padding:64px 22px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:20px;animation:jv-slide .22s ease-out;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent;backdrop-filter:blur(6px)}
+@keyframes jv-slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+.jv-h{font-size:9px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--a);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
+.jv-h span{color:var(--faint);font-weight:500}
+.jv-row{display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(var(--a-rgb),.09);font-size:12px;line-height:1.35}
+.jv-row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jv-row .d{font-size:10px;color:var(--faint);flex-shrink:0}
+.jv-dot{width:5px;height:5px;border-radius:50%;background:var(--faint);flex-shrink:0;transform:translateY(-1px)}
+.jv-dot.bad{background:var(--bad);box-shadow:0 0 6px var(--bad)}.jv-dot.warn{background:var(--warn)}.jv-dot.ok{background:var(--ok)}
+.jv-bar{height:2px;background:rgba(var(--a-rgb),.14);margin-top:5px}.jv-bar i{display:block;height:100%;background:var(--a);transition:width .4s}
+.jv-empty{font-size:11px;color:var(--faint);padding:4px 0;margin:0}
+.jv-pair{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid rgba(var(--a-rgb),.09);font-size:12px}
+.jv-pair span{color:var(--dim)}
+.jv-hist{font-size:12px;line-height:1.45;padding:4px 0;color:var(--dim)}
+.jv-hist.j{color:var(--ink)}.jv-hist.u::before{content:"› ";color:var(--a)}
+
+/* ── Versão flutuante (outras telas) ── */
+.jv-dock{position:fixed;right:18px;bottom:18px;z-index:45;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}
+.jv-dock>*{pointer-events:auto}
+.jv-orb{--amp:0;width:58px;height:58px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:radial-gradient(circle at 50% 45%,var(--bg2),var(--bg));color:var(--a);cursor:pointer;padding:5px;box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 18px rgba(var(--a-rgb),.25);transition:transform .15s,box-shadow .2s}
+.jv-orb:hover{transform:scale(1.06)}
+.jv-orb.is-listening,.jv-orb.is-speaking{box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 30px rgba(var(--a-rgb),.75)}
+.jv-orb svg{width:100%;height:100%;overflow:visible}
+.jv-orb .r{fill:none;stroke:currentColor;transform-origin:200px 200px}
+.jv-orb .r1,.jv-orb .r4,.jv-orb .r5,.jv-orb .sweep,.jv-orb .thin{display:none}
+.jv-orb .r2{animation:jv-spin 14s linear infinite reverse;stroke-width:16}
+.jv-orb .r3{animation:jv-spin 9s linear infinite;stroke-width:8}
+.jv-orb.is-thinking .r2{animation-duration:2s}.jv-orb.is-thinking .r3{animation-duration:1.2s}
+.jv-orb .heart{transform-origin:200px 200px;transform:scale(calc(1.5 + var(--amp) * .5))}
+.jv-orb.is-listening .heart,.jv-orb.is-speaking.no-amp .heart{animation:jv-pulse2 .9s ease-in-out infinite}
+@keyframes jv-pulse2{0%,100%{transform:scale(1.5)}50%{transform:scale(1.9)}}
+.jv-card{width:min(360px,calc(100vw - 36px));max-height:min(60vh,460px);display:flex;flex-direction:column;background:radial-gradient(ellipse 90% 70% at 50% 0%,var(--bg2),var(--bg));border:1px solid rgba(var(--a-rgb),.4);box-shadow:0 20px 60px rgba(0,0,0,.55);animation:jv-in .2s ease-out}
+.jv-card header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(var(--a-rgb),.18)}
+.jv-card header .jv-state{flex:1;font-size:9px}
+.jv-x{font:inherit;font-size:15px;line-height:1;color:var(--dim);background:none;border:0;cursor:pointer;padding:2px 5px}
+.jv-x:hover{color:var(--ink)}
+.jv-card .jv-turn{margin:0;padding:12px;align-items:stretch;gap:8px}
+.jv-card .jv-cap{font-size:14.5px;text-align:left;font-weight:400}
+.jv-card .jv-you,.jv-card .jv-err{text-align:left}
+.jv-card .jv-act{align-self:flex-start}
+.jv-card .jv-confirm{margin:0 12px 10px;width:auto}
+.jv-card .jv-in{padding:0 12px 12px;margin:0}
+.jv-card .jv-in input{padding:9px 11px;font-size:13px}
+
+@media (max-width:820px){
+  .jv-top{padding:14px 18px 0}.jv-clock{display:none}
+  .jv-ring{grid-template-columns:1fr;justify-items:center;gap:12px}
+  .jv-core{order:-1;width:min(34vh,240px,60vw)}
+  .jv-side{flex-direction:row;gap:26px}.jv-side.l,.jv-side.r{align-items:flex-end}
+  .jv-ro,.jv-side.r .jv-ro{text-align:center;min-width:84px}.jv-ro::after{display:none}
+  .jv-ro b{font-size:26px}
+  .jv-foot{padding:8px 16px 16px}.jv-in input{font-size:16px}
+  .jv-corner{display:none}
+}
+@media (prefers-reduced-motion:reduce){.jv .r,.jv .heart,.jv .sweep,.jv-state i,.jv-cap,.jv-act,.jv-drawer,.jv-card{animation:none!important;transition:none}}
 `;
 
 function Reactor() {
   return (
-    <svg viewBox="0 0 300 300" aria-hidden="true">
-      <circle className="r" cx="150" cy="150" r="144" strokeWidth="1" opacity=".22" />
-      <circle className="r r1" cx="150" cy="150" r="132" strokeWidth="2" strokeDasharray="2 11" opacity=".7" />
-      <circle className="r r2" cx="150" cy="150" r="116" strokeWidth="5" strokeDasharray="150 46 60 46 22 46" opacity=".85" strokeLinecap="butt" />
-      <circle className="r r3" cx="150" cy="150" r="98" strokeWidth="1.5" strokeDasharray="1 7" opacity=".6" />
-      <circle className="r r4" cx="150" cy="150" r="80" strokeWidth="9" strokeDasharray="36 14" opacity=".32" />
-      <circle className="r" cx="150" cy="150" r="62" strokeWidth="1" opacity=".5" />
+    <svg viewBox="0 0 400 400" aria-hidden="true">
+      <path className="sweep" d="M200 200 L200 14 A186 186 0 0 1 331.5 68.5 Z" fill="currentColor" opacity=".07" />
+      <circle className="r thin" cx="200" cy="200" r="192" strokeWidth="1" opacity=".2" />
+      <circle className="r r1" cx="200" cy="200" r="180" strokeWidth="7" strokeDasharray="1.5 14.2" opacity=".75" />
+      <circle className="r r4" cx="200" cy="200" r="164" strokeWidth="1.5" strokeDasharray="3 9" opacity=".5" />
+      <circle className="r r2" cx="200" cy="200" r="146" strokeWidth="6" strokeDasharray="190 58 80 58 30 58" opacity=".9" />
+      <circle className="r thin" cx="200" cy="200" r="130" strokeWidth="1" opacity=".4" />
+      <circle className="r r4" cx="200" cy="200" r="114" strokeWidth="13" strokeDasharray="46 17" opacity=".22" />
+      <circle className="r r3" cx="200" cy="200" r="96" strokeWidth="2.5" strokeDasharray="110 91" opacity=".85" />
+      <circle className="r r5" cx="200" cy="200" r="78" strokeWidth="1.5" strokeDasharray="2 8" opacity=".6" />
       <g className="heart">
-        <circle cx="150" cy="150" r="44" fill="currentColor" opacity=".12" />
-        <circle cx="150" cy="150" r="30" fill="currentColor" opacity=".3" />
-        <circle cx="150" cy="150" r="16" fill="currentColor" opacity=".95" />
+        <circle cx="200" cy="200" r="58" fill="currentColor" opacity=".1" />
+        <circle cx="200" cy="200" r="40" fill="currentColor" opacity=".28" />
+        <circle cx="200" cy="200" r="21" fill="currentColor" opacity=".96" />
       </g>
     </svg>
   );
 }
 
-export default function Jarvis({ app, setActiveTab }) {
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
+  return <span className="jv-clock jv-mono">{now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "")} · {now.toLocaleTimeString("pt-BR")}</span>;
+}
+
+// mode: "full" na aba do Simão; "dock" (núcleo flutuante) nas outras telas.
+// É sempre a mesma instância, então a escuta e a conversa continuam ao trocar de tela.
+export default function Jarvis({ app, setActiveTab, mode = "full" }) {
+  const isFull = mode === "full";
   const appRef = useRef(app); appRef.current = app;
   const [status, setStatusState] = useState("idle"); // idle | listening | thinking | speaking
   const statusRef = useRef("idle");
@@ -309,11 +377,14 @@ export default function Jarvis({ app, setActiveTab }) {
   const [wake, setWakeState] = useState(SRok && getPref("jarvis_hands", "on") === "on"); // mãos livres
   const [voiceName, setVoiceName] = useState(getPref("jarvis_voice_name", "ash"));
   const [rate, setRate] = useState(parseFloat(getPref("jarvis_rate", "1.1")) || 1.1);
-  const [showVoice, setShowVoice] = useState(false);
-  const [showMem, setShowMem] = useState(false);
+  const [showSet, setShowSet] = useState(false);     // ajustes (voz, memória, tema)
+  const [showPanels, setShowPanels] = useState(false); // gaveta com os detalhes
+  const [dockOpen, setDockOpen] = useState(false);
+  const [ready, setReady] = useState(false);
+  const dockPinned = useRef(false);
   const [memItems, setMemItems] = useState([]);
   const [live, setLive] = useState(""); // resposta sendo escrita
-  const [theme, setTheme] = useState(getPref("jarvis_theme", "stark"));
+  const [theme, setTheme] = useState(getPref("jarvis_theme", "gold")); // gold | blue
   const [full, setFull] = useState(false);
   const [hasAmp, setHasAmp] = useState(false);
 
@@ -332,7 +403,7 @@ export default function Jarvis({ app, setActiveTab }) {
   const audioCtxRef = useRef(null);
   const rafRef = useRef(0);
   const speakSeq = useRef(0);
-  const coreRef = useRef(null);
+  const coreRef = useRef(null); // núcleo (tela cheia) ou esfera (flutuante): recebe o volume da fala
   const talkRef = useRef(null);
   const aliveRef = useRef(true);
   const fn = useRef({}); // funções mais recentes, para os callbacks de voz
@@ -735,15 +806,9 @@ export default function Jarvis({ app, setActiveTab }) {
       const rows = await db.select("assistant_memory").catch(() => []);
       if (cancelled) return;
       setMemory((Array.isArray(rows) ? rows : []).map(r => ({ id: r.id, content: r.content })));
-      if (!mem.greeted) {
-        mem.greeted = true;
-        const saved = loadConversation();
-        if (saved && !mem.msgs.length) { mem.api = saved.api; mem.msgs = saved.msgs; setMsgs(mem.msgs); }
-        const hello = greeting(appRef.current);
-        push({ k: "j", text: hello });
-        if (!ok) push({ k: "e", text: "Não consegui falar com o servidor de IA. Os painéis funcionam; os comandos, não." });
-        speak(hello);
-      }
+      const saved = loadConversation();
+      if (saved && !mem.msgs.length) { mem.api = saved.api; mem.msgs = saved.msgs; setMsgs(mem.msgs); }
+      setReady(true);
     })();
     const onKey = e => { if (e.key === "Escape" && statusRef.current === "speaking") hush(); };
     window.addEventListener("keydown", onKey);
@@ -755,6 +820,26 @@ export default function Jarvis({ app, setActiveTab }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cumprimenta uma vez, na primeira vez que a tela do Simão é aberta.
+  useEffect(() => {
+    if (!ready || !isFull || mem.greeted) return;
+    mem.greeted = true;
+    const hello = greeting(appRef.current);
+    push({ k: "j", text: hello });
+    if (online === false) push({ k: "e", text: "Não consegui falar com o servidor de IA. Os números funcionam; os comandos, não." });
+    speak(hello);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, isFull]);
+
+  // Flutuante: abre sozinho quando há atividade e se recolhe depois, a menos que o usuário o tenha aberto.
+  useEffect(() => {
+    if (isFull) return;
+    if (status !== "idle" && !(status === "listening" && !interim && !pending) || pending || live) { setDockOpen(true); return; }
+    if (dockPinned.current) return;
+    const t = setTimeout(() => setDockOpen(false), 7000);
+    return () => clearTimeout(t);
+  }, [isFull, status, pending, live, interim]);
 
   // ── Painéis ──────────────────────────────────────────────────────────────
   const s = useMemo(() => snapshot(app), [app.tasks, app.habits, app.clients, app.onboardings, app.onboardingSteps, app.projects, app.relationships, app.currentProfile]);
@@ -786,119 +871,194 @@ export default function Jarvis({ app, setActiveTab }) {
     );
   };
 
+  // A tela mostra só a troca atual: o último pedido e o que veio depois dele.
+  const lastUser = msgs.map(m => m.k).lastIndexOf("u");
+  const turn = lastUser >= 0 ? msgs.slice(lastUser) : msgs.slice(-1);
+  const lastReply = turn.map(m => m.k).lastIndexOf("j");
+  const themeClass = theme === "blue" ? " jv-blue" : "";
+  const busy = status === "thinking";
+  const ask = q => { if (!busy) send(q); };
+
+  const turnView = (
+    <div className="jv-turn" ref={talkRef} aria-live="polite">
+      {turn.map((m, i) =>
+        m.k === "u" ? <div key={i} className="jv-you">{m.text}</div>
+        : m.k === "a" ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
+        : m.k === "e" ? <div key={i} className="jv-err">{m.text}</div>
+        : <div key={i} className={"jv-cap" + (i === lastReply && !live ? "" : " old")}>{m.text}</div>)}
+      {live && <div className="jv-cap">{live}</div>}
+      {interim && <div className="jv-you i">{interim}</div>}
+    </div>
+  );
+  const confirmView = pending && (
+    <div className="jv-confirm" role="alertdialog" aria-label="Confirmação">
+      <p>{pending.text}</p>
+      <button className="jv-btn" onClick={() => pending.resolve(false)}>Cancelar</button>
+      <button className="jv-btn on" style={{ background: "var(--bad)", borderColor: "var(--bad)", color: "#fff" }} onClick={() => pending.resolve(true)}>Confirmar</button>
+    </div>
+  );
+  const inputView = (
+    <form className="jv-in" onSubmit={submit}>
+      <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
+      <button className="jv-btn on" type="submit" disabled={!input.trim() || (busy && !pending)}>Enviar</button>
+    </form>
+  );
+  const stateView = (
+    <span className="jv-state"><i style={online === false ? { background: "var(--bad)", boxShadow: "0 0 8px var(--bad)" } : undefined} />{online === false ? "Offline" : stateLabel}</span>
+  );
+
+  // ── Versão flutuante ─────────────────────────────────────────────────────
+  if (!isFull) {
+    const onOrb = () => {
+      if (!dockOpen) { dockPinned.current = true; setDockOpen(true); if (!wake && status === "idle") onCore(); return; }
+      onCore();
+    };
+    return (
+      <div className={"jv jv-dock" + themeClass}>
+        <style>{CSS}</style>
+        {dockOpen && (
+          <div className="jv-card" role="dialog" aria-label="Simão">
+            <header>
+              <span className="jv-brand" style={{ fontSize: 11 }}>SIMÃO</span>
+              {stateView}
+              <button className={"jv-btn" + (wake ? " on" : "")} style={{ padding: "4px 7px", fontSize: 9 }} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido">Mãos livres</button>
+              <button className="jv-x" onClick={() => setActiveTab("jarvis")} title="Abrir a tela do Simão" aria-label="Abrir a tela do Simão">⤢</button>
+              <button className="jv-x" onClick={() => { dockPinned.current = false; setDockOpen(false); }} aria-label="Recolher">×</button>
+            </header>
+            {turn.length || live || interim ? turnView : <div className="jv-turn"><div className="jv-you" style={{ textAlign: "left" }}>{hint}</div></div>}
+            {confirmView}
+            {inputView}
+          </div>
+        )}
+        <button ref={coreRef} className={"jv-orb is-" + status + (hasAmp ? "" : " no-amp")} onClick={onOrb}
+          aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper o Simão" : "Falar com o Simão"} title="Simão">
+          <Reactor />
+        </button>
+      </div>
+    );
+  }
+
+  // ── Tela cheia ───────────────────────────────────────────────────────────
+  const readout = (value, label, question, bad) => (
+    <button className="jv-ro" onClick={() => ask(question)} title={question}>
+      <b className={"jv-mono" + (bad ? " bad" : "")}>{value}</b><small>{label}</small>
+    </button>
+  );
   return (
-    <div className={"jv" + (theme === "yoetz" ? " jv-yoetz" : "") + (full ? " jv-full" : "")}>
+    <div className={"jv jv-full" + themeClass + (full ? " jv-max" : "")}>
       <style>{CSS}</style>
+      <i className="jv-corner tl" /><i className="jv-corner tr" /><i className="jv-corner bl" /><i className="jv-corner br" />
 
       <div className="jv-top">
         <span className="jv-brand">SIMÃO</span>
-        <span className="jv-state"><i style={online === false ? { background: "var(--bad)", boxShadow: "0 0 8px var(--bad)" } : undefined} />{online === false ? "Offline" : stateLabel}</span>
+        {stateView}
+        <Clock />
         <div className="jv-ctl">
           <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
-          <button className={"jv-btn" + (showVoice ? " on" : "")} onClick={() => { setShowVoice(v => !v); setShowMem(false); }} aria-expanded={showVoice}>{voiceLabel}</button>
-          <button className={"jv-btn" + (showMem ? " on" : "")} onClick={() => { setShowMem(v => !v); setShowVoice(false); }} aria-expanded={showMem} title="O que o Simão guardou para as próximas conversas">Memória · {memItems.length}</button>
-          <button className="jv-btn" onClick={newConversation} disabled={status === "thinking"} title="Apaga a conversa atual da tela e do contexto. A memória permanente continua.">Nova conversa</button>
-          <button className="jv-btn" onClick={() => { const t = theme === "stark" ? "yoetz" : "stark"; setTheme(t); setPref("jarvis_theme", t); }}>Tema {theme === "stark" ? "Stark" : "YOETZ"}</button>
-          <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
-        </div>
-        {showMem && (
-          <div className="jv-pop wide">
-            <span style={{ letterSpacing: ".1em", textTransform: "uppercase", fontSize: 9 }}>Memória permanente</span>
-            {memItems.length === 0 && <p className="jv-empty" style={{ margin: 0 }}>Nada guardado ainda. Diga, por exemplo: “Simão, lembre que a Iris cuida do departamento pessoal”.</p>}
-            {memItems.map(m => (
-              <div className="jv-mem" key={m.id}>
-                <span>{m.content}</span>
-                <button onClick={() => memoryApi.remove(m.id)} aria-label="Apagar esta lembrança" title="Apagar">×</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {showVoice && (
-          <div className="jv-pop">
-            <label>Tipo de voz
-              <select value={effectiveVoice} onChange={e => pickVoiceMode(e.target.value)}>
-                {neuralOk && <option value="neural">Neural (mais natural)</option>}
-                <option value="browser">Do navegador (instantânea)</option>
-                <option value="off">Desligada (só texto)</option>
-              </select>
-            </label>
-            {effectiveVoice === "neural" && (
-              <label>Timbre
-                <select value={voiceName} onChange={e => { setVoiceName(e.target.value); setPref("jarvis_voice_name", e.target.value); }}>
-                  {NEURAL_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <button className={"jv-btn" + (showPanels ? " on" : "")} onClick={() => { setShowPanels(v => !v); setShowSet(false); }} aria-expanded={showPanels}>Painéis</button>
+          <button className={"jv-btn" + (showSet ? " on" : "")} onClick={() => setShowSet(v => !v)} aria-expanded={showSet}>Ajustes</button>
+          {showSet && (
+            <div className="jv-pop">
+              <h4>Voz</h4>
+              <label>Tipo
+                <select value={effectiveVoice} onChange={e => pickVoiceMode(e.target.value)}>
+                  {neuralOk && <option value="neural">Neural (mais natural)</option>}
+                  <option value="browser">Do navegador (instantânea)</option>
+                  <option value="off">Desligada (só texto)</option>
                 </select>
               </label>
-            )}
-            {effectiveVoice !== "off" && (
-              <label>Velocidade · {rate.toFixed(2)}x
-                <input type="range" min="0.9" max="1.5" step="0.05" value={rate} onChange={e => { const v = parseFloat(e.target.value); setRate(v); setPref("jarvis_rate", String(v)); }} />
-              </label>
-            )}
-            {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak("Às suas ordens, senhor. Esta é a voz que estou usando agora.")}>Testar voz</button>}
-          </div>
-        )}
+              {effectiveVoice === "neural" && (
+                <label>Timbre
+                  <select value={voiceName} onChange={e => { setVoiceName(e.target.value); setPref("jarvis_voice_name", e.target.value); }}>
+                    {NEURAL_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </label>
+              )}
+              {effectiveVoice !== "off" && (
+                <label>Velocidade · {rate.toFixed(2)}x
+                  <input type="range" min="0.9" max="1.5" step="0.05" value={rate} onChange={e => { const v = parseFloat(e.target.value); setRate(v); setPref("jarvis_rate", String(v)); }} />
+                </label>
+              )}
+              {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak("Às suas ordens, senhor. Esta é a voz que estou usando agora.")}>Testar voz</button>}
+
+              <h4>Memória · {memItems.length}</h4>
+              {memItems.length === 0 && <p className="jv-empty">Nada guardado ainda. Diga, por exemplo: “Simão, lembre que a Iris cuida do departamento pessoal”.</p>}
+              {memItems.map(m => (
+                <div className="jv-mem" key={m.id}>
+                  <span>{m.content}</span>
+                  <button onClick={() => memoryApi.remove(m.id)} aria-label="Apagar esta lembrança" title="Apagar">×</button>
+                </div>
+              ))}
+
+              <h4>Tela</h4>
+              <div className="row">
+                <button className="jv-btn" onClick={() => { const t = theme === "blue" ? "gold" : "blue"; setTheme(t); setPref("jarvis_theme", t); }}>Cor: {theme === "blue" ? "azul" : "dourado"}</button>
+                <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
+                <button className="jv-btn" onClick={() => { newConversation(); setShowSet(false); }} disabled={busy} title="Apaga a conversa atual. A memória permanente continua.">Nova conversa</button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="jv-body">
-        <div className="jv-col">
-          <section className="jv-panel">
-            <h3 className="jv-h">Agenda <span className="jv-mono">{fmtBR(s.today)} · {s.weekday.split("-")[0]}</span></h3>
-            <div className="jv-kpis jv-mono">
-              <div className="jv-kpi"><b>{s.dueToday.length}</b><small>Hoje</small></div>
-              <div className="jv-kpi"><b style={s.overdue.length ? { color: "var(--bad)" } : undefined}>{s.overdue.length}</b><small>Atrasadas</small></div>
-              <div className="jv-kpi"><b>{s.week.length}</b><small>7 dias</small></div>
-            </div>
+      <div className="jv-stage">
+        <div className="jv-ring">
+          <div className="jv-side l">
+            {readout(s.dueToday.length, "Para hoje", "O que tenho para hoje?")}
+            {readout(s.week.length, "Próximos 7 dias", "O que vence nos próximos sete dias?")}
+          </div>
+          <button ref={coreRef} className={"jv-core is-" + status + (hasAmp ? "" : " no-amp")} onClick={onCore}
+            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
+            <Reactor />
+          </button>
+          <div className="jv-side r">
+            {readout(s.overdue.length, "Atrasadas", "O que está atrasado?", s.overdue.length > 0)}
+            {isAdmin
+              ? readout(s.pending.length, "Pagamentos pendentes", "Quem está com pagamento pendente?")
+              : readout(`${s.dailyDone.length}/${s.daily.length}`, "Hábitos de hoje", "Como estão meus hábitos?")}
+          </div>
+        </div>
+        <p className="jv-hint">{hint}</p>
+        {turnView}
+        {confirmView}
+      </div>
+
+      <div className="jv-foot">
+        <div className="jv-in" style={{ marginBottom: 0 }}>
+          <button className="jv-btn" type="button" onClick={() => ask("Briefing do dia")} disabled={busy}>Briefing</button>
+          <form style={{ display: "contents" }} onSubmit={submit}>
+            <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
+            <button className="jv-btn on" type="submit" disabled={!input.trim() || (busy && !pending)}>Enviar</button>
+          </form>
+        </div>
+      </div>
+
+      {showPanels && (
+        <aside className="jv-drawer" aria-label="Painéis">
+          <section>
+            <h3 className="jv-h">Agenda <span className="jv-mono">{s.dueToday.length} hoje · {s.overdue.length} atrasadas</span></h3>
             {agenda.map(taskRow)}
             {upcoming.map(taskRow)}
             {!agenda.length && !upcoming.length && <p className="jv-empty">Nada pendente nos próximos sete dias.</p>}
           </section>
-
-          <section className="jv-panel">
+          <section>
             <h3 className="jv-h">Hábitos de hoje <span className="jv-mono">{s.dailyDone.length}/{s.daily.length}</span></h3>
-            <div className="jv-bar" style={{ marginTop: 0, marginBottom: 8 }}><i style={{ width: (s.daily.length ? s.dailyDone.length / s.daily.length * 100 : 0) + "%" }} /></div>
+            <div className="jv-bar" style={{ marginTop: 0, marginBottom: 6 }}><i style={{ width: (s.daily.length ? s.dailyDone.length / s.daily.length * 100 : 0) + "%" }} /></div>
             {s.daily.map(h => {
               const done = (h.completedDates || []).includes(s.today);
               return <div className="jv-row" key={h.id}><i className={"jv-dot " + (done ? "ok" : "")} /><span className="t" style={done ? { color: "var(--dim)" } : undefined}>{h.title}</span></div>;
             })}
             {!s.daily.length && <p className="jv-empty">Nenhum hábito diário cadastrado.</p>}
           </section>
-        </div>
-
-        <div className="jv-mid">
-          <button ref={coreRef} className={"jv-core is-" + status + (hasAmp ? "" : " no-amp")} onClick={onCore}
-            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
-            <Reactor />
-          </button>
-          <p className="jv-hint">{hint}</p>
-
-          <div className="jv-talk" ref={talkRef} aria-live="polite">
-            {msgs.map((m, i) => m.k === "a"
-              ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
-              : <div key={i} className={"jv-m " + m.k}>{m.text}</div>)}
-            {live && <div className="jv-m j live">{live}</div>}
-            {interim && <div className="jv-m i">{interim}</div>}
-          </div>
-
-          {pending && (
-            <div className="jv-confirm" role="alertdialog" aria-label="Confirmação">
-              <p>{pending.text}</p>
-              <button className="jv-btn" onClick={() => pending.resolve(false)}>Cancelar</button>
-              <button className="jv-btn on" style={{ background: "var(--bad)", borderColor: "var(--bad)", color: "#fff" }} onClick={() => pending.resolve(true)}>Excluir</button>
-            </div>
-          )}
-        </div>
-
-        <div className="jv-col">
           {isAdmin && (
-            <section className="jv-panel">
+            <section>
               <h3 className="jv-h">Carteira <span className="jv-mono">{s.clients.length} clientes</span></h3>
               <div className="jv-pair"><span>Receita mensal</span><b className="jv-mono">{money(s.mrr)}</b></div>
               <div className="jv-pair"><span>Pagamento pendente</span><b className="jv-mono" style={s.pending.length ? { color: "var(--warn)" } : undefined}>{s.pending.length}</b></div>
               <div className="jv-pair"><span>Valor em aberto</span><b className="jv-mono">{money(s.pendingValue)}</b></div>
             </section>
           )}
-
-          <section className="jv-panel">
+          <section>
             <h3 className="jv-h">Onboardings <span className="jv-mono">{s.onbs.length} em curso</span></h3>
             {s.onbs.slice(0, 5).map(o => (
               <div key={o.id} style={{ padding: "5px 0" }}>
@@ -911,8 +1071,7 @@ export default function Jarvis({ app, setActiveTab }) {
             ))}
             {!s.onbs.length && <p className="jv-empty">Nenhum onboarding em andamento.</p>}
           </section>
-
-          <section className="jv-panel">
+          <section>
             <h3 className="jv-h">Radar</h3>
             <div className="jv-pair"><span>Projetos ativos</span><b className="jv-mono">{s.projects.length}</b></div>
             <div className="jv-pair"><span>Projetos atrasados</span><b className="jv-mono" style={s.lateProjects.length ? { color: "var(--bad)" } : undefined}>{s.lateProjects.length}</b></div>
@@ -921,20 +1080,13 @@ export default function Jarvis({ app, setActiveTab }) {
               <div className="jv-row" key={i}><i className="jv-dot warn" /><span className="t">{d.name}</span><span className="d jv-mono">{d.days === 0 ? "hoje" : d.days === 1 ? "amanhã" : d.days + " d"}</span></div>
             ))}
           </section>
-        </div>
-      </div>
-
-      <div className="jv-foot">
-        <div className="jv-chips">
-          {["Briefing do dia", "O que está atrasado?", "O que tenho para amanhã?", ...(isAdmin ? ["Quem está com pagamento pendente?"] : []), "Como estão meus hábitos?"].map(q => (
-            <button key={q} className="jv-chip" onClick={() => send(q)} disabled={status === "thinking"}>{q}</button>
-          ))}
-        </div>
-        <form className="jv-in" onSubmit={submit}>
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
-          <button className="jv-btn on" type="submit" disabled={!input.trim() || (status === "thinking" && !pending)}>Enviar</button>
-        </form>
-      </div>
+          <section>
+            <h3 className="jv-h">Conversa <span className="jv-mono">{msgs.filter(m => m.k !== "a").length}</span></h3>
+            {msgs.filter(m => m.k === "u" || m.k === "j").slice(-24).map((m, i) => <div key={i} className={"jv-hist " + m.k}>{m.text}</div>)}
+            {!msgs.length && <p className="jv-empty">Nenhuma conversa ainda.</p>}
+          </section>
+        </aside>
+      )}
     </div>
   );
 }
