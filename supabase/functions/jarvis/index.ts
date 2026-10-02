@@ -12,11 +12,14 @@
 //   { action: "tts",  text }                -> áudio (mp3) da fala, voz neural
 //   { action: "search", query, tipo }       -> pesquisa na web com resumo e fontes
 //   { action: "market", ativos }            -> cotações e juros
+//   { action: "realtime", context, recent } -> chave temporária para a conversa por voz em tempo real
 //
 // Segredos lidos: ANTHROPIC_API_KEY (preferido), OPENAI_API_KEY (alternativa e
 // voz neural). Opcionais: JARVIS_MODEL, JARVIS_OPENAI_MODEL, JARVIS_VOICE.
 // Voz nativa em português (opcional): ELEVENLABS_API_KEY, com JARVIS_ELEVEN_VOICE
 // e JARVIS_ELEVEN_MODEL para escolher a voz e o modelo.
+// Conversa em tempo real (usa a OPENAI_API_KEY): JARVIS_REALTIME_MODEL e
+// JARVIS_REALTIME_VOICE são opcionais.
 // (O nome interno da função continua "jarvis"; o assistente se chama Simão.)
 
 const D: any = (globalThis as any).Deno;
@@ -754,6 +757,67 @@ async function market(ativos: unknown) {
   return out;
 }
 
+// ── Conversa em tempo real ──────────────────────────────────────────────────
+// O navegador fala direto com o modelo de voz por WebRTC. Aqui só se emite uma
+// chave temporária, já amarrada à personalidade, ao contexto e às ferramentas;
+// a chave verdadeira nunca sai do servidor.
+const REALTIME_VOICES = ["cedar", "marin", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "alloy"];
+const REALTIME_NOTE = `
+
+Modo de conversa ao vivo: você está ouvindo e falando em tempo real, por voz. Fale português do Brasil com pronúncia e ritmo de brasileiro, em tom de conversa, sem soar como locutor. Responda logo e em poucas palavras; se ele falar por cima, pare e escute. Se ele só agradecer ou disser que é só isso, responda com duas ou três palavras. O "painel" do contexto é o do início desta conversa: depois de alterar algo, vale o que as ferramentas devolveram. Quando uma ferramenta devolver "precisa_confirmar", faça a pergunta em voz alta e só chame a ferramenta de novo, com os mesmos argumentos, depois que ele responder que sim. Se o que você ouviu não parecer dirigido a você, não execute nada e pergunte em poucas palavras.`;
+
+async function realtimeSecret(context: any, recent: unknown, wanted: unknown, speed: unknown) {
+  const key = env("OPENAI_API_KEY");
+  if (!key) throw new Error("Conversa em tempo real indisponível: OPENAI_API_KEY não configurada.");
+  const voice = REALTIME_VOICES.includes(String(wanted)) ? String(wanted) : (env("JARVIS_REALTIME_VOICE") || "cedar");
+  const turns = Array.isArray(recent)
+    ? recent.slice(-10).map((t: any) => `${t?.role === "assistant" ? "Você" : "Usuário"}: ${String(t?.text || "").slice(0, 400)}`).join("\n")
+    : "";
+  const instructions = PERSONA + REALTIME_NOTE + "\n\nContexto do momento (JSON): " + contextBlock(context) +
+    (turns ? "\n\nÚltimas falas da conversa anterior, para dar continuidade:\n" + turns : "");
+  const tools = TOOLS.map((t) => ({ type: "function", name: t.name, description: t.description, parameters: t.input_schema }));
+  const pace = Math.min(1.5, Math.max(0.8, Number(speed) || 1));
+  const models = [...new Set([env("JARVIS_REALTIME_MODEL"), "gpt-realtime-2.1", "gpt-realtime"].filter(Boolean))];
+  let lastErr = "";
+  for (const model of models) {
+    // Configuração completa primeiro; se a API recusar algum campo, tenta a essencial.
+    const sessions = [
+      {
+        type: "realtime", model, instructions, tools, tool_choice: "auto", output_modalities: ["audio"],
+        audio: {
+          input: {
+            transcription: { model: "gpt-4o-mini-transcribe", language: "pt" },
+            noise_reduction: { type: "near_field" },
+            turn_detection: { type: "server_vad", threshold: 0.6, prefix_padding_ms: 300, silence_duration_ms: 500, create_response: true, interrupt_response: true },
+          },
+          output: { voice, speed: pace },
+        },
+      },
+      { type: "realtime", model, instructions, tools, audio: { output: { voice } } },
+    ];
+    let wrongModel = false;
+    for (let i = 0; i < sessions.length; i++) {
+      const r = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+        body: JSON.stringify({ session: sessions[i] }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const value = d?.value || d?.client_secret?.value;
+        if (!value) throw new Error("A OpenAI não devolveu a chave temporária.");
+        if (i > 0) console.error("[jarvis] realtime em configuração reduzida:", lastErr);
+        return { key: value, expires_at: d?.expires_at ?? d?.client_secret?.expires_at ?? null, model, voice, reduzido: i > 0 };
+      }
+      lastErr = `OpenAI ${r.status}: ${(await r.text()).slice(0, 300)}`;
+      wrongModel = r.status === 404 || ((r.status === 400 || r.status === 403) && /model/i.test(lastErr) && !/session\.|audio|tools|turn_detection/i.test(lastErr));
+      if (wrongModel || r.status !== 400) break;
+    }
+    if (!wrongModel) break;
+  }
+  throw new Error(lastErr || "Conversa em tempo real indisponível.");
+}
+
 // ── Autenticação: só o administrador do escritório, logado e ativo ──────────
 // Sessões já conferidas ficam em memória por alguns minutos, para não refazer
 // duas consultas a cada fala.
@@ -795,7 +859,7 @@ export async function handler(req: Request): Promise<Response> {
     try { body = JSON.parse(raw); } catch { return json({ ok: false, error: "JSON inválido" }, 400); }
 
     if (body.action === "ping") {
-      return json({ ok: true, providers: { anthropic: !!env("ANTHROPIC_API_KEY"), openai: !!env("OPENAI_API_KEY"), elevenlabs: !!env("ELEVENLABS_API_KEY") } });
+      return json({ ok: true, providers: { anthropic: !!env("ANTHROPIC_API_KEY"), openai: !!env("OPENAI_API_KEY"), elevenlabs: !!env("ELEVENLABS_API_KEY"), realtime: !!env("OPENAI_API_KEY") } });
     }
 
     const user = await requireUser(req);
@@ -815,6 +879,10 @@ export async function handler(req: Request): Promise<Response> {
 
     if (body.action === "market") {
       return json({ ok: true, ...(await market(body.ativos)) });
+    }
+
+    if (body.action === "realtime") {
+      return json({ ok: true, ...(await realtimeSecret(body.context, body.recent, body.voice, body.speed)) });
     }
 
     if (body.action === "chat") {

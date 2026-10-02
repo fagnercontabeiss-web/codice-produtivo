@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { auth, db } from "./supabase.js";
+import { openRealtime, realtimeSupported } from "./simaoRealtime.js";
 import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, saidYes, saidNo, firstName } from "./jarvisTools.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kpgpcqjefrixzshmskls.supabase.co";
@@ -14,6 +15,13 @@ const FN_URL = SUPABASE_URL + "/functions/v1/jarvis";
 const MAX_ROUNDS = 8;      // rodadas de ferramenta por pedido
 const MAX_HISTORY = 30;    // mensagens mantidas na conversa
 const FOLLOW_UP_MS = 7000; // depois de responder, fica ouvindo esse tempo sem exigir o nome
+// Conversa em tempo real: timbres do modelo de voz e limites de uma sessão.
+const RT_VOICES = [["cedar", "Cedar (grave, natural)"], ["ash", "Ash (grave)"], ["echo", "Echo (clara)"], ["verse", "Verse (expressiva)"], ["sage", "Sage (suave)"], ["marin", "Marin (feminina, natural)"], ["coral", "Coral (feminina)"]];
+const RT_IDLE_MS = 40000;       // sem ninguém falar, encerra e volta a aguardar o nome
+const RT_BUSY_MS = 120000;      // limite para uma resposta ou ferramenta travada
+const RT_MAX_MS = 15 * 60000;   // duração máxima de uma conversa contínua
+const RT_YES = /^(sim|pode|confirm|isso|claro|positivo|exclu|apag|manda|faz|ok|certo|com certeza)/;
+const RT_NO = /^(nao|cancel|deixa|esquece|negativo|melhor nao|para)/;
 const NEURAL_VOICES = [["ash", "Ash (grave)"], ["onyx", "Onyx (profunda)"], ["echo", "Echo (clara)"], ["sage", "Sage (suave)"], ["nova", "Nova (feminina)"], ["coral", "Coral (feminina)"]];
 
 
@@ -488,6 +496,11 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const [showKeys, setShowKeys] = useState(false); // campo de texto (a tela é voz primeiro)
   const [full, setFull] = useState(false);
   const [hasAmp, setHasAmp] = useState(false);
+  const [rtAvail, setRtAvail] = useState(false);                     // o servidor oferece conversa em tempo real
+  const [rtPref, setRtPref] = useState(getPref("simao_rt", "on"));   // on | off
+  const [rtVoice, setRtVoice] = useState(getPref("simao_rt_voice", "cedar"));
+  const [rtBroken, setRtBroken] = useState(false);                   // falhou nesta sessão: segue no modo padrão
+  const [rtOn, setRtOn] = useState(false);                           // conversa aberta (ou abrindo)
 
   const voiceRef = useRef("browser");
   const wakeRef = useRef(wake);
@@ -510,10 +523,20 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const talkRef = useRef(null);
   const aliveRef = useRef(true);
   const fn = useRef({}); // funções mais recentes, para os callbacks de voz
+  const rtRef = useRef(null);       // conversa em tempo real aberta
+  const rtOpening = useRef(false);
+  const rtAbort = useRef(false);
+  const rtFails = useRef(0);
+  const rtSt = useRef(null);        // andamento da conversa (falas, confirmação pendente)
+  const rtIdle = useRef(0);
+  const rtMax = useRef(0);
+  const rtVoiceRef = useRef(rtVoice); rtVoiceRef.current = rtVoice;
 
   const SR = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
   const effectiveVoice = voice === "auto" ? (neuralOk ? "neural" : "browser") : voice === "neural" && !neuralOk ? "browser" : voice;
   voiceRef.current = effectiveVoice;
+  const useRT = rtAvail && rtPref === "on" && !rtBroken && voice !== "off" && realtimeSupported();
+  const useRTRef = useRef(useRT); useRTRef.current = useRT;
 
   const push = useCallback(m => { mem.msgs = [...mem.msgs, m].slice(-60); setMsgs(mem.msgs); }, []);
   const setPending = p => { pendingRef.current = p; setPendingState(p); };
@@ -652,6 +675,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
   // Interrupção pedida pelo usuário (toque, Esc ou voz): cala o resto deste pedido.
   const hush = useCallback(() => {
+    if (rtRef.current) { rtRef.current.interrupt(); return; }
     mutedRef.current = turnRef.current;
     stopSpeaking();
     setStatus(busyRef.current ? "thinking" : "idle");
@@ -838,7 +862,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   }, [send]);
 
   const listen = useCallback((opts) => {
-    if (!SR) return;
+    if (!SR || rtRef.current || rtOpening.current) return;
     const followUp = !!opts?.followUp;
     stopRec(); stopSpeaking();
     const rec = new SR();
@@ -879,7 +903,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
   // Mãos livres: fica ouvindo e age quando escuta o nome "Simão".
   const startWake = useCallback(() => {
-    if (!SR || !wakeRef.current || recRef.current || busyRef.current || statusRef.current !== "idle" || pendingRef.current) return;
+    if (!SR || !wakeRef.current || recRef.current || busyRef.current || statusRef.current !== "idle" || pendingRef.current || rtRef.current || rtOpening.current) return;
     const rec = new SR();
     rec.lang = "pt-BR"; rec.interimResults = false; rec.continuous = true;
     rec.onresult = e => {
@@ -889,7 +913,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
         const cmd = matchWake(t);
         if (cmd === null) continue;
         stopRec();
-        if (cmd.length > 2) send(cmd); else { beep([880, 1320]); listen(); }
+        if (useRTRef.current) fn.current.converse?.(cmd.length > 2 ? cmd : "");
+        else if (cmd.length > 2) send(cmd); else { beep([880, 1320]); listen(); }
         return;
       }
     };
@@ -901,7 +926,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
   // Enquanto ele fala, continua atento ao nome: "Simão" interrompe a resposta na hora.
   const listenForInterrupt = useCallback(() => {
-    if (!SR || !wakeRef.current || recRef.current || pendingRef.current) return;
+    if (!SR || !wakeRef.current || recRef.current || pendingRef.current || rtRef.current || rtOpening.current) return;
     const rec = new SR();
     rec.lang = "pt-BR"; rec.interimResults = true; rec.continuous = true;
     let interrupted = false;
@@ -925,7 +950,155 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     try { rec.start(); } catch { recRef.current = null; }
   }, [SR, stopRec, send, listen, cancelTurn]);
 
-  fn.current = { listen, stopRec, startWake, listenForInterrupt, pulse };
+  // ── Conversa em tempo real ───────────────────────────────────────────────
+  // As falas entram no histórico comum: o modo padrão e a próxima conversa têm o contexto.
+  const logTurn = (role, text) => {
+    const last = mem.api[mem.api.length - 1];
+    if (role === "assistant" && !mem.api.length) return;
+    if (last && last.role === role && typeof last.content === "string") last.content += " " + text;
+    else mem.api.push({ role, content: text });
+    mem.api = trimHistory(mem.api);
+    saveConversation();
+  };
+  // A fala do usuário aparece primeiro como "…" e ganha o texto quando a transcrição chega.
+  const patchUser = (id, text) => {
+    if (text && !mem.msgs.some(m => m.rt === id)) { push({ k: "u", text }); return; }
+    mem.msgs = text ? mem.msgs.map(m => m.rt === id ? { k: "u", text } : m) : mem.msgs.filter(m => m.rt !== id);
+    setMsgs(mem.msgs);
+  };
+
+  const closeRT = useCallback(() => {
+    if (rtRef.current) rtRef.current.close();
+    else if (rtOpening.current) rtAbort.current = true;
+  }, []);
+
+  // Abre a conversa (ou, se já estiver aberta, só entrega o texto). Devolve false se não conectou.
+  const openRT = useCallback(async (initialText) => {
+    const text = String(initialText || "").trim();
+    const say = t => { push({ k: "u", text: t }); logTurn("user", t); if (rtSt.current) { rtSt.current.turns++; rtSt.current.last = t; } rtRef.current.sendText(t); };
+    if (rtRef.current) { if (text) say(text); return true; }
+    if (rtOpening.current) return true;
+    rtOpening.current = true; rtAbort.current = false;
+    cancelTurn(); fn.current.stopRec?.();
+    setStatus("thinking"); setRtOn(true); setInterim("");
+    const recent = mem.msgs.filter(m => (m.k === "u" || m.k === "j") && !m.rt).slice(-8).map(m => ({ role: m.k === "u" ? "user" : "assistant", text: m.text }));
+    const st = rtSt.current = { turns: 0, waiting: 0, last: "", ask: null, bye: false };
+    const arm = ms => { clearTimeout(rtIdle.current); rtIdle.current = setTimeout(() => fn.current.closeRT?.(), ms); };
+    const env = {
+      setActiveTab, verify: verifySaved, memory: memoryApi,
+      undoLast: async () => { const u = undoStack.current.pop(); if (!u) return null; await u.run(); return u.label; },
+      remote: (action, data) => callFn({ ...data, action }),
+      // Exclusões e lotes: na primeira chamada ele pergunta em voz alta; na segunda, depois
+      // de o usuário responder, a ação segue. Resposta duvidosa cai na confirmação da tela.
+      confirm: async q => {
+        const a = st.ask;
+        if (a && a.q === q && st.turns > a.turn) {
+          st.ask = null;
+          for (let i = 0; i < 12 && st.waiting > 0; i++) await sleep(150);
+          const said = flat(st.last);
+          if (RT_NO.test(said)) return false;
+          if (RT_YES.test(said)) return true;
+          return new Promise(resolve => setPending({ text: q, resolve: v => { setPending(null); resolve(v); } }));
+        }
+        st.ask = { q, turn: st.turns };
+        const e = new Error(`Precisa de confirmação. Pergunte ao usuário: "${q}" Só chame a ferramenta de novo, com os mesmos argumentos, se ele disser que sim.`);
+        e.confirm = q;
+        throw e;
+      },
+    };
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = audioCtxRef.current || (audioCtxRef.current = new AC());
+      if (ctx.state === "suspended") ctx.resume();
+      const h = await openRealtime({
+        audioCtx: ctx,
+        mint: () => callFn({ action: "realtime", voice: rtVoiceRef.current, speed: rateRef.current, recent, context: { ...buildContext(appRef.current), memoria: memRef.current.slice(0, MAX_MEMORY).map(m => m.content) } }),
+        level: (out, inp) => {
+          const el = coreRef.current;
+          if (!el) return;
+          el.style.setProperty("--amp", out.toFixed(3));
+          if (!micRef.current?.stream) el.style.setProperty("--amp-in", (statusRef.current === "speaking" ? 0 : inp).toFixed(3));
+        },
+        runTool: async (name, args) => {
+          let out;
+          try { out = await runTool(name, args, appRef.current, env); }
+          catch (e) {
+            if (e?.confirm) return { precisa_confirmar: true, pergunta: e.confirm, instrucao: "Faça essa pergunta em voz alta. Só chame a ferramenta de novo, com os mesmos argumentos, se ele responder que sim." };
+            return { erro: String(e?.message || e) };
+          }
+          if (out.log) push({ k: "a", ...out.log });
+          if (out.undo) { undoStack.current.push(out.undo); if (undoStack.current.length > 15) undoStack.current.shift(); }
+          await sleep(25); // deixa o React aplicar a alteração antes da próxima leitura
+          return out.result;
+        },
+        on: {
+          state: s => {
+            if (!aliveRef.current) return;
+            setStatus(s);
+            arm(s === "listening" ? RT_IDLE_MS : RT_BUSY_MS);
+            if (s === "listening" && st.bye) fn.current.closeRT?.(); // ele se despediu: encerra depois da resposta
+          },
+          speechStop: id => {
+            st.turns++; st.waiting++;
+            if (!id) return;
+            push({ k: "u", text: "…", rt: id });
+            setTimeout(() => { if (mem.msgs.some(m => m.rt === id)) patchUser(id, ""); }, 9000);
+          },
+          userPartial: (id, t) => setInterim(t),
+          userText: (id, t) => {
+            st.waiting = Math.max(0, st.waiting - 1);
+            setInterim("");
+            if (t) { st.last = t; st.bye = STOP_ONLY.test(flat(t)); logTurn("user", t); }
+            patchUser(id, t);
+            const p = pendingRef.current, said = flat(t);
+            if (p && RT_YES.test(said)) p.resolve(true); else if (p && RT_NO.test(said)) p.resolve(false);
+          },
+          replyDelta: t => setLive(t),
+          replyDone: t => { setLive(""); push({ k: "j", text: t }); logTurn("assistant", t); },
+          closed: () => {
+            clearTimeout(rtIdle.current); clearTimeout(rtMax.current);
+            rtRef.current = null; rtOpening.current = false; rtSt.current = null;
+            mem.msgs = mem.msgs.filter(m => !m.rt);
+            saveConversation();
+            if (!aliveRef.current) return;
+            setMsgs(mem.msgs); setRtOn(false); setLive(""); setInterim(""); setHasAmp(false);
+            if (pendingRef.current) pendingRef.current.resolve(false);
+            beep([660, 440]);
+            setStatus("idle"); // com mãos livres ligado, volta a aguardar o nome
+          },
+        },
+      });
+      if (rtAbort.current || !aliveRef.current) { h.close(); return true; }
+      rtRef.current = h; rtOpening.current = false; rtFails.current = 0;
+      setHasAmp(true);
+      rtMax.current = setTimeout(() => fn.current.closeRT?.(), RT_MAX_MS);
+      if (text) say(text); else beep([880, 1320]);
+      return true;
+    } catch (e) {
+      rtOpening.current = false; rtSt.current = null;
+      clearTimeout(rtIdle.current);
+      if (!aliveRef.current) return true;
+      setRtOn(false); setStatus("idle");
+      if (rtAbort.current) return true;
+      console.warn("[simao] tempo real indisponível:", e?.message);
+      rtFails.current++;
+      if (e?.mic || rtFails.current >= 2) {
+        setRtBroken(true); useRTRef.current = false;
+        push({ k: "e", text: (e?.mic ? e.message : `A conversa em tempo real não conectou (${e?.message || "erro"}).`) + " Sigo no modo padrão." });
+      }
+      return false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [push, cancelTurn, setActiveTab, memoryApi]);
+
+  // Entrada única de um pedido: conversa em tempo real quando disponível, modo padrão se não.
+  const converse = useCallback(async (text) => {
+    const t = String(text || "").trim();
+    if (useRTRef.current && await openRT(t)) return;
+    if (t) send(t); else { beep([880, 1320]); listen(); }
+  }, [openRT, send, listen]);
+
+  fn.current = { listen, stopRec, startWake, listenForInterrupt, pulse, converse, closeRT };
 
   // O medidor do microfone fica ligado enquanto ele estiver ouvindo (mãos livres ou escuta pontual).
   useEffect(() => {
@@ -942,6 +1115,9 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   };
 
   const onCore = () => {
+    if (rtRef.current) { if (status === "speaking") rtRef.current.interrupt(); else if (status === "listening") closeRT(); return; }
+    if (rtOpening.current) { closeRT(); return; }
+    if (useRT && status !== "thinking") { if (status === "speaking") hush(); stopRec(); converse(""); return; }
     if (status === "listening") { const rec = recRef.current; if (rec) try { rec.stop(); } catch { /* já encerrado */ } return; }
     if (status === "speaking") { hush(); if (!SR || busyRef.current) return; }
     if (status === "thinking") return;
@@ -953,13 +1129,13 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     aliveRef.current = true;
     let cancelled = false;
     (async () => {
-      let ok = false, neural = false, premium = false;
+      let ok = false, neural = false, premium = false, rt = false;
       try {
         const p = await Promise.race([callFn({ action: "ping" }), sleep(6000).then(() => { throw new Error("tempo esgotado"); })]);
-        ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!(p.providers?.openai || p.providers?.elevenlabs); premium = !!p.providers?.elevenlabs;
+        ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!(p.providers?.openai || p.providers?.elevenlabs); premium = !!p.providers?.elevenlabs; rt = !!p.providers?.realtime;
       } catch (e) { console.warn("[simao] ping:", e.message); }
       if (cancelled) return;
-      setOnline(ok); setNeuralOk(neural); setPremiumVoice(premium);
+      setOnline(ok); setNeuralOk(neural); setPremiumVoice(premium); setRtAvail(rt);
       const pref = getPref("jarvis_voice", "auto");
       voiceRef.current = pref === "auto" ? (neural ? "neural" : "browser") : pref === "neural" && !neural ? "browser" : pref;
       const rows = await db.select("assistant_memory").catch(() => []);
@@ -974,7 +1150,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     return () => {
       cancelled = true; aliveRef.current = false; wakeRef.current = false;
       window.removeEventListener("keydown", onKey);
-      stopRec(); stopSpeaking(); stopMic();
+      stopRec(); stopSpeaking(); stopMic(); fn.current.closeRT?.();
       if (pendingRef.current) pendingRef.current.resolve(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -987,7 +1163,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     const hello = greeting(appRef.current);
     push({ k: "j", text: hello });
     if (online === false) push({ k: "e", text: "Não consegui falar com o servidor de IA. Os números funcionam; os comandos, não." });
-    speak(hello);
+    if (!useRTRef.current) speak(hello); // em tempo real ele só fala com a voz da conversa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, isFull]);
 
@@ -1006,19 +1182,19 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const agenda = [...s.overdue.slice(0, 4), ...s.dueToday.slice(0, 4)].slice(0, 6);
   const upcoming = agenda.length < 6 ? s.week.slice(0, 6 - agenda.length) : [];
   const stateLabel = { idle: wake ? "Aguardando" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
-  const hint = pending ? "diga sim ou não" : status === "listening" ? "escutando…" : status === "speaking" ? (wake ? "diga “Simão” para interromper" : "respondendo…") : status === "thinking" ? "processando…" : wake ? "diga “Simão” e o pedido" : SR ? "toque no microfone para falar" : "voz indisponível neste navegador";
+  const hint = pending ? "diga sim ou não" : rtOn ? (status === "listening" ? "pode falar" : status === "speaking" ? "fale por cima para interromper" : "processando…") : useRT && status === "idle" ? (wake ? "diga “Simão” para conversar" : "toque no microfone para conversar") : status === "listening" ? "escutando…" : status === "speaking" ? (wake ? "diga “Simão” para interromper" : "respondendo…") : status === "thinking" ? "processando…" : wake ? "diga “Simão” e o pedido" : SR ? "toque no microfone para falar" : "voz indisponível neste navegador";
   const voiceLabel = { neural: "Voz neural", browser: "Voz padrão", off: "Voz desligada" }[effectiveVoice];
   const pickVoiceMode = next => {
     setVoiceState(next); setPref("jarvis_voice", next);
     if (next === "off") { stopSpeaking(); if (statusRef.current === "speaking") setStatus("idle"); }
   };
   const newConversation = () => {
-    cancelTurn(); stopRec();
+    closeRT(); cancelTurn(); stopRec();
     mem.api = []; mem.msgs = []; undoStack.current = [];
     setMsgs([]); setStatus("idle");
     try { localStorage.removeItem(convKey()); } catch { /* armazenamento indisponível */ }
   };
-  const submit = e => { e.preventDefault(); const t = input; setInput(""); if (pendingRef.current) heard(t); else send(t); };
+  const submit = e => { e.preventDefault(); const t = input; setInput(""); if (pendingRef.current) heard(t); else converse(t); };
   const taskRow = t => {
     const late = t.dueDate && t.dueDate < s.today;
     return (
@@ -1036,7 +1212,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const lastReply = turn.map(m => m.k).lastIndexOf("j");
   const themeClass = theme === "gold" ? " jv-gold" : "";
   const busy = status === "thinking";
-  const ask = q => { if (!busy) send(q); };
+  const ask = q => { if (!busy || rtOn) converse(q); };
 
   const turnView = (
     <div className="jv-turn" ref={talkRef} aria-live="polite">
@@ -1059,7 +1235,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const inputView = (
     <form className="jv-in" onSubmit={submit}>
       <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
-      <button className="jv-btn on" type="submit" disabled={!input.trim() || (busy && !pending)}>Enviar</button>
+      <button className="jv-btn on" type="submit" disabled={!input.trim() || (busy && !pending && !rtOn)}>Enviar</button>
     </form>
   );
   const stateView = (
@@ -1069,6 +1245,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   // Botão de parar: cala a fala, abandona o pedido em andamento e encerra a escuta.
   const stopAll = () => {
     if (pendingRef.current) { pendingRef.current.resolve(false); return; }
+    if (rtRef.current || rtOpening.current) { closeRT(); return; }
     cancelTurn(); stopRec(); setStatus("idle");
   };
 
@@ -1126,15 +1303,32 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
           {showSet && (
             <div className="jv-pop">
               <h4>Voz</h4>
-              <label>Tipo
+              {rtAvail && realtimeSupported() && voice !== "off" && (
+                <label>Conversa
+                  <select value={rtBroken ? "off" : rtPref} onChange={e => { setRtPref(e.target.value); setPref("simao_rt", e.target.value); setRtBroken(false); rtFails.current = 0; if (e.target.value === "off") closeRT(); }}>
+                    <option value="on">Tempo real (fala direta)</option>
+                    <option value="off">Padrão (por etapas)</option>
+                  </select>
+                </label>
+              )}
+              {useRT && (
+                <label>Timbre
+                  <select value={rtVoice} onChange={e => { setRtVoice(e.target.value); setPref("simao_rt_voice", e.target.value); }}>
+                    {RT_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </label>
+              )}
+              {useRT && <p className="jv-empty">Timbre e velocidade valem a partir da próxima conversa. Ela se encerra sozinha depois de 40 segundos de silêncio.</p>}
+              {rtBroken && <p className="jv-empty">A conversa em tempo real falhou nesta sessão; escolha “Tempo real” para tentar de novo.</p>}
+              <label style={useRT ? { display: "none" } : undefined}>Tipo
                 <select value={effectiveVoice} onChange={e => pickVoiceMode(e.target.value)}>
                   {neuralOk && <option value="neural">Neural (mais natural)</option>}
                   <option value="browser">Do navegador (instantânea)</option>
                   <option value="off">Desligada (só texto)</option>
                 </select>
               </label>
-              {effectiveVoice === "neural" && premiumVoice && <p className="jv-empty">Usando a voz nativa em português configurada no servidor.</p>}
-              {effectiveVoice === "neural" && !premiumVoice && (
+              {!useRT && effectiveVoice === "neural" && premiumVoice && <p className="jv-empty">Usando a voz nativa em português configurada no servidor.</p>}
+              {!useRT && effectiveVoice === "neural" && !premiumVoice && (
                 <label>Timbre
                   <select value={voiceName} onChange={e => { setVoiceName(e.target.value); setPref("jarvis_voice_name", e.target.value); }}>
                     {NEURAL_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -1146,7 +1340,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
                   <input type="range" min="0.9" max="1.5" step="0.05" value={rate} onChange={e => { const v = parseFloat(e.target.value); setRate(v); setPref("jarvis_rate", String(v)); }} />
                 </label>
               )}
-              {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak(`Às ordens, ${firstName(app)}. Esta é a voz que estou usando agora.`)}>Testar voz</button>}
+              {!useRT && effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak(`Às ordens, ${firstName(app)}. Esta é a voz que estou usando agora.`)}>Testar voz</button>}
 
               <h4>Memória · {memItems.length}</h4>
               {memItems.length === 0 && <p className="jv-empty">Nada guardado ainda. Diga, por exemplo: “Simão, lembre que a Iris cuida do departamento pessoal”.</p>}
@@ -1181,14 +1375,14 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
         <div className="jv-mics">
           <button className="jv-round sm" onClick={() => setShowKeys(v => !v)} aria-label="Digitar o pedido" aria-pressed={showKeys} title="Digitar"><KeyIcon /></button>
-          <button className={"jv-round" + (status === "listening" ? " live" : "")} onClick={onCore} disabled={!SR || busy} aria-label={status === "listening" ? "Encerrar escuta" : "Falar"} title="Falar"><MicIcon /></button>
+          <button className={"jv-round" + (status === "listening" ? " live" : "")} onClick={onCore} disabled={(!SR && !useRT) || (busy && !rtOn)} aria-label={status === "listening" ? "Encerrar escuta" : "Falar"} title={rtOn ? "Encerrar a conversa" : "Falar"}><MicIcon /></button>
           <button className="jv-round sm" onClick={stopAll} disabled={status === "idle" && !pending} aria-label="Parar" title="Parar"><StopIcon /></button>
         </div>
         <p className="jv-hint">{hint}</p>
       </div>
 
       <div className="jv-foot">
-        {(showKeys || !SR) && inputView}
+        {(showKeys || (!SR && !useRT)) && inputView}
       </div>
 
       {showPanels && (
