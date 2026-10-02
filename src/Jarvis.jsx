@@ -1,11 +1,11 @@
-// Yoetz — assistente de voz e HUD do YOETZ Produtivo.
+// Simão — assistente de voz e HUD do YOETZ Produtivo.
 //
 // O raciocínio vem da Edge Function "jarvis" (nome interno, no Supabase). As ações são
 // executadas aqui, pelas funções do próprio app (ver jarvisTools.js).
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { auth, db } from "./supabase.js";
-import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, splitSpeech } from "./jarvisTools.js";
+import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, saidYes, saidNo } from "./jarvisTools.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kpgpcqjefrixzshmskls.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -18,8 +18,12 @@ const NEURAL_VOICES = [["ash", "Ash (grave)"], ["onyx", "Onyx (profunda)"], ["ec
 
 
 
-const YES_RE = /^\s*(sim|confirm|pode|isso|exclu|apag|manda|claro|positivo|ok)/i;
-const NO_RE = /^\s*(n[aã]o|cancel|deixa|esquece|negativo|para)/i;
+const CONV_TTL_MS = 12 * 3600 * 1000; // a conversa guardada no navegador vale por 12 horas
+const MAX_MEMORY = 60;
+// Palavras soltas que só pedem silêncio: não viram pergunta para a IA.
+const STOP_ONLY = /^(para|pare|parar|chega|silencio|quieto|obrigado|obrigada|valeu|ok|nada|deixa|esquece|cancela|pode parar|ta bom|tudo bem)( por favor)?$/;
+const flat = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 // A conversa sobrevive à troca de abas enquanto o app estiver aberto.
 const mem = { api: [], msgs: [], log: [], greeted: false };
@@ -57,6 +61,91 @@ async function callFn(body, wantBlob = false) {
     throw new Error(data?.error || `Falha de comunicação (${res.status})`);
   }
   return data;
+}
+
+// Conversa em streaming: o servidor manda uma linha JSON por evento. onDelta recebe
+// o texto conforme o modelo escreve; a função devolve a resposta completa.
+async function callChat(body, onDelta) {
+  let delivered = false;
+  const once = async () => {
+    const ctl = new AbortController();
+    let timer = setTimeout(() => ctl.abort(), 45000);
+    const alive = () => { clearTimeout(timer); timer = setTimeout(() => ctl.abort(), 45000); };
+    try {
+      const res = await fetch(FN_URL, {
+        method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", "apikey": ANON_KEY, "Authorization": "Bearer " + (auth.getSession()?.access_token || ANON_KEY) },
+        body: JSON.stringify({ ...body, action: "chat", stream: true }),
+      });
+      if (res.status === 401) return { retryAuth: true };
+      const type = res.headers.get("Content-Type") || "";
+      if (!type.includes("ndjson") || !res.body) {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.ok) {
+          const err = new Error(res.status === 404 ? "A função do assistente não está publicada no Supabase." : data?.error || `Falha de comunicação (${res.status})`);
+          err.retry = res.status >= 500;
+          throw err;
+        }
+        return data;
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "", end = null;
+      const handle = line => {
+        if (!line.trim()) return;
+        let ev; try { ev = JSON.parse(line); } catch { return; }
+        if (ev.t === "d") { delivered = true; onDelta?.(ev.x); }
+        else if (ev.t === "end") end = ev;
+        else if (ev.t === "err") throw new Error(ev.error || "Falha no servidor de IA.");
+      };
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        alive();
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, i)); buf = buf.slice(i + 1); }
+      }
+      handle(buf);
+      if (!end) { const err = new Error("A resposta foi interrompida no meio."); err.retry = true; throw err; }
+      return end;
+    } finally { clearTimeout(timer); }
+  };
+  const attempt = async () => {
+    const r = await once();
+    if (r?.retryAuth) {
+      if (!await auth.refreshSession().catch(() => null)) throw new Error("Sessão expirada. Entre de novo no sistema.");
+      const again = await once();
+      if (again?.retryAuth) throw new Error("Sessão expirada. Entre de novo no sistema.");
+      return again;
+    }
+    return r;
+  };
+  try { return await attempt(); }
+  catch (e) {
+    // Só repete se nada foi dito ainda e a falha parece passageira (rede, tempo, 5xx).
+    const transient = e?.retry || e?.name === "AbortError" || e instanceof TypeError;
+    if (delivered || !transient) throw e?.name === "AbortError" ? new Error("O servidor demorou demais para responder.") : e;
+    await sleep(600);
+    try { return await attempt(); }
+    catch (e2) { throw e2?.name === "AbortError" ? new Error("O servidor demorou demais para responder.") : e2 instanceof TypeError ? new Error("Sem conexão com o servidor.") : e2; }
+  }
+}
+
+// Conversa guardada no navegador, por usuário, para sobreviver a um recarregamento.
+const convKey = () => "simao_conv_" + (auth.getUserId() || "anon");
+function saveConversation() {
+  try {
+    const data = JSON.stringify({ ts: Date.now(), api: mem.api, msgs: mem.msgs.slice(-40) });
+    if (data.length < 300000) localStorage.setItem(convKey(), data);
+  } catch { /* armazenamento indisponível */ }
+}
+function loadConversation() {
+  try {
+    const d = JSON.parse(localStorage.getItem(convKey()) || "null");
+    if (d && Date.now() - d.ts < CONV_TTL_MS && Array.isArray(d.api) && Array.isArray(d.msgs)) return d;
+  } catch { /* dado inválido */ }
+  return null;
 }
 
 // Confere no banco se uma gravação chegou (as funções do app gravam em segundo plano).
@@ -163,6 +252,12 @@ const CSS = `
 .jv-act{align-self:flex-start;font-size:11px;color:var(--dim);border-left:2px solid var(--a);padding:2px 0 2px 9px}
 .jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-color:var(--bad)}.jv-act.done{border-color:var(--ok)}.jv-act.warn{border-color:var(--warn);color:var(--warn)}
 .jv-pop{position:absolute;right:18px;top:100%;margin-top:6px;z-index:5;width:250px;background:var(--bg);border:1px solid rgba(var(--a-rgb),.35);padding:12px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:var(--dim)}
+.jv-pop.wide{width:340px;max-height:60vh;overflow-y:auto}
+.jv-mem{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink);padding:6px 0;border-top:1px solid rgba(var(--a-rgb),.1);line-height:1.4}
+.jv-mem span{flex:1}
+.jv-mem button{font:inherit;color:var(--faint);background:none;border:0;cursor:pointer;padding:0 4px;font-size:14px}
+.jv-mem button:hover{color:var(--bad)}
+.jv-m.live{opacity:.85}
 .jv-pop label{display:flex;flex-direction:column;gap:4px;letter-spacing:.1em;text-transform:uppercase;font-size:9px}
 .jv-pop select,.jv-pop input[type=range]{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(--bg2);border:1px solid rgba(var(--a-rgb),.25);padding:5px;accent-color:var(--a)}
 .jv-confirm{width:100%;max-width:640px;margin-top:10px;border:1px solid var(--bad);background:rgba(255,107,107,.08);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
@@ -215,6 +310,9 @@ export default function Jarvis({ app, setActiveTab }) {
   const [voiceName, setVoiceName] = useState(getPref("jarvis_voice_name", "ash"));
   const [rate, setRate] = useState(parseFloat(getPref("jarvis_rate", "1.1")) || 1.1);
   const [showVoice, setShowVoice] = useState(false);
+  const [showMem, setShowMem] = useState(false);
+  const [memItems, setMemItems] = useState([]);
+  const [live, setLive] = useState(""); // resposta sendo escrita
   const [theme, setTheme] = useState(getPref("jarvis_theme", "stark"));
   const [full, setFull] = useState(false);
   const [hasAmp, setHasAmp] = useState(false);
@@ -224,6 +322,10 @@ export default function Jarvis({ app, setActiveTab }) {
   const voiceNameRef = useRef(voiceName); voiceNameRef.current = voiceName;
   const rateRef = useRef(rate); rateRef.current = rate;
   const followTimer = useRef(0);
+  const memRef = useRef([]);        // memória permanente carregada do banco
+  const undoStack = useRef([]);     // alterações desta sessão que podem ser desfeitas
+  const turnRef = useRef(0);        // identifica o pedido em andamento
+  const mutedRef = useRef(-1);      // pedido cuja fala o usuário mandou calar
   const busyRef = useRef(false);
   const recRef = useRef(null);
   const audioRef = useRef(null);
@@ -242,7 +344,7 @@ export default function Jarvis({ app, setActiveTab }) {
   const push = useCallback(m => { mem.msgs = [...mem.msgs, m].slice(-60); setMsgs(mem.msgs); }, []);
   const setPending = p => { pendingRef.current = p; setPendingState(p); };
 
-  useEffect(() => { const el = talkRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, interim, pending]);
+  useEffect(() => { const el = talkRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, interim, pending, live]);
 
   // ── Voz: saída ───────────────────────────────────────────────────────────
   const stopSpeaking = useCallback(() => {
@@ -254,23 +356,28 @@ export default function Jarvis({ app, setActiveTab }) {
     setHasAmp(false);
   }, []);
 
-  const speak = useCallback(async (text) => {
+  // Locutor incremental: recebe o texto aos poucos e começa a falar na primeira
+  // frase completa, sem esperar a resposta inteira.
+  const startSpeaker = useCallback(() => {
     stopSpeaking();
     const seq = speakSeq.current;
     const stale = () => seq !== speakSeq.current || !aliveRef.current;
+    const mode = voiceRef.current;
+    const queue = [];
+    let buf = "", hold = "", first = true, ended = false, playing = false, started = false, neuralBroken = false, done = false;
+
     // Ao terminar de falar, volta a ouvir sozinho (confirmação pendente ou continuação da conversa).
     const finish = () => {
-      if (stale()) return;
+      if (done || stale()) return;
+      done = true;
       cancelAnimationFrame(rafRef.current);
       if (coreRef.current) coreRef.current.style.setProperty("--amp", 0);
       setHasAmp(false);
+      fn.current.stopRec?.();
       setStatus("idle");
       if (pendingRef.current) fn.current.listen?.();
       else if (wakeRef.current) fn.current.listen?.({ followUp: true });
     };
-    if (voiceRef.current === "off" || !text) { setStatus("idle"); if (wakeRef.current && !pendingRef.current) fn.current.listen?.({ followUp: true }); return; }
-    fn.current.stopRec?.();
-    setStatus("speaking");
 
     const playBlob = blob => new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
@@ -285,13 +392,13 @@ export default function Jarvis({ app, setActiveTab }) {
         if (ctx.state === "suspended") ctx.resume();
         const an = ctx.createAnalyser(); an.fftSize = 256;
         ctx.createMediaElementSource(audio).connect(an); an.connect(ctx.destination);
-        const buf = new Uint8Array(an.frequencyBinCount);
+        const data = new Uint8Array(an.frequencyBinCount);
         cancelAnimationFrame(rafRef.current);
         const tick = () => {
           if (seq !== speakSeq.current) return;
-          an.getByteTimeDomainData(buf);
-          let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
-          if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / buf.length) * 4).toFixed(3));
+          an.getByteTimeDomainData(data);
+          let sum = 0; for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+          if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / data.length) * 4).toFixed(3));
           rafRef.current = requestAnimationFrame(tick);
         };
         setHasAmp(true); tick();
@@ -299,38 +406,98 @@ export default function Jarvis({ app, setActiveTab }) {
       audio.play().catch(reject);
     });
 
-    let spokenUpTo = 0; // quantas frases a voz neural já falou
-    const chunks = splitSpeech(text);
-    if (voiceRef.current === "neural") {
-      // Todas as frases são pedidas de uma vez; a primeira toca assim que chega.
-      const jobs = chunks.map(c => callFn({ action: "tts", text: c, voice: voiceNameRef.current }, true));
-      jobs.forEach(j => j.catch(() => {}));
-      try {
-        for (let i = 0; i < jobs.length; i++) {
-          const blob = await jobs[i];
+    const sayBrowser = text => new Promise(resolve => {
+      if (!("speechSynthesis" in window)) return resolve();
+      setHasAmp(false);
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "pt-BR"; u.rate = Math.min(1.6, 1.05 * rateRef.current); u.pitch = 0.9;
+      const voices = window.speechSynthesis.getVoices().filter(v => /^pt[-_]BR/i.test(v.lang));
+      const pick = voices.find(v => /natural|neural|online/i.test(v.name)) || voices.find(v => /google/i.test(v.name)) || voices.find(v => /daniel|felipe|ant[oô]nio/i.test(v.name)) || voices[0];
+      if (pick) u.voice = pick;
+      u.onend = u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
+    });
+
+    const pump = async () => {
+      if (playing) return;
+      playing = true;
+      while (queue.length && !stale()) {
+        const item = queue.shift();
+        if (!started) { started = true; fn.current.stopRec?.(); setStatus("speaking"); fn.current.listenForInterrupt?.(); }
+        else if (statusRef.current !== "speaking") setStatus("speaking");
+        try {
+          if (item.job && !neuralBroken) {
+            const blob = await item.job;
+            if (stale()) return;
+            if (!(blob instanceof Blob)) throw new Error("sem áudio");
+            await playBlob(blob);
+          } else await sayBrowser(item.text);
+        } catch (e) {
           if (stale()) return;
-          if (!(blob instanceof Blob)) throw new Error("sem áudio");
-          await playBlob(blob);
-          if (stale()) return;
-          spokenUpTo = i + 1;
+          if (!neuralBroken) { neuralBroken = true; console.warn("[simao] voz neural indisponível, usando a do navegador:", e.message); }
+          await sayBrowser(item.text);
         }
-        finish();
-        return;
-      } catch (e) {
-        console.warn("[yoetz] voz neural indisponível, usando a do navegador:", e.message);
-        if (stale()) return;
       }
-    }
-    const rest = chunks.slice(spokenUpTo).join(" ");
-    if (!rest || !("speechSynthesis" in window)) { finish(); return; }
-    const u = new SpeechSynthesisUtterance(rest);
-    u.lang = "pt-BR"; u.rate = Math.min(1.6, 1.05 * rateRef.current); u.pitch = 0.9;
-    const voices = window.speechSynthesis.getVoices().filter(v => /^pt[-_]BR/i.test(v.lang));
-    const pick = voices.find(v => /natural|neural|online/i.test(v.name)) || voices.find(v => /google/i.test(v.name)) || voices.find(v => /daniel|felipe|ant[oô]nio/i.test(v.name)) || voices[0];
-    if (pick) u.voice = pick;
-    u.onend = u.onerror = finish;
-    window.speechSynthesis.speak(u);
+      playing = false;
+      if (stale()) return;
+      if (ended) finish(); else if (busyRef.current) setStatus("thinking");
+    };
+
+    // Cada trecho é pedido ao servidor assim que fica pronto; tocam em ordem.
+    const emit = text => {
+      text = text.trim();
+      if (!text || mode === "off") return;
+      const job = mode === "neural" && !neuralBroken ? callFn({ action: "tts", text: text.slice(0, 1200), voice: voiceNameRef.current }, true) : null;
+      if (job) job.catch(() => {});
+      queue.push({ text, job });
+      pump();
+    };
+    // A primeira frase sai sozinha (áudio começa logo); as seguintes se agrupam.
+    const drain = () => {
+      let m;
+      while ((m = buf.match(/^([\s\S]*?[.!?…]+["')\]]*)\s+/))) {
+        buf = buf.slice(m[0].length);
+        hold = hold ? hold + " " + m[1] : m[1];
+        if (first || hold.length >= 60) { emit(hold); hold = ""; first = false; }
+      }
+    };
+    return {
+      dead: stale,
+      feed(t) { if (stale() || !t) return; buf += t; drain(); },
+      end() {
+        if (stale() || ended) return;
+        ended = true;
+        emit((hold + " " + buf).trim()); hold = buf = "";
+        if (!playing && !queue.length) finish();
+      },
+    };
   }, [stopSpeaking]);
+
+  const speak = useCallback((text) => { const sp = startSpeaker(); sp.feed(String(text || "") + " "); sp.end(); }, [startSpeaker]);
+
+  // Interrupção pedida pelo usuário (toque, Esc ou voz): cala o resto deste pedido.
+  const hush = useCallback(() => {
+    mutedRef.current = turnRef.current;
+    stopSpeaking();
+    setStatus(busyRef.current ? "thinking" : "idle");
+  }, [stopSpeaking]);
+
+  // ── Memória permanente ───────────────────────────────────────────────────
+  const setMemory = items => { memRef.current = items; setMemItems(items); };
+  const memoryApi = useMemo(() => ({
+    list: () => memRef.current,
+    add: async content => {
+      const item = { id: newId(), content };
+      try { await db.upsert("assistant_memory", { id: item.id, content }); } catch (e) { console.warn("[simao] memória:", e.message); return null; }
+      setMemory([item, ...memRef.current]);
+      return item;
+    },
+    remove: async id => {
+      try { await db.delete("assistant_memory", id); } catch (e) { console.warn("[simao] memória:", e.message); return false; }
+      setMemory(memRef.current.filter(m => m.id !== id));
+      return true;
+    },
+  }), []);
 
   // ── Conversa ─────────────────────────────────────────────────────────────
   const confirmAction = useCallback(text => new Promise(resolve => {
@@ -342,45 +509,81 @@ export default function Jarvis({ app, setActiveTab }) {
     const text = String(raw || "").trim();
     if (!text || busyRef.current) return;
     busyRef.current = true;
+    const turn = ++turnRef.current;
+    const current = () => turn === turnRef.current && aliveRef.current;
     stopSpeaking(); fn.current.stopRec?.();
     if (wakeRef.current) beep([740]);
     push({ k: "u", text });
     setStatus("thinking");
     const api = [...mem.api, { role: "user", content: text }];
-    const env = { setActiveTab, confirm: confirmAction, verify: verifySaved };
+    const env = {
+      setActiveTab, confirm: confirmAction, verify: verifySaved, memory: memoryApi,
+      undoLast: async () => { const u = undoStack.current.pop(); if (!u) return null; await u.run(); return u.label; },
+    };
+    // Um locutor por pedido; se uma confirmação o interromper, cria outro para o resto.
+    let sp = null;
+    const speaker = () => {
+      if (mutedRef.current === turn) return null;
+      if (!sp || sp.dead()) sp = startSpeaker();
+      return sp;
+    };
     try {
       let final = "";
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        const r = await callFn({ action: "chat", messages: trimHistory(api), context: buildContext(appRef.current) });
+        let shown = "";
+        const r = await callChat(
+          { messages: trimHistory(api), context: { ...buildContext(appRef.current), memoria: memRef.current.slice(0, MAX_MEMORY).map(m => m.content) } },
+          delta => { if (!current()) return; shown += delta; setLive(shown); speaker()?.feed(delta); },
+        );
+        if (!current()) return;
+        setLive("");
         const content = Array.isArray(r.content) && r.content.length ? r.content : [{ type: "text", text: "…" }];
         api.push({ role: "assistant", content });
         const uses = content.filter(b => b.type === "tool_use");
         const said = content.filter(b => b.type === "text").map(b => b.text).join(" ").trim();
+        if (said && !shown) speaker()?.feed(said); // resposta veio sem streaming
         if (!uses.length) { final = said; break; }
+        if (said) { push({ k: "j", text: said }); speaker()?.feed(" "); }
         const results = [];
         for (const u of uses) {
           let out;
           try { out = await runTool(u.name, u.input, appRef.current, env); }
           catch (e) { out = { result: { erro: String(e?.message || e) } }; }
           if (out.log) push({ k: "a", ...out.log });
+          if (out.undo) { undoStack.current.push(out.undo); if (undoStack.current.length > 15) undoStack.current.shift(); }
           results.push({ type: "tool_result", tool_use_id: u.id, content: JSON.stringify(out.result) });
           await sleep(25); // deixa o React aplicar a alteração antes da próxima leitura
         }
         api.push({ role: "user", content: results });
-        if (!aliveRef.current) return;
+        if (!current()) return;
       }
-      if (!final || final === "…") final = "Feito, senhor.";
+      const silent = !final || final === "…";
+      if (silent) final = "Feito, senhor.";
       mem.api = trimHistory(api);
       push({ k: "j", text: final });
+      saveConversation();
       busyRef.current = false;
-      if (aliveRef.current) speak(final);
+      const out = speaker();
+      if (!out) { setStatus("idle"); if (wakeRef.current) fn.current.listen?.({ followUp: true }); }
+      else { if (silent) out.feed(final); out.feed(" "); out.end(); }
     } catch (e) {
+      if (!current()) return;
+      setLive("");
+      stopSpeaking();
       push({ k: "e", text: e.message || "Falha inesperada." });
       setStatus("idle");
     } finally {
-      busyRef.current = false;
+      if (turn === turnRef.current) busyRef.current = false;
     }
-  }, [push, speak, stopSpeaking, confirmAction, setActiveTab]);
+  }, [push, startSpeaker, stopSpeaking, confirmAction, setActiveTab, memoryApi]);
+
+  // Abandona o pedido em andamento (o usuário chamou de novo no meio da resposta).
+  const cancelTurn = useCallback(() => {
+    turnRef.current++;
+    busyRef.current = false;
+    setLive("");
+    stopSpeaking();
+  }, [stopSpeaking]);
 
   // ── Voz: entrada ─────────────────────────────────────────────────────────
   const stopRec = useCallback(() => {
@@ -401,11 +604,12 @@ export default function Jarvis({ app, setActiveTab }) {
   const heard = useCallback((text) => {
     const p = pendingRef.current;
     if (p) {
-      if (YES_RE.test(text)) p.resolve(true);
-      else if (NO_RE.test(text)) p.resolve(false);
+      if (saidYes(text)) p.resolve(true);
+      else if (saidNo(text)) p.resolve(false);
       else fn.current.listen?.();
       return;
     }
+    if (STOP_ONLY.test(flat(text))) { setStatus("idle"); return; }
     send(text);
   }, [send]);
 
@@ -437,13 +641,18 @@ export default function Jarvis({ app, setActiveTab }) {
       if (statusRef.current === "listening") setStatus("idle");
       clearTimeout(followTimer.current);
       const t = finalText.trim();
-      if (t.length > 1) heard(followUp ? (matchWake(t) || t) : t);
+      if (t.length < 2) return;
+      if (pendingRef.current) { heard(t); return; }
+      // Se a pessoa disse o nome junto, fica só o pedido; se disse só o nome, ouve de novo.
+      const afterName = matchWake(t);
+      if (afterName === "") { beep([880, 1320]); fn.current.listen?.(); return; }
+      heard(afterName === null ? t : afterName);
     };
     recRef.current = rec;
     try { rec.start(); } catch { recRef.current = null; }
   }, [SR, stopRec, stopSpeaking, heard, micError]);
 
-  // Mãos livres: fica ouvindo e age quando escuta o nome "Yoetz".
+  // Mãos livres: fica ouvindo e age quando escuta o nome "Simão".
   const startWake = useCallback(() => {
     if (!SR || !wakeRef.current || recRef.current || busyRef.current || statusRef.current !== "idle" || pendingRef.current) return;
     const rec = new SR();
@@ -465,7 +674,33 @@ export default function Jarvis({ app, setActiveTab }) {
     try { rec.start(); } catch { recRef.current = null; }
   }, [SR, stopRec, send, listen, micError]);
 
-  fn.current = { listen, stopRec, startWake };
+  // Enquanto ele fala, continua atento ao nome: "Simão" interrompe a resposta na hora.
+  const listenForInterrupt = useCallback(() => {
+    if (!SR || !wakeRef.current || recRef.current || pendingRef.current) return;
+    const rec = new SR();
+    rec.lang = "pt-BR"; rec.interimResults = true; rec.continuous = true;
+    let interrupted = false;
+    rec.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const cmd = matchWake(res[0].transcript);
+        if (cmd === null) continue;
+        if (!interrupted) { interrupted = true; cancelTurn(); setStatus("listening"); beep([880, 1320]); }
+        if (!res.isFinal) continue;
+        stopRec();
+        if (cmd.length > 2 && !STOP_ONLY.test(flat(cmd))) send(cmd);
+        else if (cmd.length > 2) setStatus("idle");
+        else listen();
+        return;
+      }
+    };
+    rec.onerror = () => {};
+    rec.onend = () => { if (recRef.current === rec) recRef.current = null; if (interrupted) listen(); };
+    recRef.current = rec;
+    try { rec.start(); } catch { recRef.current = null; }
+  }, [SR, stopRec, send, listen, cancelTurn]);
+
+  fn.current = { listen, stopRec, startWake, listenForInterrupt };
 
   useEffect(() => { if (status === "idle" && wake && !pending) startWake(); }, [status, wake, pending, startWake]);
 
@@ -478,7 +713,7 @@ export default function Jarvis({ app, setActiveTab }) {
 
   const onCore = () => {
     if (status === "listening") { const rec = recRef.current; if (rec) try { rec.stop(); } catch { /* já encerrado */ } return; }
-    if (status === "speaking") { stopSpeaking(); setStatus("idle"); if (!SR) return; }
+    if (status === "speaking") { hush(); if (!SR || busyRef.current) return; }
     if (status === "thinking") return;
     listen();
   };
@@ -492,20 +727,25 @@ export default function Jarvis({ app, setActiveTab }) {
       try {
         const p = await Promise.race([callFn({ action: "ping" }), sleep(6000).then(() => { throw new Error("tempo esgotado"); })]);
         ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!p.providers?.openai;
-      } catch (e) { console.warn("[yoetz] ping:", e.message); }
+      } catch (e) { console.warn("[simao] ping:", e.message); }
       if (cancelled) return;
       setOnline(ok); setNeuralOk(neural);
       const pref = getPref("jarvis_voice", "auto");
       voiceRef.current = pref === "auto" ? (neural ? "neural" : "browser") : pref === "neural" && !neural ? "browser" : pref;
+      const rows = await db.select("assistant_memory").catch(() => []);
+      if (cancelled) return;
+      setMemory((Array.isArray(rows) ? rows : []).map(r => ({ id: r.id, content: r.content })));
       if (!mem.greeted) {
         mem.greeted = true;
+        const saved = loadConversation();
+        if (saved && !mem.msgs.length) { mem.api = saved.api; mem.msgs = saved.msgs; setMsgs(mem.msgs); }
         const hello = greeting(appRef.current);
         push({ k: "j", text: hello });
         if (!ok) push({ k: "e", text: "Não consegui falar com o servidor de IA. Os painéis funcionam; os comandos, não." });
         speak(hello);
       }
     })();
-    const onKey = e => { if (e.key === "Escape") { stopSpeaking(); if (statusRef.current === "speaking") setStatus("idle"); } };
+    const onKey = e => { if (e.key === "Escape" && statusRef.current === "speaking") hush(); };
     window.addEventListener("keydown", onKey);
     return () => {
       cancelled = true; aliveRef.current = false; wakeRef.current = false;
@@ -521,12 +761,18 @@ export default function Jarvis({ app, setActiveTab }) {
   const isAdmin = !app.currentProfile || app.currentProfile.role === "admin";
   const agenda = [...s.overdue.slice(0, 4), ...s.dueToday.slice(0, 4)].slice(0, 6);
   const upcoming = agenda.length < 6 ? s.week.slice(0, 6 - agenda.length) : [];
-  const stateLabel = { idle: wake ? "Ouvindo — diga “Yoetz”" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
-  const hint = pending ? "Diga sim ou não" : status === "listening" ? (wake ? "Pode falar" : "Toque para encerrar") : status === "speaking" ? "Toque para interromper" : status === "thinking" ? "" : wake ? "Diga “Yoetz” e o pedido" : SR ? "Toque no núcleo para falar" : "Voz indisponível neste navegador — digite abaixo";
+  const stateLabel = { idle: wake ? "Ouvindo — diga “Simão”" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
+  const hint = pending ? "Diga sim ou não" : status === "listening" ? (wake ? "Pode falar" : "Toque para encerrar") : status === "speaking" ? (wake ? "Diga “Simão” ou toque para interromper" : "Toque para interromper") : status === "thinking" ? "" : wake ? "Diga “Simão” e o pedido" : SR ? "Toque no núcleo para falar" : "Voz indisponível neste navegador — digite abaixo";
   const voiceLabel = { neural: "Voz neural", browser: "Voz padrão", off: "Voz desligada" }[effectiveVoice];
   const pickVoiceMode = next => {
     setVoiceState(next); setPref("jarvis_voice", next);
     if (next === "off") { stopSpeaking(); if (statusRef.current === "speaking") setStatus("idle"); }
+  };
+  const newConversation = () => {
+    cancelTurn(); stopRec();
+    mem.api = []; mem.msgs = []; undoStack.current = [];
+    setMsgs([]); setStatus("idle");
+    try { localStorage.removeItem(convKey()); } catch { /* armazenamento indisponível */ }
   };
   const submit = e => { e.preventDefault(); const t = input; setInput(""); if (pendingRef.current) heard(t); else send(t); };
   const taskRow = t => {
@@ -545,14 +791,28 @@ export default function Jarvis({ app, setActiveTab }) {
       <style>{CSS}</style>
 
       <div className="jv-top">
-        <span className="jv-brand">YOETZ</span>
+        <span className="jv-brand">SIMÃO</span>
         <span className="jv-state"><i style={online === false ? { background: "var(--bad)", boxShadow: "0 0 8px var(--bad)" } : undefined} />{online === false ? "Offline" : stateLabel}</span>
         <div className="jv-ctl">
-          <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Yoetz” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
-          <button className={"jv-btn" + (showVoice ? " on" : "")} onClick={() => setShowVoice(v => !v)} aria-expanded={showVoice}>{voiceLabel}</button>
+          <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
+          <button className={"jv-btn" + (showVoice ? " on" : "")} onClick={() => { setShowVoice(v => !v); setShowMem(false); }} aria-expanded={showVoice}>{voiceLabel}</button>
+          <button className={"jv-btn" + (showMem ? " on" : "")} onClick={() => { setShowMem(v => !v); setShowVoice(false); }} aria-expanded={showMem} title="O que o Simão guardou para as próximas conversas">Memória · {memItems.length}</button>
+          <button className="jv-btn" onClick={newConversation} disabled={status === "thinking"} title="Apaga a conversa atual da tela e do contexto. A memória permanente continua.">Nova conversa</button>
           <button className="jv-btn" onClick={() => { const t = theme === "stark" ? "yoetz" : "stark"; setTheme(t); setPref("jarvis_theme", t); }}>Tema {theme === "stark" ? "Stark" : "YOETZ"}</button>
           <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
         </div>
+        {showMem && (
+          <div className="jv-pop wide">
+            <span style={{ letterSpacing: ".1em", textTransform: "uppercase", fontSize: 9 }}>Memória permanente</span>
+            {memItems.length === 0 && <p className="jv-empty" style={{ margin: 0 }}>Nada guardado ainda. Diga, por exemplo: “Simão, lembre que a Iris cuida do departamento pessoal”.</p>}
+            {memItems.map(m => (
+              <div className="jv-mem" key={m.id}>
+                <span>{m.content}</span>
+                <button onClick={() => memoryApi.remove(m.id)} aria-label="Apagar esta lembrança" title="Apagar">×</button>
+              </div>
+            ))}
+          </div>
+        )}
         {showVoice && (
           <div className="jv-pop">
             <label>Tipo de voz
@@ -606,7 +866,7 @@ export default function Jarvis({ app, setActiveTab }) {
 
         <div className="jv-mid">
           <button ref={coreRef} className={"jv-core is-" + status + (hasAmp ? "" : " no-amp")} onClick={onCore}
-            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Yoetz"}>
+            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
             <Reactor />
           </button>
           <p className="jv-hint">{hint}</p>
@@ -615,6 +875,7 @@ export default function Jarvis({ app, setActiveTab }) {
             {msgs.map((m, i) => m.k === "a"
               ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
               : <div key={i} className={"jv-m " + m.k}>{m.text}</div>)}
+            {live && <div className="jv-m j live">{live}</div>}
             {interim && <div className="jv-m i">{interim}</div>}
           </div>
 
@@ -670,7 +931,7 @@ export default function Jarvis({ app, setActiveTab }) {
           ))}
         </div>
         <form className="jv-in" onSubmit={submit}>
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Yoetz" />
+          <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
           <button className="jv-btn on" type="submit" disabled={!input.trim() || (status === "thinking" && !pending)}>Enviar</button>
         </form>
       </div>

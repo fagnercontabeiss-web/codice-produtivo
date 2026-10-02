@@ -267,8 +267,11 @@ export function buildContext(app) {
 
 // ── Execução ───────────────────────────────────────────────────────────────
 // env: { setActiveTab(tab), confirm(texto) -> Promise<boolean>,
-//        verify?(tabela, id, linha => boolean) -> Promise<boolean> }  confere a gravação no banco
-// Devolve { result, log? } — result vai para o modelo, log aparece na tela.
+//        verify?(tabela, id, linha => boolean) -> Promise<boolean>,   confere a gravação no banco
+//        memory?: { list(), add(texto), remove(id) },                 memória permanente
+//        undoLast?() -> Promise<string|null> }                        desfaz a última alteração
+// Devolve { result, log?, undo? } — result vai para o modelo, log aparece na tela e
+// undo ({ label, run }) entra na pilha do "desfazer".
 export async function runTool(name, input, app, env) {
   const today = todayStr();
   const a = input || {};
@@ -402,13 +405,14 @@ export async function runTool(name, input, app, env) {
       const out = { ok: true, tarefa: taskView({ ...app, tasks: [task] }, task, today) };
       if (cat.unknown) out.aviso = `Categoria "${a.categoria}" não existe; usei a padrão.`;
       if (a.cliente && !clientId) out.aviso_cliente = `Cliente "${a.cliente}" não encontrado; a tarefa ficou sem cliente.`;
-      return { result: out, log: { kind: "create", text: `Tarefa criada: ${title}`, detail: fmtBR(task.dueDate) + (clientName ? " · " + clientName : "") } };
+      return { result: out, log: { kind: "create", text: `Tarefa criada: ${title}`, detail: fmtBR(task.dueDate) + (clientName ? " · " + clientName : "") } , undo: { label: `criação da tarefa "${title}"`, run: () => app.deleteTask(task.id) } };
     }
 
     case "atualizar_tarefa": {
       const blocked = writeBlocked(); if (blocked) return blocked;
       const { t, e } = getTask(a.id); if (e) return e;
       const patch = { id: t.id };
+      const before = { id: t.id, title: t.title, dueDate: t.dueDate, priority: t.priority, categoryId: t.categoryId, assignedTo: t.assignedTo, notes: t.notes || "" };
       const changes = [];
       if (a.titulo && String(a.titulo).trim() !== t.title) { patch.title = String(a.titulo).trim(); changes.push("título"); }
       if (a.data !== undefined && a.data !== "") {
@@ -434,7 +438,7 @@ export async function runTool(name, input, app, env) {
       await app.updateTask(patch);
       const col = { title: "title", dueDate: "due_date", priority: "priority", categoryId: "category_id", assignedTo: "assigned_to", notes: "notes" };
       if (!await saved("tasks", t.id, r => !!r && Object.keys(col).every(k => patch[k] === undefined || r[col[k]] === patch[k]))) return unsaved(t.title);
-      return { result: { ok: true, alterado: changes, tarefa: taskView(app, { ...t, ...patch }, today) }, log: { kind: "update", text: `Tarefa atualizada: ${patch.title || t.title}`, detail: changes.join(" · ") } };
+      return { result: { ok: true, alterado: changes, tarefa: taskView(app, { ...t, ...patch }, today) }, log: { kind: "update", text: `Tarefa atualizada: ${patch.title || t.title}`, detail: changes.join(" · ") } , undo: { label: `alteração da tarefa "${t.title}"`, run: () => app.updateTask(before) } };
     }
 
     case "concluir_tarefa": {
@@ -446,7 +450,7 @@ export async function runTool(name, input, app, env) {
       if (!await saved("tasks", t.id, r => !!r && r.completed === want)) return unsaved(t.title);
       const out = { ok: true, tarefa: t.title, concluida: want };
       if (want && t.isRecurring && t.recurrenceType) out.observacao = "Recorrente: a próxima ocorrência foi criada.";
-      return { result: out, log: { kind: want ? "done" : "update", text: `${want ? "Concluída" : "Reaberta"}: ${t.title}` } };
+      return { result: out, log: { kind: want ? "done" : "update", text: `${want ? "Concluída" : "Reaberta"}: ${t.title}` } , undo: { label: `${want ? "conclusão" : "reabertura"} da tarefa "${t.title}"`, run: () => app.toggleTaskCompletion(t.id) } };
     }
 
     case "excluir_tarefa": {
@@ -456,7 +460,7 @@ export async function runTool(name, input, app, env) {
       if (!ok) return { result: { ok: false, cancelado_pelo_usuario: true } };
       await app.deleteTask(t.id);
       if (!await saved("tasks", t.id, r => !r)) return unsaved(t.title);
-      return { result: { ok: true, excluida: t.title }, log: { kind: "delete", text: `Tarefa excluída: ${t.title}` } };
+      return { result: { ok: true, excluida: t.title }, log: { kind: "delete", text: `Tarefa excluída: ${t.title}` } , undo: { label: `exclusão da tarefa "${t.title}"`, run: () => app.addTask({ ...t }) } };
     }
 
     case "tarefas_em_lote": {
@@ -482,6 +486,8 @@ export async function runTool(name, input, app, env) {
       if (!targets.length) return err("Nenhuma das tarefas informadas pode ser alterada: " + JSON.stringify(skipped.slice(0, 8)));
       if (targets.length > 5 && !await env.confirm(`Alterar ${targets.length} tarefas de uma vez (${label})?`)) return { result: { ok: false, cancelado_pelo_usuario: true } };
       const col = { dueDate: "due_date", priority: "priority", assignedTo: "assigned_to" };
+      const prev = targets.map(t => ({ id: t.id, dueDate: t.dueDate, priority: t.priority, assignedTo: t.assignedTo }));
+      const undoBatch = async () => { for (const b of prev) { if (acao === "concluir") await app.toggleTaskCompletion(b.id); else await app.updateTask(b); } };
       for (const t of targets) {
         if (acao === "concluir") await app.toggleTaskCompletion(t.id); else await app.updateTask({ id: t.id, ...patch });
       }
@@ -490,7 +496,7 @@ export async function runTool(name, input, app, env) {
       const result = { ok: failed.length === 0, alteradas: targets.length - failed.length, titulos: targets.filter((_, i) => checks[i]).slice(0, 8).map(t => t.title) };
       if (skipped.length) result.ignoradas = skipped.slice(0, 8);
       if (failed.length) result.erro = `${failed.length} tarefa(s) não tiveram a gravação confirmada no servidor: ${failed.slice(0, 5).map(t => t.title).join("; ")}`;
-      return { result, log: { kind: failed.length ? "warn" : acao === "concluir" ? "done" : "update", text: `${targets.length - failed.length} tarefas ${label}`, detail: failed.length ? `${failed.length} sem confirmação` : "" } };
+      return { result, log: { kind: failed.length ? "warn" : acao === "concluir" ? "done" : "update", text: `${targets.length - failed.length} tarefas ${label}`, detail: failed.length ? `${failed.length} sem confirmação` : "" } , undo: { label: `alteração em lote de ${targets.length} tarefas`, run: undoBatch } };
     }
 
     case "metas_semana": {
@@ -504,7 +510,7 @@ export async function runTool(name, input, app, env) {
         const g = { id: uid(), title, completed: false, createdAt: new Date().toISOString() };
         await app.addWeeklyGoal(g);
         if (!await saved("weekly_goals", g.id, r => !!r)) return unsaved(title);
-        return { result: { ok: true, meta: title }, log: { kind: "create", text: `Meta da semana: ${title}` } };
+        return { result: { ok: true, meta: title }, log: { kind: "create", text: `Meta da semana: ${title}` } , undo: { label: `criação da meta "${title}"`, run: () => app.deleteWeeklyGoal(g.id) } };
       }
       if (acao === "concluir") {
         const r = find(goals, a.id || a.titulo, "title");
@@ -512,7 +518,7 @@ export async function runTool(name, input, app, env) {
         if (r.item.completed) return { result: { ok: true, sem_alteracao: true } };
         await app.toggleWeeklyGoalCompletion(r.item.id);
         if (!await saved("weekly_goals", r.item.id, row => !!row && row.completed === true)) return unsaved(r.item.title);
-        return { result: { ok: true, meta: r.item.title, concluida: true }, log: { kind: "done", text: `Meta concluída: ${r.item.title}` } };
+        return { result: { ok: true, meta: r.item.title, concluida: true }, log: { kind: "done", text: `Meta concluída: ${r.item.title}` } , undo: { label: `conclusão da meta "${r.item.title}"`, run: () => app.toggleWeeklyGoalCompletion(r.item.id) } };
       }
       return err("acao deve ser listar, criar ou concluir.");
     }
@@ -533,7 +539,7 @@ export async function runTool(name, input, app, env) {
       await app.updateStep({ ...step, status: "concluido", completedAt: today });
       if (!await saved("onboarding_steps", step.id, row => !!row && row.status === "concluido")) return unsaved(step.title);
       const left = steps.filter(x => x.id !== step.id);
-      return { result: { ok: true, onboarding: r.item.title, etapa_concluida: step.title, etapas_pendentes: left.length, proxima_etapa: left[0]?.title || null }, log: { kind: "done", text: `Etapa concluída: ${step.title}`, detail: r.item.title } };
+      return { result: { ok: true, onboarding: r.item.title, etapa_concluida: step.title, etapas_pendentes: left.length, proxima_etapa: left[0]?.title || null }, log: { kind: "done", text: `Etapa concluída: ${step.title}`, detail: r.item.title } , undo: { label: `conclusão da etapa "${step.title}"`, run: () => app.updateStep({ ...step }) } };
     }
 
     case "listar_habitos": {
@@ -553,7 +559,7 @@ export async function runTool(name, input, app, env) {
       if (has === want) return { result: { ok: true, sem_alteracao: true } };
       await app.toggleHabitCompletion(r.item.id, day);
       if (!await saved("habits", r.item.id, row => !!row && (row.completed_dates || []).includes(day) === want)) return unsaved(r.item.title);
-      return { result: { ok: true, habito: r.item.title, data: day, feito: want }, log: { kind: want ? "done" : "update", text: `Hábito ${want ? "feito" : "desmarcado"}: ${r.item.title}`, detail: day === today ? "hoje" : fmtBR(day) } };
+      return { result: { ok: true, habito: r.item.title, data: day, feito: want }, log: { kind: want ? "done" : "update", text: `Hábito ${want ? "feito" : "desmarcado"}: ${r.item.title}`, detail: day === today ? "hoje" : fmtBR(day) } , undo: { label: `marcação do hábito "${r.item.title}"`, run: () => app.toggleHabitCompletion(r.item.id, day) } };
     }
 
     case "buscar_clientes": {
@@ -585,9 +591,10 @@ export async function runTool(name, input, app, env) {
       const r = find(app.clients || [], a.id);
       if (!r.item) return err(r.ambiguous ? `Mais de um cliente combina: ${r.ambiguous.map(x => x.nome).join(", ")}.` : "Cliente não encontrado. Use buscar_clientes.");
       if (r.item.paymentStatus === a.status) return { result: { ok: true, sem_alteracao: true } };
+      const prevPay = r.item.paymentStatus;
       await app.updateClient({ id: r.item.id, paymentStatus: a.status });
       if (!await saved("clients", r.item.id, row => !!row && row.payment_status === a.status)) return unsaved(r.item.name);
-      return { result: { ok: true, cliente: r.item.name, pagamento: a.status }, log: { kind: "update", text: `Pagamento ${a.status === "paid" ? "confirmado" : "marcado como pendente"}: ${r.item.name}` } };
+      return { result: { ok: true, cliente: r.item.name, pagamento: a.status }, log: { kind: "update", text: `Pagamento ${a.status === "paid" ? "confirmado" : "marcado como pendente"}: ${r.item.name}` } , undo: { label: `pagamento de ${r.item.name}`, run: () => app.updateClient({ id: r.item.id, paymentStatus: prevPay }) } };
     }
 
     case "registrar_evento_cliente": {
@@ -600,7 +607,7 @@ export async function runTool(name, input, app, env) {
       const evId = uid();
       await app.addClientEvent({ id: evId, clientId: r.item.id, type: types.includes(a.tipo) ? a.tipo : "note", title, content: String(a.conteudo || ""), date: today, resolved: false });
       if (!await saved("client_events", evId, row => !!row)) return unsaved(title);
-      return { result: { ok: true, cliente: r.item.name, registro: title }, log: { kind: "create", text: `Registro em ${r.item.name}`, detail: title } };
+      return { result: { ok: true, cliente: r.item.name, registro: title }, log: { kind: "create", text: `Registro em ${r.item.name}`, detail: title } , undo: { label: `registro em ${r.item.name}`, run: () => app.deleteClientEvent(evId) } };
     }
 
     case "listar_onboardings": {
@@ -637,6 +644,34 @@ export async function runTool(name, input, app, env) {
       return { result: { janela_dias: win, total: list.length, datas: list.slice(0, 25) } };
     }
 
+    case "lembrar": {
+      if (!env.memory) return err("A memória permanente não está disponível agora.");
+      const fact = String(a.fato || "").replace(/\s+/g, " ").trim().slice(0, 300);
+      if (fact.length < 4) return err("Faltou o que devo lembrar.");
+      if (/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|senha|password/i.test(fact)) return err("Não guardo senhas nem números de documentos na memória.");
+      const items = env.memory.list();
+      if (items.some(m => norm(m.content) === norm(fact))) return { result: { ok: true, ja_sabia: true } };
+      if (items.length >= 60) return err("A memória está cheia (60 itens). Peça ao usuário para esquecer algo antes.");
+      const item = await env.memory.add(fact);
+      if (!item) return unsaved(fact);
+      return { result: { ok: true, guardado: fact }, log: { kind: "create", text: "Memória guardada", detail: fact }, undo: { label: `lembrança "${clip(fact, 50)}"`, run: () => env.memory.remove(item.id) } };
+    }
+
+    case "esquecer": {
+      if (!env.memory) return err("A memória permanente não está disponível agora.");
+      const items = env.memory.list();
+      const r = find(items, a.trecho, "content");
+      if (!r.item) return err(r.ambiguous ? "Mais de um item combina. Pergunte qual: " + JSON.stringify(r.ambiguous.map(x => ({ id: x.id, texto: x.nome }))) : "Não encontrei isso na memória.");
+      if (!await env.memory.remove(r.item.id)) return unsaved(r.item.content);
+      return { result: { ok: true, esquecido: r.item.content }, log: { kind: "delete", text: "Memória apagada", detail: r.item.content }, undo: { label: `esquecimento de "${clip(r.item.content, 50)}"`, run: () => env.memory.add(r.item.content) } };
+    }
+
+    case "desfazer": {
+      const label = env.undoLast ? await env.undoLast() : null;
+      if (!label) return err("Não há nenhuma alteração minha para desfazer nesta sessão.");
+      return { result: { ok: true, desfeito: label }, log: { kind: "update", text: "Desfeito", detail: label } };
+    }
+
     case "abrir_tela": {
       if (!SCREENS[a.tela]) return err("Tela desconhecida.");
       const p = app.currentProfile;
@@ -658,18 +693,19 @@ export function fmtBR(d) {
 }
 
 // ── Voz ────────────────────────────────────────────────────────────────────
-// O reconhecimento de voz não conhece a palavra "Yoetz" e a escreve de várias
-// formas ("ioets", "yo etz", "ioétis"...). Aceitamos o que soar parecido.
-const WAKE_TARGETS = ["yoetz", "yoets", "ioetz", "ioets", "ioetis", "yoetis", "joetz", "iuets", "ioeds"];
+// Nome de ativação: "Simão". É uma palavra comum do português, então o
+// reconhecimento de voz acerta quase sempre; aceitamos também grafias vizinhas.
+const WAKE_TARGETS = ["simao", "simon", "cimao", "simaum", "simau", "simaom"];
 const plain = w => String(w).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 export function matchWake(text) {
   const raw = String(text || "").trim().split(/\s+/);
   const w = raw.map(plain);
   for (let i = 0; i < w.length; i++) {
-    for (const span of [1, 2]) {
+    for (const span of [1]) {
       if (i + span > w.length) continue;
       const cand = w.slice(i, i + span).join("");
-      const hit = cand === "assistente" || (cand.length >= 4 && cand.length <= 8 && WAKE_TARGETS.some(t => lev(cand, t) <= 1));
+      // Só vale se começar com o som de "si": "limão" e "sermão" ficam de fora.
+      const hit = WAKE_TARGETS.includes(cand) || (span === 1 && /^[sc]i/.test(cand) && cand.length >= 5 && cand.length <= 6 && lev(cand, "simao") <= 1);
       if (hit) return raw.slice(i + span).join(" ").replace(/^[\s,.!?:;-]+/, "");
     }
   }
@@ -689,3 +725,8 @@ export function splitSpeech(text) {
   if (buf) out.push(buf);
   return out.slice(0, 8);
 }
+
+// Respostas de confirmação faladas ("sim", "pode", "não", "cancela").
+const answer = t => plain(String(t || "").trim().split(/\s+/).filter(w => !WAKE_TARGETS.includes(plain(w))).join(" ").split(/\s+/)[0] || "");
+export const saidYes = t => /^(sim|confirmo?|confirma|confirmar|pode|isso|exclui|excluir|apaga|apagar|manda|claro|positivo|ok|certo|faz|faca)$/.test(answer(t));
+export const saidNo = t => /^(nao|cancela|cancelar|cancele|deixa|esquece|negativo|para|pare)$/.test(answer(t));

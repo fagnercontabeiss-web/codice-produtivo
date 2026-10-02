@@ -754,7 +754,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         { id: "dashboard", label: "Dashboard", icon: Icon.Dashboard },
         { id: "tasks",     label: "Tarefas",         icon: Icon.Tasks },
         { id: "habits",    label: "Hábitos e Rotina", icon: Icon.Habits },
-        { id: "jarvis",    label: "Yoetz · Assistente", icon: Icon.Sparkles },
+        { id: "jarvis",    label: "Simão · Assistente", icon: Icon.Sparkles },
       ]
     },
     {
