@@ -37,7 +37,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function callFn(body, wantBlob = false) {
   const once = async () => {
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), body.action === "chat" ? 45000 : 20000);
+    const timer = setTimeout(() => ctl.abort(), body.action === "search" ? 60000 : body.action === "chat" ? 45000 : 20000);
     try {
       return await fetch(FN_URL, {
         method: "POST", signal: ctl.signal,
@@ -215,27 +215,21 @@ const CSS = `
 .jv-clock{font-size:10px;letter-spacing:.18em;color:var(--faint)}
 .jv-ctl{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;position:relative}
 .jv-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:0 24px}
-.jv-clockbox{position:relative;display:flex;align-items:center;gap:clamp(14px,2.4vw,34px);padding:9px 26px 8px;flex-shrink:0;border-top:1px solid rgba(var(--a-rgb),.28);border-bottom:1px solid rgba(var(--a-rgb),.28);background:rgba(var(--a-rgb),.035);box-shadow:0 0 30px rgba(var(--a-rgb),.08)}
-.jv-clockbox::before,.jv-clockbox::after{content:"";position:absolute;top:-1px;bottom:-1px;width:9px;border:1px solid var(--a)}
-.jv-clockbox::before{left:0;border-right:0}.jv-clockbox::after{right:0;border-left:0}
-.jv-time{font-size:clamp(26px,4.2vh,40px);font-weight:300;letter-spacing:.14em;color:var(--a);text-shadow:0 0 18px rgba(var(--a-rgb),.75);line-height:1}
-.jv-date{display:block;margin-top:5px;font-size:9px;letter-spacing:.3em;color:var(--faint);text-align:center;text-transform:uppercase}
-.jv-ro{font:inherit;color:inherit;background:none;border:0;padding:2px 4px;cursor:pointer;text-align:center;min-width:64px}
-.jv-ro b{display:block;font-size:17px;font-weight:400;line-height:1;color:var(--a)}
-.jv-ro b.bad{color:var(--bad);text-shadow:0 0 12px rgba(255,107,94,.6)}
-.jv-ro small{display:block;margin-top:5px;font-size:8px;letter-spacing:.26em;text-transform:uppercase;color:var(--faint)}
-.jv-ro:hover small{color:var(--ink)}
+.jv-ro{font:inherit;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);background:none;border:0;padding:2px 0;cursor:pointer;display:inline-flex;align-items:baseline;gap:6px}
+.jv-ro b{font-size:13px;font-weight:500;letter-spacing:0;color:var(--a)}
+.jv-ro b.bad{color:var(--bad)}
+.jv-ro:hover{color:var(--ink)}
 .jv-core{--amp:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(680px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
 .jv-core canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.jv-talkbox{width:100%;max-width:760px;flex-shrink:0;max-height:26vh;display:flex;flex-direction:column;align-items:center;min-height:0}
-.jv-mics{display:flex;align-items:center;justify-content:center;gap:14px;flex-shrink:0;margin-top:10px}
-.jv-round{width:54px;height:54px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:rgba(var(--a-rgb),.07);color:var(--a);cursor:pointer;display:grid;place-items:center;transition:box-shadow .2s,background .2s,transform .12s;box-shadow:0 0 14px rgba(var(--a-rgb),.18)}
+.jv-talkbox{width:100%;max-width:760px;flex-shrink:0;max-height:36vh;display:flex;flex-direction:column;align-items:center;min-height:0}
+.jv-mics{display:flex;align-items:center;justify-content:center;gap:11px;flex-shrink:0;margin-top:10px}
+.jv-round{width:40px;height:40px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:rgba(var(--a-rgb),.07);color:var(--a);cursor:pointer;display:grid;place-items:center;transition:box-shadow .2s,background .2s,transform .12s;box-shadow:0 0 14px rgba(var(--a-rgb),.18)}
 .jv-round:hover{background:rgba(var(--a-rgb),.16);transform:scale(1.05)}
 .jv-round.live{background:rgba(var(--a-rgb),.24);box-shadow:0 0 0 5px rgba(var(--a-rgb),.1),0 0 28px rgba(var(--a-rgb),.7);animation:jv-ring 1.6s ease-out infinite}
-.jv-round.sm{width:42px;height:42px}
+.jv-round.sm{width:32px;height:32px}
 .jv-round:disabled{opacity:.35;cursor:not-allowed;transform:none}
 .jv-round:focus-visible{outline:2px solid var(--a);outline-offset:3px}
-.jv-round svg{width:21px;height:21px}.jv-round.sm svg{width:17px;height:17px}
+.jv-round svg{width:17px;height:17px}.jv-round.sm svg{width:14px;height:14px}
 @keyframes jv-ring{0%{box-shadow:0 0 0 0 rgba(var(--a-rgb),.45),0 0 28px rgba(var(--a-rgb),.7)}100%{box-shadow:0 0 0 16px rgba(var(--a-rgb),0),0 0 28px rgba(var(--a-rgb),.7)}}
 @keyframes jv-blink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes jv-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -248,10 +242,14 @@ const CSS = `
 .jv-cap.old{font-size:14px;color:var(--dim)}
 .jv-err{font-size:13px;color:var(--bad);text-align:center}
 .jv-act{font-size:11px;color:var(--dim);border:1px solid rgba(var(--a-rgb),.25);border-left:2px solid var(--a);padding:4px 10px;animation:jv-in .25s ease-out}
+.jv-links{display:flex;flex-direction:column;gap:3px;margin-top:5px}
+.jv-links a{color:var(--a);text-decoration:none;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(520px,78vw)}
+.jv-links a::before{content:"↗ ";opacity:.7}
+.jv-links a:hover{text-decoration:underline}
 .jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-left-color:var(--bad)}.jv-act.done{border-left-color:var(--ok)}.jv-act.warn{border-left-color:var(--warn);color:var(--warn)}
 .jv-confirm{width:100%;max-width:640px;border:1px solid var(--bad);background:rgba(255,107,94,.09);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
 .jv-confirm p{margin:0;flex:1;min-width:160px}
-.jv-foot{position:relative;z-index:3;padding:0 30px 18px;min-height:18px}
+.jv-foot{position:relative;z-index:3;padding:10px 30px 18px;min-height:18px}
 .jv-in{display:flex;gap:8px;max-width:680px;margin:0 auto}
 .jv-in input{flex:1;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.25);border-radius:3px;padding:11px 13px}
 .jv-in input::placeholder{color:var(--faint)}
@@ -306,8 +304,6 @@ const CSS = `
 
 @media (max-width:820px){
   .jv-top{padding:14px 18px 0}
-  .jv-clockbox{padding:8px 16px 7px;gap:12px;margin-top:8px}
-  .jv-ro{min-width:50px}.jv-ro b{font-size:15px}
   .jv-foot{padding:0 16px 14px}.jv-in input{font-size:16px}
   .jv-corner{display:none}
 }
@@ -416,17 +412,6 @@ function Sphere({ status, points = 950 }) {
 const MicIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>;
 const StopIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>;
 const KeyIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M7 11h.01M11 11h.01M15 11h.01M8 14.5h8" /></svg>;
-
-function Clock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
-  return (
-    <div>
-      <div className="jv-time jv-mono">{now.toLocaleTimeString("pt-BR")}</div>
-      <span className="jv-date jv-mono">{now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }).replace(".", "")}</span>
-    </div>
-  );
-}
 
 // mode: "full" na aba do Simão; "dock" (núcleo flutuante) nas outras telas.
 // É sempre a mesma instância, então a escuta e a conversa continuam ao trocar de tela.
@@ -662,6 +647,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     const env = {
       setActiveTab, confirm: confirmAction, verify: verifySaved, memory: memoryApi,
       undoLast: async () => { const u = undoStack.current.pop(); if (!u) return null; await u.run(); return u.label; },
+      remote: (action, data) => callFn({ ...data, action }),
     };
     // Um locutor por pedido; se uma confirmação o interromper, cria outro para o resto.
     let sp = null;
@@ -955,7 +941,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     <div className="jv-turn" ref={talkRef} aria-live="polite">
       {turn.map((m, i) =>
         m.k === "u" ? <div key={i} className="jv-you">{m.text}</div>
-        : m.k === "a" ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
+        : m.k === "a" ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}{m.links?.length > 0 && <span className="jv-links">{m.links.map((l, j) => <a key={j} href={l.url} target="_blank" rel="noopener noreferrer">{String(l.titulo || l.url).slice(0, 60)}</a>)}</span>}</div>
         : m.k === "e" ? <div key={i} className="jv-err">{m.text}</div>
         : <div key={i} className={"jv-cap" + (i === lastReply && !live ? "" : " old")}>{m.text}</div>)}
       {live && <div className="jv-cap">{live}</div>}
@@ -1019,7 +1005,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   // ── Tela cheia ───────────────────────────────────────────────────────────
   const readout = (value, label, question, bad) => (
     <button className="jv-ro" onClick={() => ask(question)} title={question}>
-      <b className={"jv-mono" + (bad ? " bad" : "")}>{value}</b><small>{label}</small>
+      <b className={"jv-mono" + (bad ? " bad" : "")}>{value}</b>{label}
     </button>
   );
   return (
@@ -1030,6 +1016,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       <div className="jv-top">
         <span className="jv-brand">SIMÃO</span>
         {stateView}
+        {readout(s.dueToday.length, "hoje", "O que tenho para hoje?")}
+        {readout(s.overdue.length, "atrasadas", "O que está atrasado?", s.overdue.length > 0)}
         <div className="jv-ctl">
           <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
           <button className={"jv-btn" + (showPanels ? " on" : "")} onClick={() => { setShowPanels(v => !v); setShowSet(false); }} aria-expanded={showPanels}>Painéis</button>
@@ -1079,12 +1067,6 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       </div>
 
       <div className="jv-stage">
-        <div className="jv-clockbox">
-          {readout(s.dueToday.length, "Hoje", "O que tenho para hoje?")}
-          <Clock />
-          {readout(s.overdue.length, "Atrasadas", "O que está atrasado?", s.overdue.length > 0)}
-        </div>
-
         <button ref={coreRef} className="jv-core" onClick={onCore}
           aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
           <Sphere status={status} />

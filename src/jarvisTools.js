@@ -269,7 +269,8 @@ export function buildContext(app) {
 // env: { setActiveTab(tab), confirm(texto) -> Promise<boolean>,
 //        verify?(tabela, id, linha => boolean) -> Promise<boolean>,   confere a gravação no banco
 //        memory?: { list(), add(texto), remove(id) },                 memória permanente
-//        undoLast?() -> Promise<string|null> }                        desfaz a última alteração
+//        undoLast?() -> Promise<string|null>,                         desfaz a última alteração
+//        remote?(acao, dados) -> Promise<objeto> }                    pesquisa e cotações, no servidor
 // Devolve { result, log?, undo? } — result vai para o modelo, log aparece na tela e
 // undo ({ label, run }) entra na pilha do "desfazer".
 export async function runTool(name, input, app, env) {
@@ -642,6 +643,32 @@ export async function runTool(name, input, app, env) {
       const list = (app.relationships || []).map(r => ({ nome: r.name, tipo: r.type, em_dias: daysUntil(r, today) }))
         .filter(r => r.em_dias !== null && r.em_dias <= win).sort((x, y) => x.em_dias - y.em_dias);
       return { result: { janela_dias: win, total: list.length, datas: list.slice(0, 25) } };
+    }
+
+    case "pesquisar_web": {
+      if (!env.remote) return err("A pesquisa na web não está disponível agora.");
+      const query = String(a.consulta || "").replace(/\s+/g, " ").trim();
+      if (query.length < 3) return err("Faltou o que pesquisar.");
+      const tipo = a.tipo === "noticias" ? "noticias" : "geral";
+      let r;
+      try { r = await env.remote("search", { query, tipo }); }
+      catch (e) { return { result: { erro: "A pesquisa falhou: " + (e?.message || "sem resposta") + " Diga isso ao usuário; não responda de memória como se fosse informação atual." }, log: { kind: "warn", text: "Pesquisa não concluída", detail: query } }; }
+      const fontes = (r.fontes || []).slice(0, 5);
+      return {
+        result: { consulta: query, pesquisado_em: `${today}`, resumo: r.texto, fontes: fontes.map(f => f.titulo) },
+        log: { kind: "nav", text: tipo === "noticias" ? "Notícias" : "Pesquisa na web", detail: query, links: fontes },
+      };
+    }
+
+    case "cotacoes": {
+      if (!env.remote) return err("As cotações não estão disponíveis agora.");
+      const ativos = Array.isArray(a.ativos) ? a.ativos.map(String).filter(Boolean).slice(0, 12) : [];
+      let r;
+      try { r = await env.remote("market", { ativos }); }
+      catch (e) { return { result: { erro: "Não consegui consultar as cotações: " + (e?.message || "sem resposta") }, log: { kind: "warn", text: "Cotações indisponíveis" } }; }
+      const { ok: _ok, ...data } = r;
+      if (!(data.cotacoes || []).length && !data.juros) return { result: { erro: "Nenhuma cotação encontrada. " + (data.falhas || []).join("; ") } };
+      return { result: data, log: { kind: "nav", text: "Cotações", detail: (data.cotacoes || []).map(c => c.ativo).slice(0, 7).join(", ") } };
     }
 
     case "lembrar": {
