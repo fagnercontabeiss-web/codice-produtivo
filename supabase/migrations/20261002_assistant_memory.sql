@@ -12,3 +12,6 @@ create policy assistant_memory_select on public.assistant_memory for select to a
 create policy assistant_memory_insert on public.assistant_memory for insert to authenticated with check ((select auth.uid()) = user_id);
 create policy assistant_memory_update on public.assistant_memory for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy assistant_memory_delete on public.assistant_memory for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- Visitantes sem login não precisam enxergar a tabela.
+revoke all on table public.assistant_memory from anon;
