@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, createContext, useContext, useCal
 import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
+import Jarvis from "./Jarvis.jsx";
 
 // ── Animações do botão de tarefa ─────────────────────────
 const taskBtnStyle = document.createElement("style");
@@ -102,7 +103,7 @@ function AppProvider({ children }) {
   const taskToDb   = t => ({ id:t.id, user_id:auth.getUserId(), title:t.title, description:t.description||"", category_id:t.categoryId, context_id:t.contextId||"codice-contabilidade", client_id:t.clientId, due_date:t.dueDate||null, completed:t.completed, is_recurring:t.isRecurring||false, recurrence_type:t.recurrenceType||null, recurrence_end_date:t.recurrenceEndDate||null, checklist:t.checklist||[], assigned_to:t.assignedTo||null, visibility:t.visibility||"all", parent_id:t.parentId||null, priority:t.priority||"normal", notes:t.notes||"" });
   const habitFromDb = r => ({ id:r.id, title:r.title||r.name||"", freq:r.frequency||"daily", freqDays:r.freq_days||[1,2,3,4,5,6,7], completedDates:r.completed_dates||[], categoryId:r.category_id||"", identity:r.identity||"", difficulty:r.difficulty||2, emoji:r.emoji||"⭐", color:r.color||"#2B5E46", isFavorite:r.is_favorite||false, timeOfDay:r.time_of_day||"morning", description:r.description||"", targetStreak:r.target_streak||21, archived:r.archived||false });
   const habitToDb   = h => ({ id:h.id, title:h.title, frequency:h.freq||"daily", freq_days:h.freqDays||[1,2,3,4,5,6,7], completed_dates:h.completedDates||[], category_id:h.categoryId||null, identity:h.identity||"", difficulty:h.difficulty||2, emoji:h.emoji||"⭐", color:h.color||"#2B5E46", is_favorite:h.isFavorite||false, time_of_day:h.timeOfDay||"morning", description:h.description||"", target_streak:h.targetStreak||21, archived:h.archived||false });
-  const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at });
+  const clientFromDb = r => ({ id:r.id, name:r.name, document:r.document, type:r.type, monthlyFee:r.monthly_fee, paymentStatus:r.payment_status, paymentMethod:r.payment_method, notes:r.notes, dueDates:r.due_dates||[], obligations:r.obligations||[], obligationStatuses:r.obligation_statuses||[], status:r.status, createdAt:r.created_at, billingSent:r.billing_sent||false, operationalStatus:r.operational_status||"healthy", priority:r.priority||"medium", responsibleId:r.responsible_id||null, tags:r.tags||[], lastInteraction:r.last_interaction||null, observations:r.observations||"" });
   const clientToDb   = c => ({ id:c.id, name:c.name||"", document:c.document||"", type:c.type||"pj", monthly_fee:parseFloat(c.monthlyFee)||0, payment_status:c.paymentStatus||"pending", payment_method:c.paymentMethod||"pix", notes:c.notes||"", due_dates:c.dueDates||[], obligations:c.obligations||[], obligation_statuses:c.obligationStatuses||[], status:c.status||"active", billing_sent:c.billingSent||false, operational_status:c.operationalStatus||"healthy", priority:c.priority||"medium", responsible_id:c.responsibleId||null, tags:c.tags||[], last_interaction:c.lastInteraction||null, observations:c.observations||"" });
   const goalFromDb = r => ({ id:r.id, title:r.title, completed:r.completed, createdAt:r.created_at });
   const goalToDb   = g => ({ id:g.id, title:g.title, completed:g.completed });
@@ -753,6 +754,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         { id: "dashboard", label: "Dashboard", icon: Icon.Dashboard },
         { id: "tasks",     label: "Tarefas",         icon: Icon.Tasks },
         { id: "habits",    label: "Hábitos e Rotina", icon: Icon.Habits },
+        { id: "jarvis",    label: "J.A.R.V.I.S.",     icon: Icon.Sparkles },
       ]
     },
     {
@@ -899,7 +901,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
             </div>
           </div>
         </header>
-        {activeTab === "habits" ? (
+        {activeTab === "habits" || activeTab === "jarvis" ? (
           <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
         ) : (
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
@@ -11384,7 +11386,8 @@ function SOPs() {
 
 function AppContent({ onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { currentProfile } = useApp();
+  const app = useApp();
+  const { currentProfile } = app;
   const isAdmin    = !currentProfile || currentProfile.role === "admin";
   const isColab    = currentProfile?.role === "colaborador";
   const isViewer   = currentProfile?.role === "visualizador";
@@ -11430,6 +11433,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
       {activeTab === "codiceai" && <YoetzIA />}
+      {activeTab === "jarvis" && <Jarvis app={app} setActiveTab={setActiveTab} />}
       {activeTab === "sops" && <SOPs />}
       {activeTab === "workload" && <Workload />}
       {isAdmin   && activeTab === "team" && <Team />}
