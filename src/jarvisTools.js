@@ -10,10 +10,72 @@ export const dateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d
 export const todayStr = () => dateStr(new Date());
 export const addDays = (str, n) => { const d = new Date(str + "T12:00:00"); d.setDate(d.getDate() + n); return dateStr(d); };
 export const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 864e5);
-const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s + "T12:00:00"));
+const isDate = s => { if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d = new Date(s + "T12:00:00"); return !isNaN(d) && dateStr(d) === s; };
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const clip = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n) + "…" : s; };
+
+// Distância de edição, para tolerar erros do reconhecimento de voz.
+export function lev(a, b) {
+  if (a === b) return 0;
+  if (!a.length || !b.length) return a.length || b.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+const STOP = new Set(["a", "o", "as", "os", "de", "da", "do", "das", "dos", "e", "para", "pra", "com", "em", "no", "na", "tarefa", "cliente", "ltda", "me", "eireli"]);
+const words = s => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
+// Todas as palavras relevantes da busca aparecem no texto (trecho ou com 1 letra de diferença).
+export function fuzzyHas(text, query) {
+  const tw = words(text);
+  const qw = words(query).filter(w => !STOP.has(w));
+  if (!qw.length) return norm(text).includes(norm(query));
+  return qw.every(q => tw.some(t => t.includes(q) || (q.length >= 4 && lev(t.slice(0, q.length + 1), q) <= 1) || (q.length >= 4 && lev(t, q) <= 1) || (q.length === 3 && t.length === 3 && t[0] === q[0] && lev(t, q) <= 1)));
+}
+
+const WD = { domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6 };
+// Aceita YYYY-MM-DD, DD/MM, DD/MM/AAAA, "hoje", "amanhã", "sexta", "próxima segunda", "dia 20", "em 3 dias".
+export function parseDate(v, today = todayStr()) {
+  if (v === undefined || v === null || v === "") return null;
+  if (isDate(v)) return v;
+  const t = norm(v).replace(/-feira/g, "").replace(/\s+/g, " ");
+  if (t === "hoje") return today;
+  if (t === "amanha") return addDays(today, 1);
+  if (t === "depois de amanha") return addDays(today, 2);
+  if (t === "ontem") return addDays(today, -1);
+  let m = t.match(/^(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?$/);
+  if (m) {
+    let y = m[3] ? Number(m[3].length === 2 ? "20" + m[3] : m[3]) : Number(today.slice(0, 4));
+    let d = `${y}-${pad(Number(m[2]))}-${pad(Number(m[1]))}`;
+    if (!m[3] && d < today) d = `${y + 1}-${pad(Number(m[2]))}-${pad(Number(m[1]))}`;
+    return isDate(d) ? d : null;
+  }
+  m = t.match(/^(?:dia )?(\d{1,2})$/);
+  if (m) {
+    const day = Number(m[1]); if (day < 1 || day > 31) return null;
+    const base = new Date(today + "T12:00:00");
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth() + i, day, 12);
+      if (d.getDate() === day && dateStr(d) >= today) return dateStr(d);
+    }
+    return null;
+  }
+  m = t.match(/^(?:em|daqui a?) ?(\d{1,3}) (dia|dias|semana|semanas)$/);
+  if (m) return addDays(today, Number(m[1]) * (m[2].startsWith("semana") ? 7 : 1));
+  if (t === "semana que vem" || t === "proxima semana") return addDays(today, 7);
+  m = t.match(/^(?:(?:na |no |nessa |nesta |essa |esta )?(proxim[ao] )?)(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?: que vem)?$/);
+  if (m) {
+    const cur = new Date(today + "T12:00:00").getDay();
+    let diff = (WD[m[2]] - cur + 7) % 7;
+    if (diff === 0) diff = 7;
+    return addDays(today, diff);
+  }
+  return null;
+}
 
 const WEEKDAYS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
 const PRIORITIES = ["normal", "alta", "urgente"];
@@ -35,6 +97,9 @@ function find(list, q, key = "name") {
   const part = list.filter(x => norm(x[key]).includes(n));
   if (part.length === 1) return { item: part[0] };
   if (part.length > 1) return { ambiguous: part.slice(0, 6).map(x => ({ id: x.id, nome: x[key] })) };
+  const fuzzy = list.filter(x => fuzzyHas(x[key], q));
+  if (fuzzy.length === 1) return { item: fuzzy[0] };
+  if (fuzzy.length > 1) return { ambiguous: fuzzy.slice(0, 6).map(x => ({ id: x.id, nome: x[key] })) };
   return { none: true };
 }
 
@@ -160,6 +225,30 @@ export function greeting(app) {
   return text;
 }
 
+// Retrato compacto do momento. Vai junto em toda rodada para o modelo responder
+// e agir sem precisar de uma consulta extra (uma ida ao servidor a menos).
+function panel(app) {
+  const s = snapshot(app);
+  const row = t => {
+    const r = { id: t.id, t: clip(t.title, 70), d: t.dueDate || null };
+    if (t.priority && t.priority !== "normal") r.p = t.priority;
+    const c = t.clientId && (app.clients || []).find(x => x.id === t.clientId);
+    if (c) r.cli = clip(c.name, 30);
+    return r;
+  };
+  const p = {
+    contagem: { hoje: s.dueToday.length, atrasadas: s.overdue.length, proximos_7_dias: s.week.length, abertas: s.open.length, concluidas_hoje: s.doneToday.length },
+    tarefas_atrasadas: s.overdue.slice(0, 15).map(row),
+    tarefas_hoje: s.dueToday.slice(0, 15).map(row),
+    tarefas_proximos_7_dias: s.week.slice(0, 15).map(row),
+    habitos: s.habits.slice(0, 20).map(h => ({ id: h.id, t: h.title, freq: h.freq, feito_hoje: (h.completedDates || []).includes(s.today) })),
+    onboardings_em_andamento: s.onbs.length,
+    projetos_ativos: s.projects.length,
+  };
+  if (isAdmin(app)) p.clientes = { ativos: s.clients.length, pagamento_pendente: s.pending.length, valor_pendente: s.pendingValue, receita_mensal: s.mrr };
+  return p;
+}
+
 // Contexto enviado ao modelo a cada rodada.
 export function buildContext(app) {
   const now = new Date();
@@ -172,11 +261,13 @@ export function buildContext(app) {
     categorias: (app.categories || []).map(c => ({ id: c.id, nome: c.name })),
     contextos: (app.contexts || []).map(c => ({ id: c.id, nome: c.name })),
     equipe: (app.teamUsers || []).filter(u => u.active !== false).map(u => ({ id: u.id, nome: u.name })),
+    painel: panel(app),
   };
 }
 
 // ── Execução ───────────────────────────────────────────────────────────────
-// env: { setActiveTab(tab), confirm(texto) -> Promise<boolean> }
+// env: { setActiveTab(tab), confirm(texto) -> Promise<boolean>,
+//        verify?(tabela, id, linha => boolean) -> Promise<boolean> }  confere a gravação no banco
 // Devolve { result, log? } — result vai para o modelo, log aparece na tela.
 export async function runTool(name, input, app, env) {
   const today = todayStr();
@@ -184,12 +275,31 @@ export async function runTool(name, input, app, env) {
   const err = msg => ({ result: { erro: msg } });
   const writeBlocked = () => role(app) === "visualizador" ? err("Seu perfil é somente leitura; não posso alterar dados.") : null;
 
-  const getTask = id => {
-    const t = (app.tasks || []).find(x => x.id === id);
-    if (!t || !canSeeTask(app, t)) return { e: err("Tarefa não encontrada. Use listar_tarefas com busca para obter o id.") };
+  const getTask = (ref, { includeDone = false } = {}) => {
+    const visible = (app.tasks || []).filter(x => canSeeTask(app, x));
+    let t = visible.find(x => x.id === ref);
+    if (!t && ref) {
+      const pool = visible.filter(x => includeDone || !x.completed);
+      const q = norm(ref);
+      let hits = pool.filter(x => norm(x.title) === q);
+      if (!hits.length) hits = pool.filter(x => norm(x.title).includes(q));
+      if (!hits.length) hits = pool.filter(x => fuzzyHas(x.title, ref));
+      if (hits.length > 1) return { e: err(`Mais de uma tarefa combina com "${ref}". Pergunte qual: ` + JSON.stringify(hits.slice(0, 6).map(x => ({ id: x.id, titulo: x.title, data: x.dueDate })))) };
+      t = hits[0];
+    }
+    if (!t) return { e: err(`Não encontrei tarefa "${ref || ""}". Use listar_tarefas com busca.`) };
     if (!canEditTask(app, t)) return { e: err("Sem permissão: a tarefa pertence a outro responsável.") };
     return { t };
   };
+  const date = v => parseDate(v, today);
+  const BAD_DATE = "Não entendi a data. Use YYYY-MM-DD.";
+  // Confere no banco se a gravação chegou; a tela atualiza antes do servidor responder.
+  const saved = async (table, id, check) => {
+    if (!env.verify) return true;
+    try { return await env.verify(table, id, check); } catch { return false; }
+  };
+  const NOT_SAVED = "A alteração apareceu na tela, mas não consegui confirmar a gravação no servidor. Pode ser a conexão; peça ao usuário para conferir antes de seguir.";
+  const unsaved = text => ({ result: { erro: NOT_SAVED }, log: { kind: "warn", text: "Gravação não confirmada", detail: text } });
   const resolveCategory = q => {
     if (!q) return { id: null };
     const r = find(app.categories || [], q);
@@ -227,7 +337,8 @@ export async function runTool(name, input, app, env) {
     case "listar_tarefas": {
       let list = (app.tasks || []).filter(t => canSeeTask(app, t));
       const p = a.periodo || (a.busca ? "abertas" : "hoje");
-      if (p === "data" && !isDate(a.data)) return err("Informe data no formato YYYY-MM-DD.");
+      const onDate = date(a.data);
+      if (p === "data" && !onDate) return err("Informe data no formato YYYY-MM-DD.");
       const filters = {
         hoje: t => !t.completed && t.dueDate === today,
         amanha: t => !t.completed && t.dueDate === addDays(today, 1),
@@ -235,13 +346,13 @@ export async function runTool(name, input, app, env) {
         semana: t => !t.completed && t.dueDate >= today && t.dueDate <= addDays(today, 7),
         abertas: t => !t.completed,
         concluidas_hoje: t => t.completed && t.dueDate === today,
-        data: t => t.dueDate === a.data,
+        data: t => t.dueDate === onDate,
       };
       list = list.filter(filters[p] || filters.abertas);
       if (a.busca) {
         const q = norm(a.busca);
-        const cliIds = new Set((app.clients || []).filter(c => norm(c.name).includes(q)).map(c => c.id));
-        list = list.filter(t => norm(t.title).includes(q) || (t.clientId && cliIds.has(t.clientId)) || norm(t.notes).includes(q));
+        const cliIds = new Set((app.clients || []).filter(c => norm(c.name).includes(q) || fuzzyHas(c.name, a.busca)).map(c => c.id));
+        list = list.filter(t => norm(t.title).includes(q) || fuzzyHas(t.title, a.busca) || (t.clientId && cliIds.has(t.clientId)) || norm(t.notes).includes(q));
       }
       if (a.categoria) {
         const c = resolveCategory(a.categoria);
@@ -263,7 +374,10 @@ export async function runTool(name, input, app, env) {
       if (!isAdmin(app) && app.currentProfile?.canCreateTasks === false) return err("Seu perfil não tem permissão para criar tarefas.");
       const title = String(a.titulo || "").trim();
       if (!title) return err("Faltou o título da tarefa.");
-      if (a.data && !isDate(a.data)) return err("Data inválida; use YYYY-MM-DD.");
+      const due = a.data ? date(a.data) : today;
+      if (!due) return err(BAD_DATE);
+      const dup = (app.tasks || []).find(t => !t.completed && t.dueDate === due && norm(t.title) === norm(title));
+      if (dup) return { result: { ok: true, ja_existia: true, tarefa: taskView(app, dup, today), observacao: "Já havia uma tarefa aberta com esse título nessa data; não criei outra." } };
       const cat = resolveCategory(a.categoria);
       const cats = app.categories || [];
       const categoryId = cat.id || (cats.find(c => c.id === "administrativo") || cats[0] || {}).id || "administrativo";
@@ -279,11 +393,12 @@ export async function runTool(name, input, app, env) {
       const rec = RECURRENCES.includes(a.recorrencia) ? a.recorrencia : null;
       const task = {
         id: uid(), title, description: "", categoryId, contextId: ctx?.id || "codice-contabilidade", clientId,
-        dueDate: a.data || today, completed: false, isRecurring: !!rec, recurrenceType: rec, recurrenceEndDate: null,
+        dueDate: due, completed: false, isRecurring: !!rec, recurrenceType: rec, recurrenceEndDate: null,
         checklist: [], assignedTo: who.id || myId(app), visibility: "all", parentId: null,
         priority: PRIORITIES.includes(a.prioridade) ? a.prioridade : "normal", notes: String(a.notas || ""),
       };
       await app.addTask(task);
+      if (!await saved("tasks", task.id, r => !!r)) return unsaved(title);
       const out = { ok: true, tarefa: taskView({ ...app, tasks: [task] }, task, today) };
       if (cat.unknown) out.aviso = `Categoria "${a.categoria}" não existe; usei a padrão.`;
       if (a.cliente && !clientId) out.aviso_cliente = `Cliente "${a.cliente}" não encontrado; a tarefa ficou sem cliente.`;
@@ -296,9 +411,10 @@ export async function runTool(name, input, app, env) {
       const patch = { id: t.id };
       const changes = [];
       if (a.titulo && String(a.titulo).trim() !== t.title) { patch.title = String(a.titulo).trim(); changes.push("título"); }
-      if (a.data !== undefined) {
-        if (!isDate(a.data)) return err("Data inválida; use YYYY-MM-DD.");
-        if (a.data !== t.dueDate) { patch.dueDate = a.data; changes.push(`data → ${fmtBR(a.data)}`); }
+      if (a.data !== undefined && a.data !== "") {
+        const d = date(a.data);
+        if (!d) return err(BAD_DATE);
+        if (d !== t.dueDate) { patch.dueDate = d; changes.push(`data → ${fmtBR(d)}`); }
       }
       if (a.prioridade) {
         if (!PRIORITIES.includes(a.prioridade)) return err("Prioridade deve ser normal, alta ou urgente.");
@@ -316,15 +432,18 @@ export async function runTool(name, input, app, env) {
       if (a.notas !== undefined && String(a.notas) !== (t.notes || "")) { patch.notes = String(a.notas); changes.push("notas"); }
       if (!changes.length) return { result: { ok: true, sem_alteracao: true, tarefa: taskView(app, t, today) } };
       await app.updateTask(patch);
+      const col = { title: "title", dueDate: "due_date", priority: "priority", categoryId: "category_id", assignedTo: "assigned_to", notes: "notes" };
+      if (!await saved("tasks", t.id, r => !!r && Object.keys(col).every(k => patch[k] === undefined || r[col[k]] === patch[k]))) return unsaved(t.title);
       return { result: { ok: true, alterado: changes, tarefa: taskView(app, { ...t, ...patch }, today) }, log: { kind: "update", text: `Tarefa atualizada: ${patch.title || t.title}`, detail: changes.join(" · ") } };
     }
 
     case "concluir_tarefa": {
       const blocked = writeBlocked(); if (blocked) return blocked;
-      const { t, e } = getTask(a.id); if (e) return e;
       const want = a.concluida !== false;
+      const { t, e } = getTask(a.id, { includeDone: !want }); if (e) return e;
       if (t.completed === want) return { result: { ok: true, sem_alteracao: true, ja_estava: want ? "concluída" : "aberta" } };
       await app.toggleTaskCompletion(t.id);
+      if (!await saved("tasks", t.id, r => !!r && r.completed === want)) return unsaved(t.title);
       const out = { ok: true, tarefa: t.title, concluida: want };
       if (want && t.isRecurring && t.recurrenceType) out.observacao = "Recorrente: a próxima ocorrência foi criada.";
       return { result: out, log: { kind: want ? "done" : "update", text: `${want ? "Concluída" : "Reaberta"}: ${t.title}` } };
@@ -336,7 +455,85 @@ export async function runTool(name, input, app, env) {
       const ok = await env.confirm(`Excluir em definitivo a tarefa "${t.title}"?`);
       if (!ok) return { result: { ok: false, cancelado_pelo_usuario: true } };
       await app.deleteTask(t.id);
+      if (!await saved("tasks", t.id, r => !r)) return unsaved(t.title);
       return { result: { ok: true, excluida: t.title }, log: { kind: "delete", text: `Tarefa excluída: ${t.title}` } };
+    }
+
+    case "tarefas_em_lote": {
+      const blocked = writeBlocked(); if (blocked) return blocked;
+      const ids = Array.isArray(a.ids) ? [...new Set(a.ids.map(String))] : [];
+      if (!ids.length) return err("Informe a lista de ids das tarefas.");
+      if (ids.length > 60) return err("Máximo de 60 tarefas por vez.");
+      const acao = a.acao;
+      let patch = null, label = "";
+      if (acao === "adiar") { const d = date(a.data); if (!d) return err(BAD_DATE); patch = { dueDate: d }; label = `adiadas para ${fmtBR(d)}`; }
+      else if (acao === "prioridade") { if (!PRIORITIES.includes(a.prioridade)) return err("Prioridade deve ser normal, alta ou urgente."); patch = { priority: a.prioridade }; label = `com prioridade ${a.prioridade}`; }
+      else if (acao === "reatribuir") { const u = resolveUser(a.responsavel); if (u.e || !u.id) return u.e || err("Informe o responsável."); patch = { assignedTo: u.id }; label = `reatribuídas`; }
+      else if (acao === "concluir") label = "concluídas";
+      else return err("acao deve ser adiar, concluir, prioridade ou reatribuir.");
+      const targets = [], skipped = [];
+      for (const id of ids) {
+        const t = (app.tasks || []).find(x => x.id === id);
+        if (!t || !canSeeTask(app, t)) skipped.push({ id, motivo: "não encontrada" });
+        else if (!canEditTask(app, t)) skipped.push({ id, motivo: "sem permissão" });
+        else if (acao === "concluir" && t.completed) skipped.push({ id, motivo: "já concluída" });
+        else targets.push(t);
+      }
+      if (!targets.length) return err("Nenhuma das tarefas informadas pode ser alterada: " + JSON.stringify(skipped.slice(0, 8)));
+      if (targets.length > 5 && !await env.confirm(`Alterar ${targets.length} tarefas de uma vez (${label})?`)) return { result: { ok: false, cancelado_pelo_usuario: true } };
+      const col = { dueDate: "due_date", priority: "priority", assignedTo: "assigned_to" };
+      for (const t of targets) {
+        if (acao === "concluir") await app.toggleTaskCompletion(t.id); else await app.updateTask({ id: t.id, ...patch });
+      }
+      const checks = await Promise.all(targets.map(t => saved("tasks", t.id, r => !!r && (acao === "concluir" ? r.completed === true : Object.keys(patch).every(k => r[col[k]] === patch[k])))));
+      const failed = targets.filter((_, i) => !checks[i]);
+      const result = { ok: failed.length === 0, alteradas: targets.length - failed.length, titulos: targets.filter((_, i) => checks[i]).slice(0, 8).map(t => t.title) };
+      if (skipped.length) result.ignoradas = skipped.slice(0, 8);
+      if (failed.length) result.erro = `${failed.length} tarefa(s) não tiveram a gravação confirmada no servidor: ${failed.slice(0, 5).map(t => t.title).join("; ")}`;
+      return { result, log: { kind: failed.length ? "warn" : acao === "concluir" ? "done" : "update", text: `${targets.length - failed.length} tarefas ${label}`, detail: failed.length ? `${failed.length} sem confirmação` : "" } };
+    }
+
+    case "metas_semana": {
+      const acao = a.acao || "listar";
+      const goals = app.weeklyGoals || [];
+      if (acao === "listar") return { result: { total: goals.length, concluidas: goals.filter(g => g.completed).length, metas: goals.slice(0, 20).map(g => ({ id: g.id, titulo: g.title, concluida: !!g.completed })) } };
+      const blocked = writeBlocked(); if (blocked) return blocked;
+      if (acao === "criar") {
+        const title = String(a.titulo || "").trim();
+        if (!title) return err("Faltou o título da meta.");
+        const g = { id: uid(), title, completed: false, createdAt: new Date().toISOString() };
+        await app.addWeeklyGoal(g);
+        if (!await saved("weekly_goals", g.id, r => !!r)) return unsaved(title);
+        return { result: { ok: true, meta: title }, log: { kind: "create", text: `Meta da semana: ${title}` } };
+      }
+      if (acao === "concluir") {
+        const r = find(goals, a.id || a.titulo, "title");
+        if (!r.item) return err(r.ambiguous ? `Mais de uma meta combina: ${r.ambiguous.map(x => x.nome).join(", ")}.` : "Meta não encontrada.");
+        if (r.item.completed) return { result: { ok: true, sem_alteracao: true } };
+        await app.toggleWeeklyGoalCompletion(r.item.id);
+        if (!await saved("weekly_goals", r.item.id, row => !!row && row.completed === true)) return unsaved(r.item.title);
+        return { result: { ok: true, meta: r.item.title, concluida: true }, log: { kind: "done", text: `Meta concluída: ${r.item.title}` } };
+      }
+      return err("acao deve ser listar, criar ou concluir.");
+    }
+
+    case "concluir_etapa_onboarding": {
+      const blocked = writeBlocked(); if (blocked) return blocked;
+      const open = (app.onboardings || []).filter(o => o.status === "em_andamento").map(o => ({ ...o, label: `${o.title || ""} ${o.clientName || ""}` }));
+      const r = find(open, a.onboarding, "label");
+      if (!r.item) return err(r.ambiguous ? `Mais de um onboarding combina: ${r.ambiguous.map(x => x.nome.trim()).join("; ")}.` : "Onboarding em andamento não encontrado. Use listar_onboardings.");
+      const steps = (app.onboardingSteps || []).filter(x => x.onboardingId === r.item.id && x.status !== "concluido").sort((x, y) => (x.orderIndex || 0) - (y.orderIndex || 0));
+      if (!steps.length) return err("Esse onboarding não tem etapas pendentes.");
+      let step = steps[0];
+      if (a.etapa) {
+        const f = find(steps, a.etapa, "title");
+        if (!f.item) return err(f.ambiguous ? `Mais de uma etapa combina: ${f.ambiguous.map(x => x.nome).join("; ")}.` : `Etapa não encontrada. Pendentes: ${steps.slice(0, 6).map(x => x.title).join("; ")}.`);
+        step = f.item;
+      }
+      await app.updateStep({ ...step, status: "concluido", completedAt: today });
+      if (!await saved("onboarding_steps", step.id, row => !!row && row.status === "concluido")) return unsaved(step.title);
+      const left = steps.filter(x => x.id !== step.id);
+      return { result: { ok: true, onboarding: r.item.title, etapa_concluida: step.title, etapas_pendentes: left.length, proxima_etapa: left[0]?.title || null }, log: { kind: "done", text: `Etapa concluída: ${step.title}`, detail: r.item.title } };
     }
 
     case "listar_habitos": {
@@ -348,13 +545,14 @@ export async function runTool(name, input, app, env) {
       const blocked = writeBlocked(); if (blocked) return blocked;
       const r = find((app.habits || []).filter(h => !h.archived), a.id, "title");
       if (!r.item) return err(r.ambiguous ? `Mais de um hábito combina: ${r.ambiguous.map(x => x.nome).join(", ")}.` : "Hábito não encontrado. Use listar_habitos.");
-      const day = a.data || today;
-      if (!isDate(day)) return err("Data inválida; use YYYY-MM-DD.");
+      const day = a.data ? date(a.data) : today;
+      if (!day) return err(BAD_DATE);
       if (day > today) return err("Não é possível marcar um hábito em data futura.");
       const want = a.feito !== false;
       const has = (r.item.completedDates || []).includes(day);
       if (has === want) return { result: { ok: true, sem_alteracao: true } };
       await app.toggleHabitCompletion(r.item.id, day);
+      if (!await saved("habits", r.item.id, row => !!row && (row.completed_dates || []).includes(day) === want)) return unsaved(r.item.title);
       return { result: { ok: true, habito: r.item.title, data: day, feito: want }, log: { kind: want ? "done" : "update", text: `Hábito ${want ? "feito" : "desmarcado"}: ${r.item.title}`, detail: day === today ? "hoje" : fmtBR(day) } };
     }
 
@@ -366,7 +564,7 @@ export async function runTool(name, input, app, env) {
         totals.receita_mensal = list.reduce((s, c) => s + (parseFloat(c.monthlyFee) || 0), 0);
         totals.valor_pendente = list.filter(c => c.paymentStatus === "pending").reduce((s, c) => s + (parseFloat(c.monthlyFee) || 0), 0);
       }
-      if (a.busca) { const q = norm(a.busca); const digits = q.replace(/\D/g, ""); list = list.filter(c => norm(c.name).includes(q) || (digits.length >= 4 && String(c.document || "").replace(/\D/g, "").includes(digits))); }
+      if (a.busca) { const q = norm(a.busca); const digits = q.replace(/\D/g, ""); list = list.filter(c => norm(c.name).includes(q) || fuzzyHas(c.name, a.busca) || (digits.length >= 4 && String(c.document || "").replace(/\D/g, "").includes(digits))); }
       if (a.pagamento) list = list.filter(c => c.paymentStatus === a.pagamento);
       if (!a.busca && !a.pagamento) return { result: { carteira: totals } };
       const limit = Math.min(Math.max(parseInt(a.limite) || 12, 1), 40);
@@ -388,6 +586,7 @@ export async function runTool(name, input, app, env) {
       if (!r.item) return err(r.ambiguous ? `Mais de um cliente combina: ${r.ambiguous.map(x => x.nome).join(", ")}.` : "Cliente não encontrado. Use buscar_clientes.");
       if (r.item.paymentStatus === a.status) return { result: { ok: true, sem_alteracao: true } };
       await app.updateClient({ id: r.item.id, paymentStatus: a.status });
+      if (!await saved("clients", r.item.id, row => !!row && row.payment_status === a.status)) return unsaved(r.item.name);
       return { result: { ok: true, cliente: r.item.name, pagamento: a.status }, log: { kind: "update", text: `Pagamento ${a.status === "paid" ? "confirmado" : "marcado como pendente"}: ${r.item.name}` } };
     }
 
@@ -398,7 +597,9 @@ export async function runTool(name, input, app, env) {
       const title = String(a.titulo || "").trim();
       if (!title) return err("Faltou o título do registro.");
       const types = ["note", "meeting", "pending", "email", "call", "document", "payment"];
-      await app.addClientEvent({ id: uid(), clientId: r.item.id, type: types.includes(a.tipo) ? a.tipo : "note", title, content: String(a.conteudo || ""), date: today, resolved: false });
+      const evId = uid();
+      await app.addClientEvent({ id: evId, clientId: r.item.id, type: types.includes(a.tipo) ? a.tipo : "note", title, content: String(a.conteudo || ""), date: today, resolved: false });
+      if (!await saved("client_events", evId, row => !!row)) return unsaved(title);
       return { result: { ok: true, cliente: r.item.name, registro: title }, log: { kind: "create", text: `Registro em ${r.item.name}`, detail: title } };
     }
 
@@ -454,4 +655,37 @@ export function fmtBR(d) {
   if (!d) return "";
   const [, m, day] = d.split("-");
   return `${day}/${m}`;
+}
+
+// ── Voz ────────────────────────────────────────────────────────────────────
+// O reconhecimento de voz não conhece a palavra "Yoetz" e a escreve de várias
+// formas ("ioets", "yo etz", "ioétis"...). Aceitamos o que soar parecido.
+const WAKE_TARGETS = ["yoetz", "yoets", "ioetz", "ioets", "ioetis", "yoetis", "joetz", "iuets", "ioeds"];
+const plain = w => String(w).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+export function matchWake(text) {
+  const raw = String(text || "").trim().split(/\s+/);
+  const w = raw.map(plain);
+  for (let i = 0; i < w.length; i++) {
+    for (const span of [1, 2]) {
+      if (i + span > w.length) continue;
+      const cand = w.slice(i, i + span).join("");
+      const hit = cand === "assistente" || (cand.length >= 4 && cand.length <= 8 && WAKE_TARGETS.some(t => lev(cand, t) <= 1));
+      if (hit) return raw.slice(i + span).join(" ").replace(/^[\s,.!?:;-]+/, "");
+    }
+  }
+  return null;
+}
+
+// Divide a fala em frases: a primeira sai sozinha para o áudio começar logo.
+export function splitSpeech(text) {
+  const bits = String(text || "").split(/([.!?…]+["')\]]*\s+)/);
+  const sentences = [];
+  for (let i = 0; i < bits.length; i += 2) { const x = (bits[i] + (bits[i + 1] || "")).trim(); if (x) sentences.push(x); }
+  const out = []; let buf = "";
+  sentences.forEach((x, i) => {
+    if (i === 0) { out.push(x); return; }
+    if (buf && (buf + " " + x).length > 240) { out.push(buf); buf = x; } else buf = buf ? buf + " " + x : x;
+  });
+  if (buf) out.push(buf);
+  return out.slice(0, 8);
 }

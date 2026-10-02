@@ -1,11 +1,11 @@
-// J.A.R.V.I.S. — interface de voz e HUD do YOETZ Produtivo.
+// Yoetz — assistente de voz e HUD do YOETZ Produtivo.
 //
-// O raciocínio vem da Edge Function "jarvis" (Supabase). As ações são
+// O raciocínio vem da Edge Function "jarvis" (nome interno, no Supabase). As ações são
 // executadas aqui, pelas funções do próprio app (ver jarvisTools.js).
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { auth } from "./supabase.js";
-import { runTool, snapshot, greeting, buildContext, fmtBR } from "./jarvisTools.js";
+import { auth, db } from "./supabase.js";
+import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, splitSpeech } from "./jarvisTools.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kpgpcqjefrixzshmskls.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -13,7 +13,11 @@ const FN_URL = SUPABASE_URL + "/functions/v1/jarvis";
 
 const MAX_ROUNDS = 8;      // rodadas de ferramenta por pedido
 const MAX_HISTORY = 30;    // mensagens mantidas na conversa
-const WAKE_RE = /(^|\s)(jarvis|járvis|jarves|jarbas|jarvas|jarviz|jar vis)[\s,.!?:;-]*/i;
+const FOLLOW_UP_MS = 7000; // depois de responder, fica ouvindo esse tempo sem exigir o nome
+const NEURAL_VOICES = [["ash", "Ash (grave)"], ["onyx", "Onyx (profunda)"], ["echo", "Echo (clara)"], ["sage", "Sage (suave)"], ["nova", "Nova (feminina)"], ["coral", "Coral (feminina)"]];
+
+
+
 const YES_RE = /^\s*(sim|confirm|pode|isso|exclu|apag|manda|claro|positivo|ok)/i;
 const NO_RE = /^\s*(n[aã]o|cancel|deixa|esquece|negativo|para)/i;
 
@@ -25,21 +29,61 @@ const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* armaz
 const money = v => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Chamada ao servidor com tempo limite e uma nova tentativa em falha de rede ou erro 5xx.
 async function callFn(body, wantBlob = false) {
-  const doFetch = () => fetch(FN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "apikey": ANON_KEY, "Authorization": "Bearer " + (auth.getSession()?.access_token || ANON_KEY) },
-    body: JSON.stringify(body),
-  });
-  let res = await doFetch();
-  if (res.status === 401 && await auth.refreshSession().catch(() => null)) res = await doFetch();
+  const once = async () => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), body.action === "chat" ? 45000 : 20000);
+    try {
+      return await fetch(FN_URL, {
+        method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", "apikey": ANON_KEY, "Authorization": "Bearer " + (auth.getSession()?.access_token || ANON_KEY) },
+        body: JSON.stringify(body),
+      });
+    } finally { clearTimeout(timer); }
+  };
+  let res;
+  try { res = await once(); if (res.status >= 500 && res.status !== 501) throw new Error("servidor " + res.status); }
+  catch (e) {
+    await sleep(600);
+    try { res = await once(); }
+    catch { throw new Error(e?.name === "AbortError" ? "O servidor demorou demais para responder." : "Sem conexão com o servidor."); }
+  }
+  if (res.status === 401 && await auth.refreshSession().catch(() => null)) res = await once();
   if (wantBlob && res.ok && (res.headers.get("Content-Type") || "").includes("audio")) return res.blob();
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.ok) {
-    if (res.status === 404) throw new Error("A função 'jarvis' não está publicada no Supabase.");
+    if (res.status === 404) throw new Error("A função do assistente não está publicada no Supabase.");
     throw new Error(data?.error || `Falha de comunicação (${res.status})`);
   }
   return data;
+}
+
+// Confere no banco se uma gravação chegou (as funções do app gravam em segundo plano).
+async function verifySaved(table, id, check) {
+  for (let i = 0; i < 4; i++) {
+    await sleep(i === 0 ? 150 : 400);
+    try {
+      const rows = await db.select(table, { filter: "id=eq." + encodeURIComponent(id) });
+      if (check(Array.isArray(rows) ? rows[0] || null : null)) return true;
+    } catch { /* tenta de novo */ }
+  }
+  return false;
+}
+
+let beepCtx = null;
+function beep(freqs) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = beepCtx || (beepCtx = new AC());
+    if (ctx.state === "suspended") ctx.resume();
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + i * 0.09;
+      o.frequency.value = f; o.type = "sine";
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.14);
+    });
+  } catch { /* sem áudio */ }
 }
 
 // Corta o histórico sem separar uma chamada de ferramenta do seu resultado.
@@ -117,7 +161,10 @@ const CSS = `
 .jv-m.e{color:var(--bad);font-size:12.5px}
 .jv-m.i{color:var(--a);font-style:italic;align-self:flex-end;font-size:12.5px}
 .jv-act{align-self:flex-start;font-size:11px;color:var(--dim);border-left:2px solid var(--a);padding:2px 0 2px 9px}
-.jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-color:var(--bad)}.jv-act.done{border-color:var(--ok)}
+.jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-color:var(--bad)}.jv-act.done{border-color:var(--ok)}.jv-act.warn{border-color:var(--warn);color:var(--warn)}
+.jv-pop{position:absolute;right:18px;top:100%;margin-top:6px;z-index:5;width:250px;background:var(--bg);border:1px solid rgba(var(--a-rgb),.35);padding:12px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:var(--dim)}
+.jv-pop label{display:flex;flex-direction:column;gap:4px;letter-spacing:.1em;text-transform:uppercase;font-size:9px}
+.jv-pop select,.jv-pop input[type=range]{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(--bg2);border:1px solid rgba(var(--a-rgb),.25);padding:5px;accent-color:var(--a)}
 .jv-confirm{width:100%;max-width:640px;margin-top:10px;border:1px solid var(--bad);background:rgba(255,107,107,.08);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
 .jv-confirm p{margin:0;flex:1;min-width:180px}
 .jv-foot{position:relative;padding:12px 18px 16px;border-top:1px solid rgba(var(--a-rgb),.14)}
@@ -163,13 +210,20 @@ export default function Jarvis({ app, setActiveTab }) {
   const [voice, setVoiceState] = useState(getPref("jarvis_voice", "auto")); // auto | neural | browser | off
   const [neuralOk, setNeuralOk] = useState(false);
   const [online, setOnline] = useState(null);
-  const [wake, setWakeState] = useState(false);
+  const SRok = typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const [wake, setWakeState] = useState(SRok && getPref("jarvis_hands", "on") === "on"); // mãos livres
+  const [voiceName, setVoiceName] = useState(getPref("jarvis_voice_name", "ash"));
+  const [rate, setRate] = useState(parseFloat(getPref("jarvis_rate", "1.1")) || 1.1);
+  const [showVoice, setShowVoice] = useState(false);
   const [theme, setTheme] = useState(getPref("jarvis_theme", "stark"));
   const [full, setFull] = useState(false);
   const [hasAmp, setHasAmp] = useState(false);
 
   const voiceRef = useRef("browser");
-  const wakeRef = useRef(false);
+  const wakeRef = useRef(wake);
+  const voiceNameRef = useRef(voiceName); voiceNameRef.current = voiceName;
+  const rateRef = useRef(rate); rateRef.current = rate;
+  const followTimer = useRef(0);
   const busyRef = useRef(false);
   const recRef = useRef(null);
   const audioRef = useRef(null);
@@ -203,55 +257,76 @@ export default function Jarvis({ app, setActiveTab }) {
   const speak = useCallback(async (text) => {
     stopSpeaking();
     const seq = speakSeq.current;
+    const stale = () => seq !== speakSeq.current || !aliveRef.current;
+    // Ao terminar de falar, volta a ouvir sozinho (confirmação pendente ou continuação da conversa).
     const finish = () => {
-      if (seq !== speakSeq.current || !aliveRef.current) return;
+      if (stale()) return;
       cancelAnimationFrame(rafRef.current);
       if (coreRef.current) coreRef.current.style.setProperty("--amp", 0);
       setHasAmp(false);
       setStatus("idle");
       if (pendingRef.current) fn.current.listen?.();
+      else if (wakeRef.current) fn.current.listen?.({ followUp: true });
     };
-    if (voiceRef.current === "off" || !text) { setStatus("idle"); return; }
+    if (voiceRef.current === "off" || !text) { setStatus("idle"); if (wakeRef.current && !pendingRef.current) fn.current.listen?.({ followUp: true }); return; }
     fn.current.stopRec?.();
     setStatus("speaking");
 
+    const playBlob = blob => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.playbackRate = rateRef.current;
+      audioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error("áudio inválido")); };
+      try { // núcleo reagindo ao volume real da fala
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const ctx = audioCtxRef.current || (audioCtxRef.current = new AC());
+        if (ctx.state === "suspended") ctx.resume();
+        const an = ctx.createAnalyser(); an.fftSize = 256;
+        ctx.createMediaElementSource(audio).connect(an); an.connect(ctx.destination);
+        const buf = new Uint8Array(an.frequencyBinCount);
+        cancelAnimationFrame(rafRef.current);
+        const tick = () => {
+          if (seq !== speakSeq.current) return;
+          an.getByteTimeDomainData(buf);
+          let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / buf.length) * 4).toFixed(3));
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        setHasAmp(true); tick();
+      } catch { setHasAmp(false); }
+      audio.play().catch(reject);
+    });
+
+    let spokenUpTo = 0; // quantas frases a voz neural já falou
+    const chunks = splitSpeech(text);
     if (voiceRef.current === "neural") {
+      // Todas as frases são pedidas de uma vez; a primeira toca assim que chega.
+      const jobs = chunks.map(c => callFn({ action: "tts", text: c, voice: voiceNameRef.current }, true));
+      jobs.forEach(j => j.catch(() => {}));
       try {
-        const blob = await callFn({ action: "tts", text: text.slice(0, 1200) }, true);
-        if (seq !== speakSeq.current || !aliveRef.current) return;
-        if (!(blob instanceof Blob)) throw new Error("sem áudio");
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = audio.onerror = () => { URL.revokeObjectURL(url); finish(); };
-        try { // núcleo reagindo ao volume real da fala
-          const AC = window.AudioContext || window.webkitAudioContext;
-          const ctx = audioCtxRef.current || (audioCtxRef.current = new AC());
-          if (ctx.state === "suspended") await ctx.resume();
-          const an = ctx.createAnalyser(); an.fftSize = 256;
-          ctx.createMediaElementSource(audio).connect(an); an.connect(ctx.destination);
-          const buf = new Uint8Array(an.frequencyBinCount);
-          const tick = () => {
-            if (seq !== speakSeq.current) return;
-            an.getByteTimeDomainData(buf);
-            let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
-            if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / buf.length) * 4).toFixed(3));
-            rafRef.current = requestAnimationFrame(tick);
-          };
-          setHasAmp(true); tick();
-        } catch { setHasAmp(false); }
-        await audio.play();
+        for (let i = 0; i < jobs.length; i++) {
+          const blob = await jobs[i];
+          if (stale()) return;
+          if (!(blob instanceof Blob)) throw new Error("sem áudio");
+          await playBlob(blob);
+          if (stale()) return;
+          spokenUpTo = i + 1;
+        }
+        finish();
         return;
       } catch (e) {
-        console.warn("[jarvis] voz neural indisponível, usando a do navegador:", e.message);
-        if (seq !== speakSeq.current) return;
+        console.warn("[yoetz] voz neural indisponível, usando a do navegador:", e.message);
+        if (stale()) return;
       }
     }
-    if (!("speechSynthesis" in window)) { finish(); return; }
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "pt-BR"; u.rate = 1.08; u.pitch = 0.82;
+    const rest = chunks.slice(spokenUpTo).join(" ");
+    if (!rest || !("speechSynthesis" in window)) { finish(); return; }
+    const u = new SpeechSynthesisUtterance(rest);
+    u.lang = "pt-BR"; u.rate = Math.min(1.6, 1.05 * rateRef.current); u.pitch = 0.9;
     const voices = window.speechSynthesis.getVoices().filter(v => /^pt[-_]BR/i.test(v.lang));
-    const pick = voices.find(v => /daniel|felipe|antonio|ant[oô]nio|male|masc/i.test(v.name)) || voices.find(v => /google|natural|neural/i.test(v.name)) || voices[0];
+    const pick = voices.find(v => /natural|neural|online/i.test(v.name)) || voices.find(v => /google/i.test(v.name)) || voices.find(v => /daniel|felipe|ant[oô]nio/i.test(v.name)) || voices[0];
     if (pick) u.voice = pick;
     u.onend = u.onerror = finish;
     window.speechSynthesis.speak(u);
@@ -260,7 +335,7 @@ export default function Jarvis({ app, setActiveTab }) {
   // ── Conversa ─────────────────────────────────────────────────────────────
   const confirmAction = useCallback(text => new Promise(resolve => {
     setPending({ text, resolve: v => { setPending(null); stopSpeaking(); fn.current.stopRec?.(); setStatus("thinking"); resolve(v); } });
-    speak(text + " Confirma, senhor?");
+    speak(text + " Confirma?");
   }), [speak, stopSpeaking]);
 
   const send = useCallback(async (raw) => {
@@ -268,10 +343,11 @@ export default function Jarvis({ app, setActiveTab }) {
     if (!text || busyRef.current) return;
     busyRef.current = true;
     stopSpeaking(); fn.current.stopRec?.();
+    if (wakeRef.current) beep([740]);
     push({ k: "u", text });
     setStatus("thinking");
     const api = [...mem.api, { role: "user", content: text }];
-    const env = { setActiveTab, confirm: confirmAction };
+    const env = { setActiveTab, confirm: confirmAction, verify: verifySaved };
     try {
       let final = "";
       for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -310,6 +386,7 @@ export default function Jarvis({ app, setActiveTab }) {
   const stopRec = useCallback(() => {
     const rec = recRef.current;
     recRef.current = null;
+    clearTimeout(followTimer.current);
     if (rec) { rec.onend = null; rec.onresult = null; rec.onerror = null; try { rec.abort(); } catch { /* já encerrado */ } }
     setInterim("");
   }, []);
@@ -317,7 +394,7 @@ export default function Jarvis({ app, setActiveTab }) {
   const micError = useCallback((e) => {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
       wakeRef.current = false; setWakeState(false);
-      push({ k: "e", text: "O microfone está bloqueado para este site. Libere o acesso no cadeado da barra de endereço." });
+      push({ k: "e", text: "O microfone está bloqueado para este site. Libere o acesso no cadeado da barra de endereço e ative Mãos livres de novo." });
     }
   }, [push]);
 
@@ -332,14 +409,21 @@ export default function Jarvis({ app, setActiveTab }) {
     send(text);
   }, [send]);
 
-  const listen = useCallback(() => {
+  const listen = useCallback((opts) => {
     if (!SR) return;
+    const followUp = !!opts?.followUp;
     stopRec(); stopSpeaking();
     const rec = new SR();
     rec.lang = "pt-BR"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
     let finalText = "";
-    rec.onstart = () => setStatus("listening");
+    rec.onstart = () => {
+      setStatus("listening");
+      // Na continuação da conversa, desiste se ninguém falar e volta a aguardar o nome.
+      if (followUp) followTimer.current = setTimeout(() => { try { rec.abort(); } catch { /* já encerrado */ } }, FOLLOW_UP_MS);
+    };
+    rec.onspeechstart = () => clearTimeout(followTimer.current);
     rec.onresult = e => {
+      clearTimeout(followTimer.current);
       let live = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) finalText += e.results[i][0].transcript; else live += e.results[i][0].transcript;
@@ -351,14 +435,15 @@ export default function Jarvis({ app, setActiveTab }) {
       if (recRef.current === rec) recRef.current = null;
       setInterim("");
       if (statusRef.current === "listening") setStatus("idle");
+      clearTimeout(followTimer.current);
       const t = finalText.trim();
-      if (t) heard(t);
+      if (t.length > 1) heard(followUp ? (matchWake(t) || t) : t);
     };
     recRef.current = rec;
     try { rec.start(); } catch { recRef.current = null; }
   }, [SR, stopRec, stopSpeaking, heard, micError]);
 
-  // Escuta contínua: aguarda a palavra "Jarvis".
+  // Mãos livres: fica ouvindo e age quando escuta o nome "Yoetz".
   const startWake = useCallback(() => {
     if (!SR || !wakeRef.current || recRef.current || busyRef.current || statusRef.current !== "idle" || pendingRef.current) return;
     const rec = new SR();
@@ -367,11 +452,10 @@ export default function Jarvis({ app, setActiveTab }) {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue;
         const t = e.results[i][0].transcript;
-        const m = t.match(WAKE_RE);
-        if (!m) continue;
-        const cmd = t.slice(m.index + m[0].length).trim();
+        const cmd = matchWake(t);
+        if (cmd === null) continue;
         stopRec();
-        if (cmd.length > 2) send(cmd); else listen();
+        if (cmd.length > 2) send(cmd); else { beep([880, 1320]); listen(); }
         return;
       }
     };
@@ -387,8 +471,9 @@ export default function Jarvis({ app, setActiveTab }) {
 
   const toggleWake = () => {
     const next = !wake;
-    wakeRef.current = next; setWakeState(next);
-    if (!next && statusRef.current === "idle") stopRec();
+    wakeRef.current = next; setWakeState(next); setPref("jarvis_hands", next ? "on" : "off");
+    if (next) beep([880, 1320]);
+    if (!next && statusRef.current !== "thinking" && statusRef.current !== "speaking") { stopRec(); setStatus("idle"); }
   };
 
   const onCore = () => {
@@ -407,7 +492,7 @@ export default function Jarvis({ app, setActiveTab }) {
       try {
         const p = await Promise.race([callFn({ action: "ping" }), sleep(6000).then(() => { throw new Error("tempo esgotado"); })]);
         ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!p.providers?.openai;
-      } catch (e) { console.warn("[jarvis] ping:", e.message); }
+      } catch (e) { console.warn("[yoetz] ping:", e.message); }
       if (cancelled) return;
       setOnline(ok); setNeuralOk(neural);
       const pref = getPref("jarvis_voice", "auto");
@@ -436,12 +521,10 @@ export default function Jarvis({ app, setActiveTab }) {
   const isAdmin = !app.currentProfile || app.currentProfile.role === "admin";
   const agenda = [...s.overdue.slice(0, 4), ...s.dueToday.slice(0, 4)].slice(0, 6);
   const upcoming = agenda.length < 6 ? s.week.slice(0, 6 - agenda.length) : [];
-  const stateLabel = { idle: wake ? "Aguardando — diga “Jarvis”" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
-  const hint = pending ? "Diga sim ou não" : status === "listening" ? "Toque para encerrar" : status === "speaking" ? "Toque para interromper" : status === "thinking" ? "" : SR ? "Toque no núcleo para falar" : "Voz indisponível neste navegador — digite abaixo";
+  const stateLabel = { idle: wake ? "Ouvindo — diga “Yoetz”" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
+  const hint = pending ? "Diga sim ou não" : status === "listening" ? (wake ? "Pode falar" : "Toque para encerrar") : status === "speaking" ? "Toque para interromper" : status === "thinking" ? "" : wake ? "Diga “Yoetz” e o pedido" : SR ? "Toque no núcleo para falar" : "Voz indisponível neste navegador — digite abaixo";
   const voiceLabel = { neural: "Voz neural", browser: "Voz padrão", off: "Voz desligada" }[effectiveVoice];
-  const cycleVoice = () => {
-    const order = neuralOk ? ["neural", "browser", "off"] : ["browser", "off"];
-    const next = order[(order.indexOf(effectiveVoice) + 1) % order.length];
+  const pickVoiceMode = next => {
     setVoiceState(next); setPref("jarvis_voice", next);
     if (next === "off") { stopSpeaking(); if (statusRef.current === "speaking") setStatus("idle"); }
   };
@@ -462,14 +545,38 @@ export default function Jarvis({ app, setActiveTab }) {
       <style>{CSS}</style>
 
       <div className="jv-top">
-        <span className="jv-brand">J.A.R.V.I.S.</span>
+        <span className="jv-brand">YOETZ</span>
         <span className="jv-state"><i style={online === false ? { background: "var(--bad)", boxShadow: "0 0 8px var(--bad)" } : undefined} />{online === false ? "Offline" : stateLabel}</span>
         <div className="jv-ctl">
-          <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo e responde quando você diz “Jarvis”">Escuta contínua</button>
-          <button className="jv-btn" onClick={cycleVoice}>{voiceLabel}</button>
+          <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Yoetz” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
+          <button className={"jv-btn" + (showVoice ? " on" : "")} onClick={() => setShowVoice(v => !v)} aria-expanded={showVoice}>{voiceLabel}</button>
           <button className="jv-btn" onClick={() => { const t = theme === "stark" ? "yoetz" : "stark"; setTheme(t); setPref("jarvis_theme", t); }}>Tema {theme === "stark" ? "Stark" : "YOETZ"}</button>
           <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
         </div>
+        {showVoice && (
+          <div className="jv-pop">
+            <label>Tipo de voz
+              <select value={effectiveVoice} onChange={e => pickVoiceMode(e.target.value)}>
+                {neuralOk && <option value="neural">Neural (mais natural)</option>}
+                <option value="browser">Do navegador (instantânea)</option>
+                <option value="off">Desligada (só texto)</option>
+              </select>
+            </label>
+            {effectiveVoice === "neural" && (
+              <label>Timbre
+                <select value={voiceName} onChange={e => { setVoiceName(e.target.value); setPref("jarvis_voice_name", e.target.value); }}>
+                  {NEURAL_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </label>
+            )}
+            {effectiveVoice !== "off" && (
+              <label>Velocidade · {rate.toFixed(2)}x
+                <input type="range" min="0.9" max="1.5" step="0.05" value={rate} onChange={e => { const v = parseFloat(e.target.value); setRate(v); setPref("jarvis_rate", String(v)); }} />
+              </label>
+            )}
+            {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak("Às suas ordens, senhor. Esta é a voz que estou usando agora.")}>Testar voz</button>}
+          </div>
+        )}
       </div>
 
       <div className="jv-body">
@@ -499,14 +606,14 @@ export default function Jarvis({ app, setActiveTab }) {
 
         <div className="jv-mid">
           <button ref={coreRef} className={"jv-core is-" + status + (hasAmp ? "" : " no-amp")} onClick={onCore}
-            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Jarvis"}>
+            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Yoetz"}>
             <Reactor />
           </button>
           <p className="jv-hint">{hint}</p>
 
           <div className="jv-talk" ref={talkRef} aria-live="polite">
             {msgs.map((m, i) => m.k === "a"
-              ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
+              ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}</div>
               : <div key={i} className={"jv-m " + m.k}>{m.text}</div>)}
             {interim && <div className="jv-m i">{interim}</div>}
           </div>
@@ -563,7 +670,7 @@ export default function Jarvis({ app, setActiveTab }) {
           ))}
         </div>
         <form className="jv-in" onSubmit={submit}>
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Digite um comando, senhor…"} aria-label="Comando para o Jarvis" />
+          <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Yoetz" />
           <button className="jv-btn on" type="submit" disabled={!input.trim() || (status === "thinking" && !pending)}>Enviar</button>
         </form>
       </div>
