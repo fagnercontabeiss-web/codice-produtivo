@@ -185,9 +185,9 @@ function trimHistory(api) {
 }
 
 const CSS = `
-.jv{--a:#f0b860;--a-rgb:240,184,96;--bg:#040706;--bg2:#0e1c15;--ink:#f6f1e6;--dim:rgba(246,241,230,.6);--faint:rgba(246,241,230,.32);--warn:#ffb454;--bad:#ff6b5e;--ok:#63e6a8;
+.jv{--a:#4fc3ff;--a-rgb:79,195,255;--bg:#03060a;--bg2:#07111c;--ink:#e4f4ff;--dim:rgba(228,244,255,.6);--faint:rgba(228,244,255,.32);--warn:#ffb454;--bad:#ff6b5e;--ok:#63e6a8;
   color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
-.jv.jv-blue{--a:#5fd4ff;--a-rgb:95,212,255;--bg:#04080d;--bg2:#0b1826;--ink:#e6f6ff;--dim:rgba(230,246,255,.58);--faint:rgba(230,246,255,.3)}
+.jv.jv-gold{--a:#f0b860;--a-rgb:240,184,96;--bg:#040706;--bg2:#0e1c15;--ink:#f6f1e6;--dim:rgba(246,241,230,.6);--faint:rgba(246,241,230,.32)}
 .jv *{box-sizing:border-box}
 .jv-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
 .jv-btn{font:inherit;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.22);border-radius:3px;padding:7px 11px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
@@ -198,7 +198,7 @@ const CSS = `
 
 /* ── Tela cheia (aba do Simão) ── */
 .jv-full{position:fixed;top:56px;left:0;right:0;bottom:0;z-index:10;display:flex;flex-direction:column;overflow:hidden;
-  background:radial-gradient(ellipse 60% 55% at 50% 40%,var(--bg2) 0%,var(--bg) 72%)}
+  background:radial-gradient(ellipse 55% 50% at 50% 46%,var(--bg2) 0%,var(--bg) 70%)}
 @media (min-width:1024px){.jv-full{left:240px}}
 .jv-full.jv-max{top:0;left:0;z-index:60}
 .jv-full::before{content:"";position:absolute;inset:0;pointer-events:none;
@@ -214,49 +214,44 @@ const CSS = `
 .jv-state i{width:6px;height:6px;border-radius:50%;background:var(--a);box-shadow:0 0 8px var(--a);animation:jv-blink 2.4s ease-in-out infinite}
 .jv-clock{font-size:10px;letter-spacing:.18em;color:var(--faint)}
 .jv-ctl{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;position:relative}
-.jv-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:6px 24px 0}
-.jv-ring{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(14px,3vw,46px);width:100%;max-width:1040px;flex-shrink:0}
-.jv-side{display:flex;flex-direction:column;gap:clamp(18px,5vh,48px)}
-.jv-side.l{align-items:flex-end}.jv-side.r{align-items:flex-start}
-.jv-ro{position:relative;font:inherit;color:inherit;background:none;border:0;padding:0 0 6px;cursor:pointer;text-align:right;min-width:112px;border-bottom:1px solid rgba(var(--a-rgb),.35);transition:border-color .15s}
-.jv-side.r .jv-ro{text-align:left}
-.jv-ro:hover{border-color:var(--a)}
-.jv-ro::after{content:"";position:absolute;bottom:-1px;width:clamp(10px,2.4vw,36px);height:1px;background:linear-gradient(90deg,rgba(var(--a-rgb),.35),transparent)}
-.jv-side.l .jv-ro::after{left:100%}.jv-side.r .jv-ro::after{right:100%;transform:scaleX(-1)}
-.jv-ro b{display:block;font-size:clamp(30px,4.6vh,46px);font-weight:200;line-height:1;text-shadow:0 0 18px rgba(var(--a-rgb),.45)}
-.jv-ro b.bad{color:var(--bad);text-shadow:0 0 18px rgba(255,107,94,.5)}
-.jv-ro small{display:block;margin-top:6px;font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--a)}
-.jv-core{--amp:0;position:relative;width:min(46vh,380px,62vw);aspect-ratio:1;flex-shrink:0;border:0;background:none;padding:0;cursor:pointer;color:var(--a);border-radius:50%}
-.jv-core svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 18px rgba(var(--a-rgb),.4))}
-.jv-core .r{fill:none;stroke:currentColor;transform-origin:200px 200px}
-.jv-core .r1{animation:jv-spin 60s linear infinite}
-.jv-core .r2{animation:jv-spin 26s linear infinite reverse}
-.jv-core .r3{animation:jv-spin 16s linear infinite}
-.jv-core .r4{animation:jv-spin 38s linear infinite reverse}
-.jv-core .r5{animation:jv-spin 9s linear infinite}
-.jv-core .sweep{transform-origin:200px 200px;animation:jv-spin 7s linear infinite}
-.jv-core .heart{transform-origin:200px 200px;transform:scale(calc(1 + var(--amp) * .4));transition:transform .08s linear}
-.jv-core.is-listening .heart{animation:jv-pulse 1.1s ease-in-out infinite}
-.jv-core.is-thinking .r2{animation-duration:3s}.jv-core.is-thinking .r3{animation-duration:1.8s}.jv-core.is-thinking .r4{animation-duration:5s}.jv-core.is-thinking .sweep{animation-duration:1.6s}
-.jv-core.is-speaking.no-amp .heart{animation:jv-pulse .55s ease-in-out infinite}
-.jv-core.is-listening svg,.jv-core.is-speaking svg{filter:drop-shadow(0 0 34px rgba(var(--a-rgb),.8))}
-@keyframes jv-spin{to{transform:rotate(360deg)}}
-@keyframes jv-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.24)}}
+.jv-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:0 24px}
+.jv-clockbox{position:relative;display:flex;align-items:center;gap:clamp(14px,2.4vw,34px);padding:9px 26px 8px;flex-shrink:0;border-top:1px solid rgba(var(--a-rgb),.28);border-bottom:1px solid rgba(var(--a-rgb),.28);background:rgba(var(--a-rgb),.035);box-shadow:0 0 30px rgba(var(--a-rgb),.08)}
+.jv-clockbox::before,.jv-clockbox::after{content:"";position:absolute;top:-1px;bottom:-1px;width:9px;border:1px solid var(--a)}
+.jv-clockbox::before{left:0;border-right:0}.jv-clockbox::after{right:0;border-left:0}
+.jv-time{font-size:clamp(26px,4.2vh,40px);font-weight:300;letter-spacing:.14em;color:var(--a);text-shadow:0 0 18px rgba(var(--a-rgb),.75);line-height:1}
+.jv-date{display:block;margin-top:5px;font-size:9px;letter-spacing:.3em;color:var(--faint);text-align:center;text-transform:uppercase}
+.jv-ro{font:inherit;color:inherit;background:none;border:0;padding:2px 4px;cursor:pointer;text-align:center;min-width:64px}
+.jv-ro b{display:block;font-size:17px;font-weight:400;line-height:1;color:var(--a)}
+.jv-ro b.bad{color:var(--bad);text-shadow:0 0 12px rgba(255,107,94,.6)}
+.jv-ro small{display:block;margin-top:5px;font-size:8px;letter-spacing:.26em;text-transform:uppercase;color:var(--faint)}
+.jv-ro:hover small{color:var(--ink)}
+.jv-core{--amp:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(680px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
+.jv-core canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.jv-talkbox{width:100%;max-width:760px;flex-shrink:0;max-height:26vh;display:flex;flex-direction:column;align-items:center;min-height:0}
+.jv-mics{display:flex;align-items:center;justify-content:center;gap:14px;flex-shrink:0;margin-top:10px}
+.jv-round{width:54px;height:54px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:rgba(var(--a-rgb),.07);color:var(--a);cursor:pointer;display:grid;place-items:center;transition:box-shadow .2s,background .2s,transform .12s;box-shadow:0 0 14px rgba(var(--a-rgb),.18)}
+.jv-round:hover{background:rgba(var(--a-rgb),.16);transform:scale(1.05)}
+.jv-round.live{background:rgba(var(--a-rgb),.24);box-shadow:0 0 0 5px rgba(var(--a-rgb),.1),0 0 28px rgba(var(--a-rgb),.7);animation:jv-ring 1.6s ease-out infinite}
+.jv-round.sm{width:42px;height:42px}
+.jv-round:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.jv-round:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+.jv-round svg{width:21px;height:21px}.jv-round.sm svg{width:17px;height:17px}
+@keyframes jv-ring{0%{box-shadow:0 0 0 0 rgba(var(--a-rgb),.45),0 0 28px rgba(var(--a-rgb),.7)}100%{box-shadow:0 0 0 16px rgba(var(--a-rgb),0),0 0 28px rgba(var(--a-rgb),.7)}}
 @keyframes jv-blink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes jv-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.jv-hint{margin:6px 0 0;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);min-height:14px;text-align:center}
-.jv-turn{flex:1;min-height:0;width:100%;max-width:760px;margin-top:10px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:9px;padding:0 6px 6px;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent}
+.jv-hint{margin:10px 0 0;font-size:10px;letter-spacing:.3em;text-transform:lowercase;color:var(--dim);min-height:14px;text-align:center}
+.jv-turn{min-height:0;width:100%;max-width:760px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:9px;padding:0 6px 6px;scrollbar-width:thin;scrollbar-color:rgba(var(--a-rgb),.25) transparent}
 .jv-you{font-size:12.5px;color:var(--dim);text-align:center}
 .jv-you::before{content:"› ";color:var(--a)}
 .jv-you.i{color:var(--a);font-style:italic}
-.jv-cap{font-size:clamp(17px,2.5vh,23px);line-height:1.5;font-weight:300;text-align:center;text-wrap:balance;animation:jv-in .25s ease-out}
+.jv-cap{font-size:clamp(16px,2.3vh,21px);line-height:1.5;font-weight:300;text-align:center;text-wrap:balance;animation:jv-in .25s ease-out}
 .jv-cap.old{font-size:14px;color:var(--dim)}
 .jv-err{font-size:13px;color:var(--bad);text-align:center}
 .jv-act{font-size:11px;color:var(--dim);border:1px solid rgba(var(--a-rgb),.25);border-left:2px solid var(--a);padding:4px 10px;animation:jv-in .25s ease-out}
 .jv-act b{color:var(--ink);font-weight:600}.jv-act.del{border-left-color:var(--bad)}.jv-act.done{border-left-color:var(--ok)}.jv-act.warn{border-left-color:var(--warn);color:var(--warn)}
 .jv-confirm{width:100%;max-width:640px;border:1px solid var(--bad);background:rgba(255,107,94,.09);padding:11px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
 .jv-confirm p{margin:0;flex:1;min-width:160px}
-.jv-foot{position:relative;z-index:3;padding:10px 30px 22px}
+.jv-foot{position:relative;z-index:3;padding:0 30px 18px;min-height:18px}
 .jv-in{display:flex;gap:8px;max-width:680px;margin:0 auto}
 .jv-in input{flex:1;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:rgba(var(--a-rgb),.05);border:1px solid rgba(var(--a-rgb),.25);border-radius:3px;padding:11px 13px}
 .jv-in input::placeholder{color:var(--faint)}
@@ -292,18 +287,10 @@ const CSS = `
 /* ── Versão flutuante (outras telas) ── */
 .jv-dock{position:fixed;right:18px;bottom:18px;z-index:45;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}
 .jv-dock>*{pointer-events:auto}
-.jv-orb{--amp:0;width:58px;height:58px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:radial-gradient(circle at 50% 45%,var(--bg2),var(--bg));color:var(--a);cursor:pointer;padding:5px;box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 18px rgba(var(--a-rgb),.25);transition:transform .15s,box-shadow .2s}
+.jv-orb{--amp:0;position:relative;width:62px;height:62px;border-radius:50%;border:1px solid rgba(var(--a-rgb),.5);background:radial-gradient(circle at 50% 45%,var(--bg2),var(--bg));color:var(--a);cursor:pointer;padding:0;overflow:hidden;box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 18px rgba(var(--a-rgb),.25);transition:transform .15s,box-shadow .2s}
 .jv-orb:hover{transform:scale(1.06)}
 .jv-orb.is-listening,.jv-orb.is-speaking{box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 30px rgba(var(--a-rgb),.75)}
-.jv-orb svg{width:100%;height:100%;overflow:visible}
-.jv-orb .r{fill:none;stroke:currentColor;transform-origin:200px 200px}
-.jv-orb .r1,.jv-orb .r4,.jv-orb .r5,.jv-orb .sweep,.jv-orb .thin{display:none}
-.jv-orb .r2{animation:jv-spin 14s linear infinite reverse;stroke-width:16}
-.jv-orb .r3{animation:jv-spin 9s linear infinite;stroke-width:8}
-.jv-orb.is-thinking .r2{animation-duration:2s}.jv-orb.is-thinking .r3{animation-duration:1.2s}
-.jv-orb .heart{transform-origin:200px 200px;transform:scale(calc(1.5 + var(--amp) * .5))}
-.jv-orb.is-listening .heart,.jv-orb.is-speaking.no-amp .heart{animation:jv-pulse2 .9s ease-in-out infinite}
-@keyframes jv-pulse2{0%,100%{transform:scale(1.5)}50%{transform:scale(1.9)}}
+.jv-orb canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .jv-card{width:min(360px,calc(100vw - 36px));max-height:min(60vh,460px);display:flex;flex-direction:column;background:radial-gradient(ellipse 90% 70% at 50% 0%,var(--bg2),var(--bg));border:1px solid rgba(var(--a-rgb),.4);box-shadow:0 20px 60px rgba(0,0,0,.55);animation:jv-in .2s ease-out}
 .jv-card header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(var(--a-rgb),.18)}
 .jv-card header .jv-state{flex:1;font-size:9px}
@@ -318,43 +305,127 @@ const CSS = `
 .jv-card .jv-in input{padding:9px 11px;font-size:13px}
 
 @media (max-width:820px){
-  .jv-top{padding:14px 18px 0}.jv-clock{display:none}
-  .jv-ring{grid-template-columns:1fr;justify-items:center;gap:12px}
-  .jv-core{order:-1;width:min(34vh,240px,60vw)}
-  .jv-side{flex-direction:row;gap:26px}.jv-side.l,.jv-side.r{align-items:flex-end}
-  .jv-ro,.jv-side.r .jv-ro{text-align:center;min-width:84px}.jv-ro::after{display:none}
-  .jv-ro b{font-size:26px}
-  .jv-foot{padding:8px 16px 16px}.jv-in input{font-size:16px}
+  .jv-top{padding:14px 18px 0}
+  .jv-clockbox{padding:8px 16px 7px;gap:12px;margin-top:8px}
+  .jv-ro{min-width:50px}.jv-ro b{font-size:15px}
+  .jv-foot{padding:0 16px 14px}.jv-in input{font-size:16px}
   .jv-corner{display:none}
 }
-@media (prefers-reduced-motion:reduce){.jv .r,.jv .heart,.jv .sweep,.jv-state i,.jv-cap,.jv-act,.jv-drawer,.jv-card{animation:none!important;transition:none}}
+@media (prefers-reduced-motion:reduce){.jv-state i,.jv-cap,.jv-act,.jv-drawer,.jv-card,.jv-round{animation:none!important;transition:none}}
 `;
 
-function Reactor() {
-  return (
-    <svg viewBox="0 0 400 400" aria-hidden="true">
-      <path className="sweep" d="M200 200 L200 14 A186 186 0 0 1 331.5 68.5 Z" fill="currentColor" opacity=".07" />
-      <circle className="r thin" cx="200" cy="200" r="192" strokeWidth="1" opacity=".2" />
-      <circle className="r r1" cx="200" cy="200" r="180" strokeWidth="7" strokeDasharray="1.5 14.2" opacity=".75" />
-      <circle className="r r4" cx="200" cy="200" r="164" strokeWidth="1.5" strokeDasharray="3 9" opacity=".5" />
-      <circle className="r r2" cx="200" cy="200" r="146" strokeWidth="6" strokeDasharray="190 58 80 58 30 58" opacity=".9" />
-      <circle className="r thin" cx="200" cy="200" r="130" strokeWidth="1" opacity=".4" />
-      <circle className="r r4" cx="200" cy="200" r="114" strokeWidth="13" strokeDasharray="46 17" opacity=".22" />
-      <circle className="r r3" cx="200" cy="200" r="96" strokeWidth="2.5" strokeDasharray="110 91" opacity=".85" />
-      <circle className="r r5" cx="200" cy="200" r="78" strokeWidth="1.5" strokeDasharray="2 8" opacity=".6" />
-      <g className="heart">
-        <circle cx="200" cy="200" r="58" fill="currentColor" opacity=".1" />
-        <circle cx="200" cy="200" r="40" fill="currentColor" opacity=".28" />
-        <circle cx="200" cy="200" r="21" fill="currentColor" opacity=".96" />
-      </g>
-    </svg>
-  );
+// Esfera de partículas: pontos espalhados numa esfera irregular, ligados aos
+// vizinhos por linhas finas. Gira devagar, acelera ao pensar e incha com a voz.
+// Lê o volume da fala em --amp do elemento pai (mesma variável usada antes).
+function Sphere({ status, points = 950 }) {
+  const ref = useRef(null);
+  const statusRef = useRef(status); statusRef.current = status;
+  useEffect(() => {
+    const cv = ref.current;
+    const host = cv?.parentElement;
+    const ctx = cv?.getContext("2d");
+    if (!cv || !host || !ctx) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    // Pontos por espiral de Fibonacci, com leve desordem.
+    const P = [];
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < points; i++) {
+      const y = 1 - (i / (points - 1)) * 2, r = Math.sqrt(1 - y * y), th = golden * i + (rnd() - .5) * .9;
+      const jx = (rnd() - .5) * .2, jy = (rnd() - .5) * .2, jz = (rnd() - .5) * .2;
+      let x = Math.cos(th) * r + jx, yy = y + jy, z = Math.sin(th) * r + jz;
+      const n = Math.hypot(x, yy, z) || 1;
+      P.push({ x: x / n, y: yy / n, z: z / n, s: rnd() < .07 ? 1.9 + rnd() * 1.2 : .45 + rnd() * .9, ph: rnd() * 6.283 });
+    }
+    // Cada ponto se liga aos vizinhos mais próximos.
+    const E = [], seen = new Set();
+    const k = points > 200 ? 4 : 2;
+    for (let i = 0; i < P.length; i++) {
+      const d = [];
+      for (let j = 0; j < P.length; j++) if (j !== i) d.push([(P[i].x - P[j].x) ** 2 + (P[i].y - P[j].y) ** 2 + (P[i].z - P[j].z) ** 2, j]);
+      d.sort((a, b) => a[0] - b[0]);
+      for (let n = 0; n < k && n < d.length; n++) {
+        const j = d[n][1], key = i < j ? i * 10000 + j : j * 10000 + i;
+        if (!seen.has(key)) { seen.add(key); E.push([i, j]); }
+      }
+    }
+    const X = new Float32Array(P.length), Y = new Float32Array(P.length), Z = new Float32Array(P.length);
+
+    let w = 0, h = 0, dpr = 1, rgb = "79,195,255";
+    const size = () => {
+      const b = host.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = Math.max(1, b.width); h = Math.max(1, b.height);
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      rgb = (getComputedStyle(host).getPropertyValue("--a-rgb") || rgb).trim() || rgb;
+    };
+    size();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(size) : null;
+    ro?.observe(host);
+
+    let raf = 0, last = performance.now(), rot = 0, energy = 0, t = 0, tick = 0;
+    const frame = now => {
+      const dt = Math.min(.05, (now - last) / 1000); last = now;
+      const st = statusRef.current;
+      const amp = parseFloat(host.style.getPropertyValue("--amp")) || 0;
+      const target = st === "speaking" ? Math.max(.25, amp) : st === "listening" ? .35 + Math.sin(now / 260) * .12 : st === "thinking" ? .45 : 0;
+      energy += (target - energy) * Math.min(1, dt * 8);
+      rot += dt * (st === "thinking" ? 1.1 : st === "listening" ? .32 : .16);
+      t += dt * (.5 + energy * 2.2);
+      if (++tick % 90 === 0) rgb = (getComputedStyle(host).getPropertyValue("--a-rgb") || rgb).trim() || rgb;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const R = Math.min(w, h) * .4 * (1 + energy * .1), cx = w / 2, cy = h / 2;
+      const cr = Math.cos(rot), sr = Math.sin(rot), tilt = .32, ct = Math.cos(tilt), stt = Math.sin(tilt);
+      for (let i = 0; i < P.length; i++) {
+        const p = P[i];
+        // Relevo irregular que se move devagar: a esfera parece viva, não geométrica.
+        const bump = 1 + .15 * Math.sin(p.x * 3.1 + t * .9) * Math.cos(p.y * 2.7 - t * .7) + .06 * Math.sin(p.z * 4.3 + t * 1.3) + .025 * Math.sin(p.ph + t * 2) + energy * .1 * Math.sin(t * 5 + p.ph);
+        const x0 = p.x * bump, y0 = p.y * bump, z0 = p.z * bump;
+        const x1 = x0 * cr + z0 * sr, z1 = -x0 * sr + z0 * cr;
+        const y2 = y0 * ct - z1 * stt, z2 = y0 * stt + z1 * ct;
+        const persp = 1 / (1 + z2 * .28);
+        X[i] = cx + x1 * R * persp; Y[i] = cy + y2 * R * persp; Z[i] = z2;
+      }
+      const boost = R < 60 ? 2.6 : 1; // a versão pequena precisa de traço mais forte
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineWidth = R < 60 ? .9 : .6;
+      for (let e = 0; e < E.length; e++) {
+        const a = E[e][0], b = E[e][1];
+        const depth = 1 - (Z[a] + Z[b]) * .5; // 0 (fundo) a 2 (frente)
+        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (.03 + depth * depth * .085 + energy * .1) * boost).toFixed(3)})`;
+        ctx.beginPath(); ctx.moveTo(X[a], Y[a]); ctx.lineTo(X[b], Y[b]); ctx.stroke();
+      }
+      for (let i = 0; i < P.length; i++) {
+        const depth = 1 - Z[i];
+        const r = Math.max(R < 60 ? .7 : .3, P[i].s * (.3 + depth * .45) * (R / 260 + .3));
+        ctx.fillStyle = `rgba(${rgb},${Math.min(1, (.16 + depth * .46 + energy * .25) * boost).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(X[i], Y[i], r, 0, 6.283); ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      if (!still) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
+  }, [points]);
+  return <canvas ref={ref} aria-hidden="true" />;
 }
+
+const MicIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>;
+const StopIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>;
+const KeyIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M7 11h.01M11 11h.01M15 11h.01M8 14.5h8" /></svg>;
 
 function Clock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
-  return <span className="jv-clock jv-mono">{now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "")} · {now.toLocaleTimeString("pt-BR")}</span>;
+  return (
+    <div>
+      <div className="jv-time jv-mono">{now.toLocaleTimeString("pt-BR")}</div>
+      <span className="jv-date jv-mono">{now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }).replace(".", "")}</span>
+    </div>
+  );
 }
 
 // mode: "full" na aba do Simão; "dock" (núcleo flutuante) nas outras telas.
@@ -384,7 +455,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const dockPinned = useRef(false);
   const [memItems, setMemItems] = useState([]);
   const [live, setLive] = useState(""); // resposta sendo escrita
-  const [theme, setTheme] = useState(getPref("jarvis_theme", "gold")); // gold | blue
+  const [theme, setTheme] = useState(getPref("simao_cor", "blue")); // blue | gold
+  const [showKeys, setShowKeys] = useState(false); // campo de texto (a tela é voz primeiro)
   const [full, setFull] = useState(false);
   const [hasAmp, setHasAmp] = useState(false);
 
@@ -846,8 +918,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const isAdmin = !app.currentProfile || app.currentProfile.role === "admin";
   const agenda = [...s.overdue.slice(0, 4), ...s.dueToday.slice(0, 4)].slice(0, 6);
   const upcoming = agenda.length < 6 ? s.week.slice(0, 6 - agenda.length) : [];
-  const stateLabel = { idle: wake ? "Ouvindo — diga “Simão”" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
-  const hint = pending ? "Diga sim ou não" : status === "listening" ? (wake ? "Pode falar" : "Toque para encerrar") : status === "speaking" ? (wake ? "Diga “Simão” ou toque para interromper" : "Toque para interromper") : status === "thinking" ? "" : wake ? "Diga “Simão” e o pedido" : SR ? "Toque no núcleo para falar" : "Voz indisponível neste navegador — digite abaixo";
+  const stateLabel = { idle: wake ? "Aguardando" : "Em espera", listening: "Ouvindo", thinking: "Processando", speaking: "Respondendo" }[status];
+  const hint = pending ? "diga sim ou não" : status === "listening" ? "escutando…" : status === "speaking" ? (wake ? "diga “Simão” para interromper" : "respondendo…") : status === "thinking" ? "processando…" : wake ? "diga “Simão” e o pedido" : SR ? "toque no microfone para falar" : "voz indisponível neste navegador";
   const voiceLabel = { neural: "Voz neural", browser: "Voz padrão", off: "Voz desligada" }[effectiveVoice];
   const pickVoiceMode = next => {
     setVoiceState(next); setPref("jarvis_voice", next);
@@ -873,9 +945,9 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
   // A tela mostra só a troca atual: o último pedido e o que veio depois dele.
   const lastUser = msgs.map(m => m.k).lastIndexOf("u");
-  const turn = lastUser >= 0 ? msgs.slice(lastUser) : msgs.slice(-1);
+  const turn = lastUser >= 0 ? msgs.slice(lastUser) : msgs.slice(-2);
   const lastReply = turn.map(m => m.k).lastIndexOf("j");
-  const themeClass = theme === "blue" ? " jv-blue" : "";
+  const themeClass = theme === "gold" ? " jv-gold" : "";
   const busy = status === "thinking";
   const ask = q => { if (!busy) send(q); };
 
@@ -907,6 +979,12 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     <span className="jv-state"><i style={online === false ? { background: "var(--bad)", boxShadow: "0 0 8px var(--bad)" } : undefined} />{online === false ? "Offline" : stateLabel}</span>
   );
 
+  // Botão de parar: cala a fala, abandona o pedido em andamento e encerra a escuta.
+  const stopAll = () => {
+    if (pendingRef.current) { pendingRef.current.resolve(false); return; }
+    cancelTurn(); stopRec(); setStatus("idle");
+  };
+
   // ── Versão flutuante ─────────────────────────────────────────────────────
   if (!isFull) {
     const onOrb = () => {
@@ -932,7 +1010,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
         )}
         <button ref={coreRef} className={"jv-orb is-" + status + (hasAmp ? "" : " no-amp")} onClick={onOrb}
           aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper o Simão" : "Falar com o Simão"} title="Simão">
-          <Reactor />
+          <Sphere status={status} points={110} />
         </button>
       </div>
     );
@@ -952,7 +1030,6 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       <div className="jv-top">
         <span className="jv-brand">SIMÃO</span>
         {stateView}
-        <Clock />
         <div className="jv-ctl">
           <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
           <button className={"jv-btn" + (showPanels ? " on" : "")} onClick={() => { setShowPanels(v => !v); setShowSet(false); }} aria-expanded={showPanels}>Painéis</button>
@@ -992,7 +1069,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
               <h4>Tela</h4>
               <div className="row">
-                <button className="jv-btn" onClick={() => { const t = theme === "blue" ? "gold" : "blue"; setTheme(t); setPref("jarvis_theme", t); }}>Cor: {theme === "blue" ? "azul" : "dourado"}</button>
+                <button className="jv-btn" onClick={() => { const t = theme === "blue" ? "gold" : "blue"; setTheme(t); setPref("simao_cor", t); }}>Cor: {theme === "blue" ? "azul" : "dourado"}</button>
                 <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
                 <button className="jv-btn" onClick={() => { newConversation(); setShowSet(false); }} disabled={busy} title="Apaga a conversa atual. A memória permanente continua.">Nova conversa</button>
               </div>
@@ -1002,35 +1079,32 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       </div>
 
       <div className="jv-stage">
-        <div className="jv-ring">
-          <div className="jv-side l">
-            {readout(s.dueToday.length, "Para hoje", "O que tenho para hoje?")}
-            {readout(s.week.length, "Próximos 7 dias", "O que vence nos próximos sete dias?")}
-          </div>
-          <button ref={coreRef} className={"jv-core is-" + status + (hasAmp ? "" : " no-amp")} onClick={onCore}
-            aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
-            <Reactor />
-          </button>
-          <div className="jv-side r">
-            {readout(s.overdue.length, "Atrasadas", "O que está atrasado?", s.overdue.length > 0)}
-            {isAdmin
-              ? readout(s.pending.length, "Pagamentos pendentes", "Quem está com pagamento pendente?")
-              : readout(`${s.dailyDone.length}/${s.daily.length}`, "Hábitos de hoje", "Como estão meus hábitos?")}
-          </div>
+        <div className="jv-clockbox">
+          {readout(s.dueToday.length, "Hoje", "O que tenho para hoje?")}
+          <Clock />
+          {readout(s.overdue.length, "Atrasadas", "O que está atrasado?", s.overdue.length > 0)}
+        </div>
+
+        <button ref={coreRef} className="jv-core" onClick={onCore}
+          aria-label={status === "listening" ? "Encerrar escuta" : status === "speaking" ? "Interromper fala" : "Falar com o Simão"}>
+          <Sphere status={status} />
+        </button>
+
+        <div className="jv-talkbox">
+          {turnView}
+          {confirmView}
+        </div>
+
+        <div className="jv-mics">
+          <button className="jv-round sm" onClick={() => setShowKeys(v => !v)} aria-label="Digitar o pedido" aria-pressed={showKeys} title="Digitar"><KeyIcon /></button>
+          <button className={"jv-round" + (status === "listening" ? " live" : "")} onClick={onCore} disabled={!SR || busy} aria-label={status === "listening" ? "Encerrar escuta" : "Falar"} title="Falar"><MicIcon /></button>
+          <button className="jv-round sm" onClick={stopAll} disabled={status === "idle" && !pending} aria-label="Parar" title="Parar"><StopIcon /></button>
         </div>
         <p className="jv-hint">{hint}</p>
-        {turnView}
-        {confirmView}
       </div>
 
       <div className="jv-foot">
-        <div className="jv-in" style={{ marginBottom: 0 }}>
-          <button className="jv-btn" type="button" onClick={() => ask("Briefing do dia")} disabled={busy}>Briefing</button>
-          <form style={{ display: "contents" }} onSubmit={submit}>
-            <input value={input} onChange={e => setInput(e.target.value)} placeholder={pending ? "Responda sim ou não" : "Ou digite o pedido…"} aria-label="Pedido para o Simão" />
-            <button className="jv-btn on" type="submit" disabled={!input.trim() || (busy && !pending)}>Enviar</button>
-          </form>
-        </div>
+        {(showKeys || !SR) && inputView}
       </div>
 
       {showPanels && (
