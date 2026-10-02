@@ -15,6 +15,8 @@
 //
 // Segredos lidos: ANTHROPIC_API_KEY (preferido), OPENAI_API_KEY (alternativa e
 // voz neural). Opcionais: JARVIS_MODEL, JARVIS_OPENAI_MODEL, JARVIS_VOICE.
+// Voz nativa em português (opcional): ELEVENLABS_API_KEY, com JARVIS_ELEVEN_VOICE
+// e JARVIS_ELEVEN_MODEL para escolher a voz e o modelo.
 // (O nome interno da função continua "jarvis"; o assistente se chama Simão.)
 
 const D: any = (globalThis as any).Deno;
@@ -39,15 +41,15 @@ const MAX_TTS_CHARS = 1200;
 // ── Personalidade ───────────────────────────────────────────────────────────
 const PERSONA = `Você é Simão, o assistente pessoal de voz do usuário dentro do YOETZ Produtivo, o sistema de gestão do escritório de contabilidade dele. O usuário chama você pelo nome para dar ordens; você não diz o próprio nome nas respostas, a não ser que perguntem.
 
-Quem você é: um assistente no estilo do mordomo digital dos filmes: calmo, preciso, leal, com humor seco e discreto que aparece raramente e nunca atrapalha a informação. Trata o usuário por "senhor". Nunca é bajulador nem prolixo.
+Quem você é: um assistente no estilo do mordomo digital dos filmes: calmo, preciso, leal, com humor seco e discreto que aparece raramente e nunca atrapalha a informação. Trata o usuário pelo primeiro nome, que vem no campo "usuario" do contexto (por exemplo, "Fagner"), com naturalidade e sem repetir o nome em toda frase. Nunca usa "senhor" nem "senhora". Nunca é bajulador nem prolixo.
 
 Como responder:
 - Sempre em português do Brasil.
 - Suas respostas são faladas em voz alta. Escreva texto corrido, sem markdown, sem asteriscos, sem emojis, sem listas com símbolos, sem identificadores internos.
-- Seja breve: uma ou duas frases curtas, a primeira já com a resposta. Só se estenda quando o senhor pedir detalhes, um briefing, uma pesquisa, notícias ou um resumo; nesses casos, até cinco ou seis frases.
+- Seja breve: uma ou duas frases curtas, a primeira já com a resposta. Só se estenda quando ele pedir detalhes, um briefing, uma pesquisa, notícias ou um resumo; nesses casos, até cinco ou seis frases.
 - O pedido chega por reconhecimento de voz e pode vir com palavras trocadas (nomes de clientes, siglas). Interprete pelo sentido e pelos dados; se ficar realmente incerto, pergunte em uma frase.
 - Ao citar vários itens, diga a quantidade e destaque os dois ou três mais importantes; ofereça o restante em vez de ler tudo.
-- Datas em linguagem natural ("amanhã", "sexta-feira, dia 9"). Valores em reais por extenso natural.
+- Escreva do jeito que se fala, porque o texto vira voz: frases curtas e diretas, em tom de conversa. Datas faladas ("amanhã", "sexta-feira, dia nove"). Valores e percentuais por extenso ("cinco reais e quarenta e três", "treze vírgula sete cinco por cento"). Sem parênteses, barras, abreviações ou símbolos.
 
 Como agir:
 - Todo dado vem do painel do contexto ou das ferramentas. Nunca invente tarefas, clientes, valores ou prazos.
@@ -57,9 +59,9 @@ Como agir:
 - Para alterar, concluir ou excluir uma tarefa, passe o id (do painel ou de listar_tarefas). Se não tiver o id, pode passar um trecho do título no campo id: a ferramenta localiza e avisa se houver mais de uma.
 - Para mexer em várias tarefas de uma vez (adiar todas as atrasadas, concluir uma lista), use tarefas_em_lote com os ids.
 - Datas nas ferramentas: prefira YYYY-MM-DD calculado a partir de "hoje" do contexto.
-- Só diga que algo foi feito quando a ferramenta devolver ok. Se ela disser que a gravação não foi confirmada, avise o senhor com clareza.
-- Memória: o contexto traz "memoria", com o que o senhor já pediu para guardar. Use isso para decidir e responder. Quando ele pedir para lembrar de algo, ou disser um fato durável sobre como trabalha, sobre a equipe, um cliente ou uma preferência dele, guarde com a ferramenta lembrar, em uma frase curta e autossuficiente. Não guarde senhas, números de documentos nem dados bancários. Use esquecer quando ele pedir.
-- Se o senhor disser para desfazer, voltar atrás ou que se enganou, use a ferramenta desfazer, que reverte a última alteração feita por você.
+- Só diga que algo foi feito quando a ferramenta devolver ok. Se ela disser que a gravação não foi confirmada, avise com clareza.
+- Memória: o contexto traz "memoria", com o que o usuário já pediu para guardar. Use isso para decidir e responder. Quando ele pedir para lembrar de algo, ou disser um fato durável sobre como trabalha, sobre a equipe, um cliente ou uma preferência dele, guarde com a ferramenta lembrar, em uma frase curta e autossuficiente. Não guarde senhas, números de documentos nem dados bancários. Use esquecer quando ele pedir.
+- Se ele disser para desfazer, voltar atrás ou que se enganou, use a ferramenta desfazer, que reverte a última alteração feita por você.
 - Pesquisa e notícias: para qualquer coisa do mundo lá fora (notícias, legislação recente, fatos atuais, empresas, eventos), use pesquisar_web em vez de responder de memória. Antes de chamar, diga uma frase curta avisando que vai consultar, porque a pesquisa leva alguns segundos. Depois, resuma em até cinco frases, com datas e números, e cite de onde veio ("segundo o Valor", "de acordo com a Receita Federal"). As fontes aparecem na tela; não leia endereços em voz alta.
 - Mercado financeiro: para preço de moeda, índice, ação, cripto, commodity ou juros, use cotacoes. Diga o preço, a variação do dia e o horário do dado. Para o porquê do movimento ou notícias de mercado, combine com pesquisar_web. Não recomende compra ou venda: apresente os dados e, se pedirem opinião, descreva cenários e riscos.
 - Exclusões passam por uma confirmação na tela do próprio aplicativo; chame a ferramenta e relate o resultado.
@@ -546,12 +548,32 @@ async function chat(messages: any[], context: any) {
 const VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"];
 const LEGACY_VOICES = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"];
 
+// ElevenLabs tem vozes nativas em português e baixa latência; entra na frente
+// quando a chave estiver configurada. O áudio é repassado conforme chega.
+async function ttsEleven(text: string): Promise<Response | null> {
+  const key = env("ELEVENLABS_API_KEY");
+  if (!key) return null;
+  const voice = env("JARVIS_ELEVEN_VOICE") || "JBFqnCBsd6RMkjVDRZzb";
+  try {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/stream?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": key, "Accept": "audio/mpeg" },
+      body: JSON.stringify({ text, model_id: env("JARVIS_ELEVEN_MODEL") || "eleven_flash_v2_5", language_code: "pt" }),
+    });
+    if (r.ok) return new Response(r.body, { headers: { ...CORS, "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
+    console.error("[jarvis] elevenlabs falhou:", r.status, (await r.text()).slice(0, 200));
+  } catch (e) { console.error("[jarvis] elevenlabs falhou:", (e as Error).message); }
+  return null;
+}
+
 async function tts(text: string, wanted?: string): Promise<Response> {
+  const eleven = await ttsEleven(text);
+  if (eleven) return eleven;
   const key = env("OPENAI_API_KEY");
   if (!key) return json({ ok: false, error: "Voz neural indisponível: OPENAI_API_KEY não configurada." }, 501);
   const voice = VOICES.includes(String(wanted)) ? String(wanted) : (env("JARVIS_VOICE") || "ash");
   const attempts = [
-    { model: "gpt-4o-mini-tts", voice, input: text, response_format: "mp3", instructions: "Fale como um brasileiro nativo, em português do Brasil, com sotaque brasileiro neutro e nenhum sotaque estrangeiro. Tom calmo, seguro e cordial. Ritmo ágil e natural de conversa, sem pausas longas e sem teatralidade." },
+    { model: "gpt-4o-mini-tts", voice, input: text, response_format: "mp3", instructions: "Idioma: português do Brasil, pronúncia de falante nativo brasileiro, sem nenhum sotaque estrangeiro. Voz de conversa, natural e próxima, como um colega competente falando ao lado. Ritmo ágil, entonação variada, sem tom de locutor, sem leitura robótica e sem pausas longas." },
     { model: "tts-1", voice: LEGACY_VOICES.includes(voice) ? voice : "onyx", input: text, response_format: "mp3" },
   ];
   let lastErr = "";
@@ -771,7 +793,7 @@ export async function handler(req: Request): Promise<Response> {
     try { body = JSON.parse(raw); } catch { return json({ ok: false, error: "JSON inválido" }, 400); }
 
     if (body.action === "ping") {
-      return json({ ok: true, providers: { anthropic: !!env("ANTHROPIC_API_KEY"), openai: !!env("OPENAI_API_KEY") } });
+      return json({ ok: true, providers: { anthropic: !!env("ANTHROPIC_API_KEY"), openai: !!env("OPENAI_API_KEY"), elevenlabs: !!env("ELEVENLABS_API_KEY") } });
     }
 
     const user = await requireUser(req);

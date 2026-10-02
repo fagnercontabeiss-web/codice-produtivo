@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { auth, db } from "./supabase.js";
-import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, saidYes, saidNo } from "./jarvisTools.js";
+import { runTool, snapshot, greeting, buildContext, fmtBR, matchWake, saidYes, saidNo, firstName } from "./jarvisTools.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kpgpcqjefrixzshmskls.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -54,7 +54,7 @@ async function callFn(body, wantBlob = false) {
     catch { throw new Error(e?.name === "AbortError" ? "O servidor demorou demais para responder." : "Sem conexão com o servidor."); }
   }
   if (res.status === 401 && await auth.refreshSession().catch(() => null)) res = await once();
-  if (wantBlob && res.ok && (res.headers.get("Content-Type") || "").includes("audio")) return res.blob();
+  if (wantBlob && res.ok && (res.headers.get("Content-Type") || "").includes("audio")) return wantBlob === "stream" ? res : res.blob();
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.ok) {
     if (res.status === 404) throw new Error("A função do assistente não está publicada no Supabase.");
@@ -148,6 +148,46 @@ function loadConversation() {
   return null;
 }
 
+// Transforma a resposta de áudio do servidor em um <audio>. Onde o navegador permite
+// (MediaSource), o som começa a tocar enquanto o arquivo ainda está chegando.
+async function audioFromResponse(res) {
+  const type = (res.headers.get("Content-Type") || "audio/mpeg").split(";")[0].trim();
+  const MS = typeof window !== "undefined" ? window.MediaSource : null;
+  if (MS && res.body && MS.isTypeSupported?.(type)) {
+    const ms = new MS();
+    const url = URL.createObjectURL(ms);
+    const audio = new Audio();
+    audio.src = url;
+    ms.addEventListener("sourceopen", async () => {
+      try {
+        const sb = ms.addSourceBuffer(type);
+        const reader = res.body.getReader();
+        const append = chunk => new Promise((ok, no) => {
+          const done = () => { sb.removeEventListener("error", fail); ok(); };
+          const fail = () => { sb.removeEventListener("updateend", done); no(new Error("falha ao decodificar o áudio")); };
+          sb.addEventListener("updateend", done, { once: true });
+          sb.addEventListener("error", fail, { once: true });
+          sb.appendBuffer(chunk);
+        });
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value?.byteLength) await append(value);
+        }
+        if (ms.readyState === "open") ms.endOfStream();
+      } catch (e) {
+        console.warn("[simao] áudio progressivo:", e.message);
+        try { if (ms.readyState === "open") ms.endOfStream("decode"); } catch { /* já encerrado */ }
+      }
+    }, { once: true });
+    return { audio, release: () => URL.revokeObjectURL(url) };
+  }
+  const url = URL.createObjectURL(await res.blob());
+  return { audio: new Audio(url), release: () => URL.revokeObjectURL(url) };
+}
+
+const IS_PHONE = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+
 // Confere no banco se uma gravação chegou (as funções do app gravam em segundo plano).
 async function verifySaved(table, id, check) {
   for (let i = 0; i < 4; i++) {
@@ -219,7 +259,7 @@ const CSS = `
 .jv-ro b{font-size:13px;font-weight:500;letter-spacing:0;color:var(--a)}
 .jv-ro b.bad{color:var(--bad)}
 .jv-ro:hover{color:var(--ink)}
-.jv-core{--amp:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(680px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
+.jv-core{--amp:0;--amp-in:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(680px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
 .jv-core canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .jv-talkbox{width:100%;max-width:760px;flex-shrink:0;max-height:36vh;display:flex;flex-direction:column;align-items:center;min-height:0}
 .jv-mics{display:flex;align-items:center;justify-content:center;gap:11px;flex-shrink:0;margin-top:10px}
@@ -348,37 +388,40 @@ function Sphere({ status, points = 950 }) {
     }
     const X = new Float32Array(P.length), Y = new Float32Array(P.length), Z = new Float32Array(P.length);
 
-    let w = 0, h = 0, dpr = 1, rgb = "79,195,255";
+    const rgb = "238,245,255"; // branco levemente frio, em qualquer tema
+    let w = 0, h = 0, dpr = 1;
     const size = () => {
       const b = host.getBoundingClientRect();
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = Math.max(1, b.width); h = Math.max(1, b.height);
       cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-      rgb = (getComputedStyle(host).getPropertyValue("--a-rgb") || rgb).trim() || rgb;
     };
     size();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(size) : null;
     ro?.observe(host);
 
-    let raf = 0, last = performance.now(), rot = 0, energy = 0, t = 0, tick = 0;
+    let raf = 0, last = performance.now(), rot = 0, energy = 0, t = 0;
     const frame = now => {
       const dt = Math.min(.05, (now - last) / 1000); last = now;
       const st = statusRef.current;
-      const amp = parseFloat(host.style.getPropertyValue("--amp")) || 0;
-      const target = st === "speaking" ? Math.max(.25, amp) : st === "listening" ? .35 + Math.sin(now / 260) * .12 : st === "thinking" ? .45 : 0;
-      energy += (target - energy) * Math.min(1, dt * 8);
-      rot += dt * (st === "thinking" ? 1.1 : st === "listening" ? .32 : .16);
-      t += dt * (.5 + energy * 2.2);
-      if (++tick % 90 === 0) rgb = (getComputedStyle(host).getPropertyValue("--a-rgb") || rgb).trim() || rgb;
+      // Duas vozes movem a esfera: a dele (--amp) e a de quem fala (--amp-in).
+      const out = parseFloat(host.style.getPropertyValue("--amp")) || 0;
+      const inp = parseFloat(host.style.getPropertyValue("--amp-in")) || 0;
+      const target = Math.max(st === "speaking" ? out : 0, st === "speaking" ? 0 : inp, st === "thinking" ? .22 + Math.sin(now / 180) * .08 : 0);
+      // Sobe rápido com a voz e desce mais devagar, como um medidor de áudio.
+      energy += (target - energy) * Math.min(1, dt * (target > energy ? 18 : 5));
+      rot += dt * (st === "thinking" ? 1.1 : .16 + energy * .5);
+      t += dt * (.5 + energy * 3);
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const R = Math.min(w, h) * .4 * (1 + energy * .1), cx = w / 2, cy = h / 2;
+      const R = Math.min(w, h) * .37 * (1 + energy * .16), cx = w / 2, cy = h / 2;
       const cr = Math.cos(rot), sr = Math.sin(rot), tilt = .32, ct = Math.cos(tilt), stt = Math.sin(tilt);
       for (let i = 0; i < P.length; i++) {
         const p = P[i];
         // Relevo irregular que se move devagar: a esfera parece viva, não geométrica.
-        const bump = 1 + .15 * Math.sin(p.x * 3.1 + t * .9) * Math.cos(p.y * 2.7 - t * .7) + .06 * Math.sin(p.z * 4.3 + t * 1.3) + .025 * Math.sin(p.ph + t * 2) + energy * .1 * Math.sin(t * 5 + p.ph);
+        const bump = 1 + .15 * Math.sin(p.x * 3.1 + t * .9) * Math.cos(p.y * 2.7 - t * .7) + .06 * Math.sin(p.z * 4.3 + t * 1.3) + .025 * Math.sin(p.ph + t * 2)
+          + energy * (.2 * Math.sin(p.y * 7 + t * 6) * Math.sin(p.x * 5 - t * 4) + .1 * Math.sin(t * 9 + p.ph));
         const x0 = p.x * bump, y0 = p.y * bump, z0 = p.z * bump;
         const x1 = x0 * cr + z0 * sr, z1 = -x0 * sr + z0 * cr;
         const y2 = y0 * ct - z1 * stt, z2 = y0 * stt + z1 * ct;
@@ -391,13 +434,13 @@ function Sphere({ status, points = 950 }) {
       for (let e = 0; e < E.length; e++) {
         const a = E[e][0], b = E[e][1];
         const depth = 1 - (Z[a] + Z[b]) * .5; // 0 (fundo) a 2 (frente)
-        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (.03 + depth * depth * .085 + energy * .1) * boost).toFixed(3)})`;
+        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (.03 + depth * depth * .085 + energy * .16) * boost).toFixed(3)})`;
         ctx.beginPath(); ctx.moveTo(X[a], Y[a]); ctx.lineTo(X[b], Y[b]); ctx.stroke();
       }
       for (let i = 0; i < P.length; i++) {
         const depth = 1 - Z[i];
         const r = Math.max(R < 60 ? .7 : .3, P[i].s * (.3 + depth * .45) * (R / 260 + .3));
-        ctx.fillStyle = `rgba(${rgb},${Math.min(1, (.16 + depth * .46 + energy * .25) * boost).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${rgb},${Math.min(1, (.16 + depth * .46 + energy * .35) * boost).toFixed(3)})`;
         ctx.beginPath(); ctx.arc(X[i], Y[i], r, 0, 6.283); ctx.fill();
       }
       ctx.globalCompositeOperation = "source-over";
@@ -428,6 +471,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const pendingRef = useRef(null);
   const [voice, setVoiceState] = useState(getPref("jarvis_voice", "auto")); // auto | neural | browser | off
   const [neuralOk, setNeuralOk] = useState(false);
+  const [premiumVoice, setPremiumVoice] = useState(false); // voz nativa em português configurada no servidor
   const [online, setOnline] = useState(null);
   const SRok = typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   const [wake, setWakeState] = useState(SRok && getPref("jarvis_hands", "on") === "on"); // mãos livres
@@ -454,6 +498,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const undoStack = useRef([]);     // alterações desta sessão que podem ser desfeitas
   const turnRef = useRef(0);        // identifica o pedido em andamento
   const mutedRef = useRef(-1);      // pedido cuja fala o usuário mandou calar
+  const micRef = useRef(null);      // medição do volume do microfone
+  const pulseTimers = useRef({});
   const busyRef = useRef(false);
   const recRef = useRef(null);
   const audioRef = useRef(null);
@@ -507,14 +553,12 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       else if (wakeRef.current) fn.current.listen?.({ followUp: true });
     };
 
-    const playBlob = blob => new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+    const playAudio = ({ audio, release }) => new Promise((resolve, reject) => {
       audio.playbackRate = rateRef.current;
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error("áudio inválido")); };
-      try { // núcleo reagindo ao volume real da fala
+      audio.onended = () => { release(); resolve(); };
+      audio.onerror = () => { release(); reject(new Error("áudio inválido")); };
+      try { // a esfera reage ao volume real da fala
         const AC = window.AudioContext || window.webkitAudioContext;
         const ctx = audioCtxRef.current || (audioCtxRef.current = new AC());
         if (ctx.state === "suspended") ctx.resume();
@@ -526,7 +570,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
           if (seq !== speakSeq.current) return;
           an.getByteTimeDomainData(data);
           let sum = 0; for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
-          if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / data.length) * 4).toFixed(3));
+          if (coreRef.current) coreRef.current.style.setProperty("--amp", Math.min(1, Math.sqrt(sum / data.length) * 4.5).toFixed(3));
           rafRef.current = requestAnimationFrame(tick);
         };
         setHasAmp(true); tick();
@@ -542,6 +586,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       const voices = window.speechSynthesis.getVoices().filter(v => /^pt[-_]BR/i.test(v.lang));
       const pick = voices.find(v => /natural|neural|online/i.test(v.name)) || voices.find(v => /google/i.test(v.name)) || voices.find(v => /daniel|felipe|ant[oô]nio/i.test(v.name)) || voices[0];
       if (pick) u.voice = pick;
+      // A voz do navegador não dá acesso ao som; a esfera pulsa a cada palavra falada.
+      u.onboundary = () => fn.current.pulse?.("--amp", .55 + Math.random() * .4);
       u.onend = u.onerror = () => resolve();
       window.speechSynthesis.speak(u);
     });
@@ -555,10 +601,10 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
         else if (statusRef.current !== "speaking") setStatus("speaking");
         try {
           if (item.job && !neuralBroken) {
-            const blob = await item.job;
-            if (stale()) return;
-            if (!(blob instanceof Blob)) throw new Error("sem áudio");
-            await playBlob(blob);
+            const player = await item.job;
+            if (stale()) { player?.release?.(); return; }
+            if (!player?.audio) throw new Error("sem áudio");
+            await playAudio(player);
           } else await sayBrowser(item.text);
         } catch (e) {
           if (stale()) return;
@@ -575,18 +621,19 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     const emit = text => {
       text = text.trim();
       if (!text || mode === "off") return;
-      const job = mode === "neural" && !neuralBroken ? callFn({ action: "tts", text: text.slice(0, 1200), voice: voiceNameRef.current }, true) : null;
+      const job = mode === "neural" && !neuralBroken ? callFn({ action: "tts", text: text.slice(0, 1200), voice: voiceNameRef.current }, "stream").then(audioFromResponse) : null;
       if (job) job.catch(() => {});
       queue.push({ text, job });
       pump();
     };
-    // A primeira frase sai sozinha (áudio começa logo); as seguintes se agrupam.
+    // A primeira frase sai sozinha (o áudio começa logo); o resto vai em blocos maiores,
+    // para a fala sair contínua, sem emenda a cada frase.
     const drain = () => {
       let m;
       while ((m = buf.match(/^([\s\S]*?[.!?…]+["')\]]*)\s+/))) {
         buf = buf.slice(m[0].length);
         hold = hold ? hold + " " + m[1] : m[1];
-        if (first || hold.length >= 60) { emit(hold); hold = ""; first = false; }
+        if (first || hold.length >= 200) { emit(hold); hold = ""; first = false; }
       }
     };
     return {
@@ -609,6 +656,54 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     stopSpeaking();
     setStatus(busyRef.current ? "thinking" : "idle");
   }, [stopSpeaking]);
+
+  // Pulso curto numa variável de volume da esfera (usado quando não há medição real).
+  const pulse = useCallback((name, v) => {
+    const el = coreRef.current;
+    if (!el) return;
+    el.style.setProperty(name, v.toFixed(3));
+    clearTimeout(pulseTimers.current[name]);
+    pulseTimers.current[name] = setTimeout(() => coreRef.current?.style.setProperty(name, 0), 170);
+  }, []);
+
+  // Mede o volume do microfone para a esfera acompanhar a voz de quem fala.
+  // No celular fica de fora: abrir o microfone duas vezes derruba o reconhecimento de voz.
+  const startMic = useCallback(async () => {
+    if (micRef.current || IS_PHONE || !navigator.mediaDevices?.getUserMedia) return;
+    micRef.current = { pending: true };
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      if (!micRef.current || !aliveRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = audioCtxRef.current || (audioCtxRef.current = new AC());
+      if (ctx.state === "suspended") ctx.resume();
+      const an = ctx.createAnalyser(); an.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(an); // não liga na saída: não há retorno de som
+      const data = new Uint8Array(an.fftSize);
+      const m = { stream, raf: 0 };
+      const loop = () => {
+        an.getByteTimeDomainData(data);
+        let sum = 0; for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const level = Math.sqrt(sum / data.length);
+        // Enquanto ele fala, o microfone capta a própria resposta; aí quem manda é o volume da fala.
+        const shown = statusRef.current === "speaking" ? 0 : Math.min(1, Math.max(0, level - .012) * 9);
+        coreRef.current?.style.setProperty("--amp-in", shown.toFixed(3));
+        m.raf = requestAnimationFrame(loop);
+      };
+      micRef.current = m;
+      loop();
+    } catch (e) {
+      console.warn("[simao] nível do microfone indisponível:", e.message);
+      micRef.current = { failed: true };
+    }
+  }, []);
+  const stopMic = useCallback(() => {
+    const m = micRef.current;
+    if (m?.failed) return;
+    micRef.current = null;
+    if (m?.stream) { cancelAnimationFrame(m.raf); m.stream.getTracks().forEach(t => t.stop()); }
+    coreRef.current?.style.setProperty("--amp-in", 0);
+  }, []);
 
   // ── Memória permanente ───────────────────────────────────────────────────
   const setMemory = items => { memRef.current = items; setMemItems(items); };
@@ -687,7 +782,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
         if (!current()) return;
       }
       const silent = !final || final === "…";
-      if (silent) final = "Feito, senhor.";
+      if (silent) final = "Feito.";
       mem.api = trimHistory(api);
       push({ k: "j", text: final });
       saveConversation();
@@ -757,6 +852,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     rec.onspeechstart = () => clearTimeout(followTimer.current);
     rec.onresult = e => {
       clearTimeout(followTimer.current);
+      if (!micRef.current?.stream) pulse("--amp-in", .5 + Math.random() * .4);
       let live = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) finalText += e.results[i][0].transcript; else live += e.results[i][0].transcript;
@@ -829,7 +925,12 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     try { rec.start(); } catch { recRef.current = null; }
   }, [SR, stopRec, send, listen, cancelTurn]);
 
-  fn.current = { listen, stopRec, startWake, listenForInterrupt };
+  fn.current = { listen, stopRec, startWake, listenForInterrupt, pulse };
+
+  // O medidor do microfone fica ligado enquanto ele estiver ouvindo (mãos livres ou escuta pontual).
+  useEffect(() => {
+    if (wake || status === "listening") startMic(); else stopMic();
+  }, [wake, status, startMic, stopMic]);
 
   useEffect(() => { if (status === "idle" && wake && !pending) startWake(); }, [status, wake, pending, startWake]);
 
@@ -852,13 +953,13 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     aliveRef.current = true;
     let cancelled = false;
     (async () => {
-      let ok = false, neural = false;
+      let ok = false, neural = false, premium = false;
       try {
         const p = await Promise.race([callFn({ action: "ping" }), sleep(6000).then(() => { throw new Error("tempo esgotado"); })]);
-        ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!p.providers?.openai;
+        ok = !!(p.providers?.anthropic || p.providers?.openai); neural = !!(p.providers?.openai || p.providers?.elevenlabs); premium = !!p.providers?.elevenlabs;
       } catch (e) { console.warn("[simao] ping:", e.message); }
       if (cancelled) return;
-      setOnline(ok); setNeuralOk(neural);
+      setOnline(ok); setNeuralOk(neural); setPremiumVoice(premium);
       const pref = getPref("jarvis_voice", "auto");
       voiceRef.current = pref === "auto" ? (neural ? "neural" : "browser") : pref === "neural" && !neural ? "browser" : pref;
       const rows = await db.select("assistant_memory").catch(() => []);
@@ -873,7 +974,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     return () => {
       cancelled = true; aliveRef.current = false; wakeRef.current = false;
       window.removeEventListener("keydown", onKey);
-      stopRec(); stopSpeaking();
+      stopRec(); stopSpeaking(); stopMic();
       if (pendingRef.current) pendingRef.current.resolve(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1032,7 +1133,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
                   <option value="off">Desligada (só texto)</option>
                 </select>
               </label>
-              {effectiveVoice === "neural" && (
+              {effectiveVoice === "neural" && premiumVoice && <p className="jv-empty">Usando a voz nativa em português configurada no servidor.</p>}
+              {effectiveVoice === "neural" && !premiumVoice && (
                 <label>Timbre
                   <select value={voiceName} onChange={e => { setVoiceName(e.target.value); setPref("jarvis_voice_name", e.target.value); }}>
                     {NEURAL_VOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -1044,7 +1146,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
                   <input type="range" min="0.9" max="1.5" step="0.05" value={rate} onChange={e => { const v = parseFloat(e.target.value); setRate(v); setPref("jarvis_rate", String(v)); }} />
                 </label>
               )}
-              {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak("Às suas ordens, senhor. Esta é a voz que estou usando agora.")}>Testar voz</button>}
+              {effectiveVoice !== "off" && <button className="jv-btn" onClick={() => speak(`Às ordens, ${firstName(app)}. Esta é a voz que estou usando agora.`)}>Testar voz</button>}
 
               <h4>Memória · {memItems.length}</h4>
               {memItems.length === 0 && <p className="jv-empty">Nada guardado ainda. Diga, por exemplo: “Simão, lembre que a Iris cuida do departamento pessoal”.</p>}

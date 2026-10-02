@@ -208,6 +208,9 @@ export function snapshot(app) {
   };
 }
 
+// Primeiro nome de quem está usando, para o assistente tratar a pessoa pelo nome.
+export const firstName = app => String(app?.currentProfile?.name || "").trim().split(/\s+/)[0] || "";
+
 // Saudação local, sem custo de IA, dita ao abrir a tela.
 export function greeting(app) {
   const s = snapshot(app);
@@ -218,7 +221,8 @@ export function greeting(app) {
   if (s.dueToday.length) parts.push(`${pl(s.dueToday.length, "tarefa vence", "tarefas vencem")} hoje`);
   if (s.overdue.length) parts.push(`${pl(s.overdue.length, "está atrasada", "estão atrasadas")}`);
   if (!parts.length) parts.push(s.week.length ? `nada vence hoje e há ${pl(s.week.length, "tarefa", "tarefas")} para os próximos sete dias` : "a agenda está limpa");
-  let text = `${hello}, senhor. ${parts.join(" e ")[0].toUpperCase()}${parts.join(" e ").slice(1)}.`;
+  const who = firstName(app);
+  let text = `${hello}${who ? ", " + who : ""}. ${parts.join(" e ")[0].toUpperCase()}${parts.join(" e ").slice(1)}.`;
   const lead = s.overdue[0] || s.dueToday[0];
   if (lead) text += ` A mais sensível é ${lead.title}.`;
   if (s.daily.length && s.dailyDone.length < s.daily.length) text += ` Dos hábitos diários, ${s.dailyDone.length} de ${s.daily.length} feitos.`;
