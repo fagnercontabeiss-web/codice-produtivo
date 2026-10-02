@@ -782,7 +782,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
   ];
 
   // Abas exclusivas do admin (nunca aparecem para outros)
-  const adminOnlyTabs = ["settings", "team", "reports"];
+  const adminOnlyTabs = ["settings", "team", "reports", "jarvis"]; // o Simão é só do administrador
 
   const navGroups = allNavDefs.map(group => ({
     ...group,
@@ -11394,7 +11394,7 @@ function AppContent({ onLogout }) {
 
   // Guard: redirecionar se aba não permitida
   useEffect(() => {
-    const adminOnly = ["severance","settings","team"];
+    const adminOnly = ["severance","settings","team","jarvis"];
     const notForViewer = ["habits","clients","relationship","obligations","reports","severance","settings","team"];
     if (isViewer && notForViewer.includes(activeTab)) setActiveTab("tasks");
     if (!isAdmin && adminOnly.includes(activeTab)) setActiveTab("dashboard");
@@ -11419,7 +11419,7 @@ function AppContent({ onLogout }) {
     return () => window.removeEventListener("keydown", handler);
   }, [isAdmin, isViewer]);
 
-  const canSimao = isAdmin || (!isViewer && (!currentProfile?.allowedTabs || currentProfile.allowedTabs.includes("jarvis")));
+  const canSimao = currentProfile?.role === "admin"; // o Simão é de uso exclusivo do administrador
 
   return (
     <>

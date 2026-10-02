@@ -754,7 +754,7 @@ async function market(ativos: unknown) {
   return out;
 }
 
-// ── Autenticação: usuário logado e com perfil ativo no escritório ───────────
+// ── Autenticação: só o administrador do escritório, logado e ativo ──────────
 // Sessões já conferidas ficam em memória por alguns minutos, para não refazer
 // duas consultas a cada fala.
 const SESSION_TTL_MS = 5 * 60_000;
@@ -771,11 +771,13 @@ async function requireUser(req: Request): Promise<{ id: string } | Response> {
   if (!u.ok) return json({ ok: false, error: "Sessão inválida ou expirada" }, 401);
   const user = await u.json();
   if (!user?.id) return json({ ok: false, error: "Sessão inválida ou expirada" }, 401);
-  const p = await fetch(`${url}/rest/v1/user_profiles?id=eq.${user.id}&select=id,active`, { headers });
+  const p = await fetch(`${url}/rest/v1/user_profiles?id=eq.${user.id}&select=id,active,role`, { headers });
   const rows = p.ok ? await p.json() : [];
   if (!Array.isArray(rows) || rows.length === 0 || rows[0].active === false) {
     return json({ ok: false, error: "Usuário sem perfil ativo no escritório" }, 403);
   }
+  // O assistente é de uso exclusivo do administrador; colaboradores não têm acesso.
+  if (rows[0].role !== "admin") return json({ ok: false, error: "O Simão está disponível apenas para o administrador." }, 403);
   if (sessions.size > 200) sessions.clear();
   sessions.set(authz, { id: user.id, until: Date.now() + SESSION_TTL_MS });
   return { id: user.id };
