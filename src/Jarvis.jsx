@@ -249,6 +249,21 @@ const CSS = `
   background:radial-gradient(ellipse 55% 50% at 50% 46%,var(--bg2) 0%,var(--bg) 70%)}
 @media (min-width:1024px){.jv-full{left:240px}}
 .jv-full.jv-max{top:0;left:0;z-index:60}
+/* Modo apresentação: tela inteira, sem molduras; os controles somem quando o mouse para. */
+.jv-full:fullscreen{top:0;left:0;right:0;bottom:0;width:100vw;height:100vh}
+.jv-full:-webkit-full-screen{top:0;left:0;right:0;bottom:0;width:100vw;height:100vh}
+.jv-full::backdrop{background:#000}
+.jv-max::before,.jv-max::after,.jv-max .jv-corner{display:none}
+.jv-max .jv-core{max-width:min(1100px,100%)}
+.jv-max .jv-talkbox,.jv-max .jv-turn{max-width:1040px}
+.jv-max .jv-cap{font-size:clamp(20px,3.3vh,32px)}
+.jv-max .jv-cap.old{font-size:clamp(14px,2vh,18px)}
+.jv-max .jv-you{font-size:clamp(13px,1.9vh,17px)}
+.jv-max .jv-stage{padding-bottom:3vh}
+.jv-max .jv-top,.jv-max .jv-mics,.jv-max .jv-hint,.jv-max .jv-foot{transition:opacity .5s}
+.jv-max.jv-quiet{cursor:none}
+.jv-max.jv-quiet .jv-top,.jv-max.jv-quiet .jv-mics,.jv-max.jv-quiet .jv-hint{opacity:0;pointer-events:none}
+.jv-max.jv-quiet .jv-core{cursor:none}
 .jv-full::before{content:"";position:absolute;inset:0;pointer-events:none;
   background-image:linear-gradient(rgba(var(--a-rgb),.05) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--a-rgb),.05) 1px,transparent 1px);background-size:56px 56px;
   mask-image:radial-gradient(ellipse 70% 65% at 50% 42%,#000 10%,transparent 78%);-webkit-mask-image:radial-gradient(ellipse 70% 65% at 50% 42%,#000 10%,transparent 78%)}
@@ -494,7 +509,10 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const [live, setLive] = useState(""); // resposta sendo escrita
   const [theme, setTheme] = useState(getPref("simao_cor", "blue")); // blue | gold
   const [showKeys, setShowKeys] = useState(false); // campo de texto (a tela é voz primeiro)
-  const [full, setFull] = useState(false);
+  const [full, setFull] = useState(false);   // modo apresentação (tela inteira)
+  const [quiet, setQuiet] = useState(false); // apresentação com o mouse parado: some com os controles
+  const rootRef = useRef(null);
+  const toggleFullRef = useRef(null);
   const [hasAmp, setHasAmp] = useState(false);
   const [rtAvail, setRtAvail] = useState(false);                     // o servidor oferece conversa em tempo real
   const [rtPref, setRtPref] = useState(getPref("simao_rt", "on"));   // on | off
@@ -1099,6 +1117,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   }, [openRT, send, listen]);
 
   fn.current = { listen, stopRec, startWake, listenForInterrupt, pulse, converse, closeRT };
+  fn.current.toggleFull = () => toggleFullRef.current?.();
 
   // O medidor do microfone fica ligado enquanto ele estiver ouvindo (mãos livres ou escuta pontual).
   useEffect(() => {
@@ -1106,6 +1125,37 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   }, [wake, status, startMic, stopMic]);
 
   useEffect(() => { if (status === "idle" && wake && !pending) startWake(); }, [status, wake, pending, startWake]);
+
+  // ── Modo apresentação ────────────────────────────────────────────────────
+  // Ocupa o monitor inteiro pelo navegador; onde isso não existe (iPhone), cobre a janela.
+  const toggleFull = useCallback(() => {
+    const d = document;
+    if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen || d.webkitExitFullscreen)?.call(d); return; }
+    if (full) { setFull(false); return; }
+    setFull(true); setShowSet(false); setShowPanels(false);
+    const el = rootRef.current;
+    const req = el?.requestFullscreen || el?.webkitRequestFullscreen;
+    if (req) { try { Promise.resolve(req.call(el)).catch(() => {}); } catch { /* fica cobrindo só a janela */ } }
+  }, [full]);
+  useEffect(() => {
+    const sync = () => { if (!document.fullscreenElement && !document.webkitFullscreenElement) setFull(false); };
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return () => { document.removeEventListener("fullscreenchange", sync); document.removeEventListener("webkitfullscreenchange", sync); };
+  }, []);
+  // Na apresentação: controles voltam ao mexer o mouse e a tela não apaga.
+  useEffect(() => {
+    if (!full || !isFull) { setQuiet(false); return; }
+    let timer = 0, lock = null, gone = false;
+    const wakeUp = () => { setQuiet(false); clearTimeout(timer); timer = setTimeout(() => setQuiet(true), 3500); };
+    wakeUp();
+    const evs = ["mousemove", "mousedown", "keydown", "touchstart"];
+    evs.forEach(e => window.addEventListener(e, wakeUp, { passive: true }));
+    navigator.wakeLock?.request("screen").then(l => { if (gone) l.release().catch(() => {}); else lock = l; }).catch(() => {});
+    return () => { gone = true; clearTimeout(timer); evs.forEach(e => window.removeEventListener(e, wakeUp)); lock?.release().catch(() => {}); };
+  }, [full, isFull]);
+
+  toggleFullRef.current = isFull ? toggleFull : null;
 
   const toggleWake = () => {
     const next = !wake;
@@ -1145,7 +1195,11 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
       if (saved && !mem.msgs.length) { mem.api = saved.api; mem.msgs = saved.msgs; setMsgs(mem.msgs); }
       setReady(true);
     })();
-    const onKey = e => { if (e.key === "Escape" && statusRef.current === "speaking") hush(); };
+    const onKey = e => {
+      if (e.key === "Escape" && statusRef.current === "speaking") hush();
+      // "F" entra e sai da apresentação (fora de campos de texto).
+      if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || "")) fn.current.toggleFull?.();
+    };
     window.addEventListener("keydown", onKey);
     return () => {
       cancelled = true; aliveRef.current = false; wakeRef.current = false;
@@ -1287,7 +1341,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
     </button>
   );
   return (
-    <div className={"jv jv-full" + themeClass + (full ? " jv-max" : "")}>
+    <div ref={rootRef} className={"jv jv-full" + themeClass + (full ? " jv-max" : "") + (full && quiet && !showSet && !showPanels && !showKeys && !pending ? " jv-quiet" : "")}>
       <style>{CSS}</style>
       <i className="jv-corner tl" /><i className="jv-corner tr" /><i className="jv-corner bl" /><i className="jv-corner br" />
 
@@ -1298,6 +1352,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
         {readout(s.overdue.length, "atrasadas", "O que está atrasado?", s.overdue.length > 0)}
         <div className="jv-ctl">
           <button className={"jv-btn" + (wake ? " on" : "")} onClick={toggleWake} disabled={!SR} title="Fica ouvindo: diga “Simão” e o pedido. Depois de cada resposta, continua ouvindo por alguns segundos.">Mãos livres</button>
+          <button className={"jv-btn" + (full ? " on" : "")} onClick={toggleFull} aria-pressed={full} title="Ocupa a tela inteira, como uma apresentação. Atalho: tecla F; Esc para sair.">{full ? "Sair" : "Apresentação"}</button>
           <button className={"jv-btn" + (showPanels ? " on" : "")} onClick={() => { setShowPanels(v => !v); setShowSet(false); }} aria-expanded={showPanels}>Painéis</button>
           <button className={"jv-btn" + (showSet ? " on" : "")} onClick={() => setShowSet(v => !v)} aria-expanded={showSet}>Ajustes</button>
           {showSet && (
@@ -1354,7 +1409,6 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
               <h4>Tela</h4>
               <div className="row">
                 <button className="jv-btn" onClick={() => { const t = theme === "blue" ? "gold" : "blue"; setTheme(t); setPref("simao_cor", t); }}>Cor: {theme === "blue" ? "azul" : "dourado"}</button>
-                <button className="jv-btn" onClick={() => setFull(f => !f)}>{full ? "Sair da tela cheia" : "Tela cheia"}</button>
                 <button className="jv-btn" onClick={() => { newConversation(); setShowSet(false); }} disabled={busy} title="Apaga a conversa atual. A memória permanente continua.">Nova conversa</button>
               </div>
             </div>
