@@ -254,7 +254,7 @@ const CSS = `
 .jv-full:-webkit-full-screen{top:0;left:0;right:0;bottom:0;width:100vw;height:100vh}
 .jv-full::backdrop{background:#000}
 .jv-max::before,.jv-max::after,.jv-max .jv-corner{display:none}
-.jv-max .jv-core{max-width:min(1100px,100%)}
+.jv-max .jv-core{max-width:min(1400px,100%)}
 .jv-max .jv-talkbox,.jv-max .jv-turn{max-width:1040px}
 .jv-max .jv-cap{font-size:clamp(20px,3.3vh,32px)}
 .jv-max .jv-cap.old{font-size:clamp(14px,2vh,18px)}
@@ -282,7 +282,7 @@ const CSS = `
 .jv-ro b{font-size:13px;font-weight:500;letter-spacing:0;color:var(--a)}
 .jv-ro b.bad{color:var(--bad)}
 .jv-ro:hover{color:var(--ink)}
-.jv-core{--amp:0;--amp-in:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(680px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
+.jv-core{--amp:0;--amp-in:0;position:relative;flex:1 1 0;min-height:140px;width:100%;max-width:min(920px,100%);border:0;background:none;padding:0;cursor:pointer;color:var(--a);display:block}
 .jv-core canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .jv-talkbox{width:100%;max-width:760px;flex-shrink:0;max-height:36vh;display:flex;flex-direction:column;align-items:center;min-height:0}
 .jv-mics{display:flex;align-items:center;justify-content:center;gap:11px;flex-shrink:0;margin-top:10px}
@@ -376,7 +376,7 @@ const CSS = `
 // Esfera de partículas: pontos espalhados numa esfera irregular, ligados aos
 // vizinhos por linhas finas. Gira devagar, acelera ao pensar e incha com a voz.
 // Lê o volume da fala em --amp do elemento pai (mesma variável usada antes).
-function Sphere({ status, points = 950 }) {
+function Sphere({ status, points = 1150 }) {
   const ref = useRef(null);
   const statusRef = useRef(status); statusRef.current = status;
   useEffect(() => {
@@ -399,7 +399,7 @@ function Sphere({ status, points = 950 }) {
     }
     // Cada ponto se liga aos vizinhos mais próximos.
     const E = [], seen = new Set();
-    const k = points > 200 ? 4 : 2;
+    const k = points > 200 ? 6 : 2; // ligações por ponto
     for (let i = 0; i < P.length; i++) {
       const d = [];
       for (let j = 0; j < P.length; j++) if (j !== i) d.push([(P[i].x - P[j].x) ** 2 + (P[i].y - P[j].y) ** 2 + (P[i].z - P[j].z) ** 2, j]);
@@ -438,7 +438,7 @@ function Sphere({ status, points = 950 }) {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const R = Math.min(w, h) * .37 * (1 + energy * .16), cx = w / 2, cy = h / 2;
+      const R = Math.min(w, h) * .41 * (1 + energy * .13), cx = w / 2, cy = h / 2;
       const cr = Math.cos(rot), sr = Math.sin(rot), tilt = .32, ct = Math.cos(tilt), stt = Math.sin(tilt);
       for (let i = 0; i < P.length; i++) {
         const p = P[i];
@@ -457,7 +457,7 @@ function Sphere({ status, points = 950 }) {
       for (let e = 0; e < E.length; e++) {
         const a = E[e][0], b = E[e][1];
         const depth = 1 - (Z[a] + Z[b]) * .5; // 0 (fundo) a 2 (frente)
-        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (.03 + depth * depth * .085 + energy * .16) * boost).toFixed(3)})`;
+        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (.035 + depth * depth * .1 + energy * .16) * boost).toFixed(3)})`;
         ctx.beginPath(); ctx.moveTo(X[a], Y[a]); ctx.lineTo(X[b], Y[b]); ctx.stroke();
       }
       for (let i = 0; i < P.length; i++) {
@@ -510,6 +510,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const [theme, setTheme] = useState(getPref("simao_cor", "blue")); // blue | gold
   const [showKeys, setShowKeys] = useState(false); // campo de texto (a tela é voz primeiro)
   const [full, setFull] = useState(false);   // modo apresentação (tela inteira)
+  const [caps, setCaps] = useState(getPref("simao_caps", "off") === "on"); // legendas das falas na tela do Simão
   const [quiet, setQuiet] = useState(false); // apresentação com o mouse parado: some com os controles
   const rootRef = useRef(null);
   const toggleFullRef = useRef(null);
@@ -1268,15 +1269,19 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const busy = status === "thinking";
   const ask = q => { if (!busy || rtOn) converse(q); };
 
+  // Na tela do Simão as falas ficam ocultas por padrão (ele só fala); ações, avisos e
+  // confirmações continuam aparecendo. O cartão flutuante sempre mostra o texto.
+  const showCaps = !isFull || caps;
+  const shown = showCaps ? turn : turn.filter(m => m.k === "a" || m.k === "e");
   const turnView = (
     <div className="jv-turn" ref={talkRef} aria-live="polite">
-      {turn.map((m, i) =>
+      {shown.map((m, i) =>
         m.k === "u" ? <div key={i} className="jv-you">{m.text}</div>
         : m.k === "a" ? <div key={i} className={"jv-act " + (m.kind === "delete" ? "del" : m.kind === "done" ? "done" : m.kind === "warn" ? "warn" : "")}><b>{m.text}</b>{m.detail ? " · " + m.detail : ""}{m.links?.length > 0 && <span className="jv-links">{m.links.map((l, j) => <a key={j} href={l.url} target="_blank" rel="noopener noreferrer">{String(l.titulo || l.url).slice(0, 60)}</a>)}</span>}</div>
         : m.k === "e" ? <div key={i} className="jv-err">{m.text}</div>
         : <div key={i} className={"jv-cap" + (i === lastReply && !live ? "" : " old")}>{m.text}</div>)}
-      {live && <div className="jv-cap">{live}</div>}
-      {interim && <div className="jv-you i">{interim}</div>}
+      {showCaps && live && <div className="jv-cap">{live}</div>}
+      {showCaps && interim && <div className="jv-you i">{interim}</div>}
     </div>
   );
   const confirmView = pending && (
@@ -1408,6 +1413,7 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
 
               <h4>Tela</h4>
               <div className="row">
+                <button className="jv-btn" onClick={() => { setCaps(c => { setPref("simao_caps", c ? "off" : "on"); return !c; }); }} title="Mostra ou oculta o texto das falas abaixo da esfera">Legendas: {caps ? "visíveis" : "ocultas"}</button>
                 <button className="jv-btn" onClick={() => { const t = theme === "blue" ? "gold" : "blue"; setTheme(t); setPref("simao_cor", t); }}>Cor: {theme === "blue" ? "azul" : "dourado"}</button>
                 <button className="jv-btn" onClick={() => { newConversation(); setShowSet(false); }} disabled={busy} title="Apaga a conversa atual. A memória permanente continua.">Nova conversa</button>
               </div>
