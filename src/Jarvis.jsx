@@ -509,7 +509,8 @@ export default function Jarvis({ app, setActiveTab, mode = "full" }) {
   const [live, setLive] = useState(""); // resposta sendo escrita
   const [theme, setTheme] = useState(getPref("simao_cor", "blue")); // blue | gold
   const [showKeys, setShowKeys] = useState(false); // campo de texto (a tela é voz primeiro)
-  const [full, setFull] = useState(false);   // modo apresentação (tela inteira)
+  // modo apresentação (tela inteira); o app "Simão" instalado (?simao=1) já abre nele
+  const [full, setFull] = useState(() => mode === "full" && /[?&]simao\b/.test(window.location.search));
   const [caps, setCaps] = useState(getPref("simao_caps", "off") === "on"); // legendas das falas na tela do Simão
   const [quiet, setQuiet] = useState(false); // apresentação com o mouse parado: some com os controles
   const rootRef = useRef(null);

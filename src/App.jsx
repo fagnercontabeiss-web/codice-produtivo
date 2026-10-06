@@ -11385,7 +11385,8 @@ function SOPs() {
 // ============================================================
 
 function AppContent({ onLogout }) {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  // O app "Simão" instalado abre com ?simao=1: começa direto na tela do assistente.
+  const [activeTab, setActiveTab] = useState(() => /[?&]simao\b/.test(window.location.search) ? "jarvis" : "dashboard");
   const app = useApp();
   const { currentProfile } = app;
   const isAdmin    = !currentProfile || currentProfile.role === "admin";

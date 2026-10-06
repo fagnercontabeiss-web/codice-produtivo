@@ -6,6 +6,19 @@
     
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      // Endereço com ?simao=1: a página se apresenta como o app "Simão" (nome, ícone e
+      // manifesto próprios), para ser instalada à parte pelo navegador.
+      if (/[?&]simao\b/.test(location.search)) {
+        document.querySelector('link[rel="manifest"]').href = "/simao.webmanifest";
+        document.addEventListener("DOMContentLoaded", function () {
+          document.title = "Simão";
+          var t = document.querySelector('meta[name="theme-color"]'); if (t) t.content = "#03060a";
+          document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(function (l) { l.href = "/simao-192.png"; });
+          var a = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (a) a.content = "Simão";
+        });
+      }
+    </script>
     <meta name="theme-color" content="#1A3829" />
     <meta name="mobile-web-app-capable" content="yes" />
     
