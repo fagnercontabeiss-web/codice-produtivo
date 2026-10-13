@@ -10867,12 +10867,12 @@ function CheckCell({ state, onClick, onMarkX, title }) {
       aria-label={title}
       style={{
         width:26, height:26, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
-        background: state === "done" ? "linear-gradient(135deg,#1A3829,#2B5E46)" : state === "na" ? "#F3F1EC" : "#fff",
-        border: state === "done" ? "1px solid #1A3829" : state === "na" ? "1px solid rgba(61,61,59,0.16)" : "1.5px solid rgba(206,186,150,0.7)",
+        background: state === "done" ? "linear-gradient(135deg,#1A3829,#2B5E46)" : state === "na" ? "#FCE8E6" : "#FDF6E7",
+        border: state === "done" ? "1px solid #1A3829" : state === "na" ? "1px solid rgba(185,28,28,0.28)" : "1.5px solid rgba(184,150,90,0.55)",
         boxShadow: state === "done" ? "0 2px 6px rgba(26,56,41,0.22)" : "none",
       }}>
       {state === "done" && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" style={{ width:13, height:13 }}><polyline points="20 6 9 17 4 12"/></svg>}
-      {state === "na" && <svg viewBox="0 0 24 24" fill="none" stroke="#8C8A84" strokeWidth="3" strokeLinecap="round" style={{ width:12, height:12 }}><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>}
+      {state === "na" && <svg viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="3" strokeLinecap="round" style={{ width:12, height:12 }}><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>}
     </button>
   );
 }
