@@ -52,6 +52,8 @@ yzStyle.textContent = `
   .yz-app ::selection { background: rgba(43,94,70,0.16); }
 
   /* Sidebar */
+  .yz-dash [style*="background: rgb(255, 255, 255)"], .yz-dash [style*="background-color: rgb(255, 255, 255)"],
+  .yz-dash [style*="background: rgba(255, 255, 255"], .yz-dash .bg-white { background: rgba(255,255,255,0.55) !important; }
   .yz-side svg { stroke-width: 1.6; }
   .yz-side .yz-nav-ico svg { width: 17px; height: 17px; }
   .yz-nav { color: rgba(244,241,234,0.6); transition: background .15s ease, color .15s ease; }
@@ -1427,7 +1429,12 @@ function Dashboard() {
   const tickerTasks = overdue.length > 0 ? overdue : dueToday;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="yz-dash relative isolate space-y-6 pb-8">
+
+      {/* Marca d'água YOETZ — símbolo grande, 40% de opacidade, sem bloquear cliques */}
+      <div aria-hidden="true" className="pointer-events-none fixed top-14 bottom-0 right-0 left-0 lg:left-[232px] -z-10 flex items-center justify-center">
+        <img src="/yoetz-simbolo.svg" alt="" draggable="false" style={{ height:"78vh", maxHeight:820, width:"auto", opacity:0.4 }} />
+      </div>
 
       {/* ═══ ABERTURA ═══ */}
       <div className="flex items-end justify-between flex-wrap gap-6 pt-2">
