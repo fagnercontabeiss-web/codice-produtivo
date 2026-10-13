@@ -10397,12 +10397,32 @@ function SopForm({ sop, onSave, onClose }) {
 // ANOTAÇÕES — mural com menção @cliente
 // ============================================================
 const NOTE_COLORS = {
-  paper:  { bg:"#FFFFFF", border:"rgba(206,186,150,0.45)", label:"Branco" },
-  salvia: { bg:"#EEF3EF", border:"rgba(43,94,70,0.18)",   label:"Sálvia" },
-  areia:  { bg:"#F7F2E8", border:"rgba(184,150,90,0.28)", label:"Areia" },
-  ouro:   { bg:"#F2E8D3", border:"rgba(184,150,90,0.40)", label:"Dourado" },
-  nevoa:  { bg:"#F1F2F0", border:"rgba(61,61,59,0.12)",   label:"Névoa" },
+  paper:   { bg:"#FFFFFF", border:"rgba(206,186,150,0.45)", dot:"#FFFFFF", label:"Branco" },
+  salvia:  { bg:"#E6F0E8", border:"rgba(43,94,70,0.28)",   dot:"#2B5E46", label:"Verde" },
+  ouro:    { bg:"#F5EAD2", border:"rgba(184,150,90,0.45)", dot:"#B8965A", label:"Dourado" },
+  amarelo: { bg:"#FDF3C7", border:"rgba(202,138,4,0.30)",  dot:"#EAB308", label:"Amarelo" },
+  laranja: { bg:"#FDE6D4", border:"rgba(234,88,12,0.25)",  dot:"#F97316", label:"Laranja" },
+  rosa:    { bg:"#FCE4EC", border:"rgba(219,39,119,0.22)", dot:"#EC4899", label:"Rosa" },
+  vermelho:{ bg:"#FDE2E1", border:"rgba(220,38,38,0.25)",  dot:"#EF4444", label:"Vermelho" },
+  lilas:   { bg:"#EDE7F8", border:"rgba(124,58,237,0.22)", dot:"#8B5CF6", label:"Lilás" },
+  azul:    { bg:"#E1EEFB", border:"rgba(37,99,235,0.22)",  dot:"#3B82F6", label:"Azul" },
+  ciano:   { bg:"#DCF3F1", border:"rgba(13,148,136,0.25)", dot:"#14B8A6", label:"Turquesa" },
+  areia:   { bg:"#F7F2E8", border:"rgba(184,150,90,0.28)", dot:"#CEBA96", label:"Areia" },
+  nevoa:   { bg:"#ECEDEA", border:"rgba(61,61,59,0.16)",   dot:"#6B7280", label:"Cinza" },
 };
+
+function ColorSwatches({ value, onChange, size = 20 }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {Object.entries(NOTE_COLORS).map(([k, c]) => (
+        <button key={k} type="button" title={c.label} aria-label={c.label} onClick={e => { e.stopPropagation(); onChange(k); }}
+          className="rounded-full transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{ width:size, height:size, background:c.bg, border:`2px solid ${value===k ? c.dot === "#FFFFFF" ? "#2B5E46" : c.dot : "rgba(61,61,59,0.14)"}`,
+            boxShadow: value===k ? `0 0 0 2px #fff, 0 0 0 3.5px ${c.dot === "#FFFFFF" ? "#2B5E46" : c.dot}` : "none" }}/>
+      ))}
+    </div>
+  );
+}
 
 const fmtNoteDate = iso => {
   if (!iso) return "";
@@ -10446,6 +10466,7 @@ function MentionTextarea({ value, onChange, clients, onMention, placeholder, aut
   const [start, setStart] = useState(0);
   const [hi, setHi] = useState(0);
   const caretRef = useRef(null);
+  const blurTimer = useRef(null);
 
   const results = useMemo(() => {
     if (query === null) return [];
@@ -10459,7 +10480,9 @@ function MentionTextarea({ value, onChange, clients, onMention, placeholder, aut
     if (at < 0) { setQuery(null); return; }
     const prev = at === 0 ? " " : before[at - 1];
     const frag = before.slice(at + 1);
-    if (!/\s/.test(prev) || frag.includes("\n") || frag.length > 40) { setQuery(null); return; }
+    if (!/\s/.test(prev) || frag.includes("\n") || frag.length > 60) { setQuery(null); return; }
+    // Depois de um espaço, só continua aberto se ainda bate com o início de algum nome
+    if (/\s/.test(frag) && !clients.some(c => (c.name||"").toLowerCase().startsWith(frag.toLowerCase()))) { setQuery(null); return; }
     setStart(at); setQuery(frag); setHi(0);
   };
 
@@ -10495,7 +10518,8 @@ function MentionTextarea({ value, onChange, clients, onMention, placeholder, aut
         onChange={e => { onChange(e.target.value); detect(e.target.value, e.target.selectionStart); }}
         onKeyDown={onKeyDown}
         onClick={e => detect(value, e.target.selectionStart)}
-        onBlur={() => setTimeout(() => setQuery(null), 150)}
+        onBlur={() => { blurTimer.current = setTimeout(() => setQuery(null), 150); }}
+        onFocus={() => clearTimeout(blurTimer.current)}
         placeholder={placeholder}
         className="w-full resize-none outline-none text-[15px] leading-relaxed bg-transparent"
         style={{ color:"#1C1C1A", minHeight:76 }}/>
@@ -10541,6 +10565,8 @@ function NotesPage() {
   const [fTo, setFTo] = useState("");
   const [fPinned, setFPinned] = useState(false);
   const [fAuthor, setFAuthor] = useState("all");
+  const [fColor, setFColor] = useState("all");
+  const [colorOpen, setColorOpen] = useState(null);
 
   const clientList = useMemo(() => [...clients].sort((a,b) => (a.name||"").localeCompare(b.name||"")), [clients]);
   const clientById = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
@@ -10574,6 +10600,13 @@ function NotesPage() {
     catch (e) { setError("A anotação não foi salva: " + e.message); }
   };
 
+  const setNoteColor = async (n, color) => {
+    const row = { ...n, color, updated_at: new Date().toISOString() };
+    setNotes(ns => ns.map(x => x.id === n.id ? row : x));
+    setColorOpen(null);
+    db.upsert("notes", row).catch(e => setError("Não foi possível mudar a cor: " + e.message));
+  };
+
   const togglePin = async n => {
     const row = { ...n, pinned: !n.pinned };
     setNotes(ns => ns.map(x => x.id === n.id ? row : x));
@@ -10601,6 +10634,7 @@ function NotesPage() {
       if (fPinned && !n.pinned) return false;
       if (fClient !== "all" && !(n.client_ids||[]).includes(fClient)) return false;
       if (fAuthor !== "all" && n.author_name !== fAuthor) return false;
+      if (fColor !== "all" && (n.color || "paper") !== fColor) return false;
       if (fPeriod === "today" && d < startOf(0)) return false;
       if (fPeriod === "7d" && d < startOf(6)) return false;
       if (fPeriod === "30d" && d < startOf(29)) return false;
@@ -10615,7 +10649,7 @@ function NotesPage() {
       }
       return true;
     }).sort((a,b) => (b.pinned - a.pinned) || new Date(b.created_at) - new Date(a.created_at));
-  }, [notes, search, fClient, fPeriod, fFrom, fTo, fPinned, fAuthor, clientById]);
+  }, [notes, search, fClient, fPeriod, fFrom, fTo, fPinned, fAuthor, fColor, clientById]);
 
   const mostMentioned = useMemo(() => {
     const count = {};
@@ -10623,8 +10657,8 @@ function NotesPage() {
     return Object.entries(count).sort((a,b) => b[1]-a[1]).slice(0, 6).filter(([id]) => clientById[id]);
   }, [notes, clientById]);
 
-  const hasFilter = search || fClient !== "all" || fPeriod !== "all" || fPinned || fAuthor !== "all";
-  const clearFilters = () => { setSearch(""); setFClient("all"); setFPeriod("all"); setFFrom(""); setFTo(""); setFPinned(false); setFAuthor("all"); };
+  const hasFilter = search || fClient !== "all" || fPeriod !== "all" || fPinned || fAuthor !== "all" || fColor !== "all";
+  const clearFilters = () => { setSearch(""); setFClient("all"); setFPeriod("all"); setFFrom(""); setFTo(""); setFPinned(false); setFAuthor("all"); setFColor("all"); };
 
   const selStyle = { border:"1px solid rgba(206,186,150,0.55)", background:"#fff", color:"#3D3D3B" };
 
@@ -10657,13 +10691,7 @@ function NotesPage() {
             onSubmit={saveNote}/>
         </div>
         <div className="flex items-center gap-3 px-5 py-3 flex-wrap" style={{ borderTop:"1px solid rgba(206,186,150,0.3)" }}>
-          <div className="flex items-center gap-1.5">
-            {Object.entries(NOTE_COLORS).map(([k, c]) => (
-              <button key={k} type="button" title={c.label} onClick={() => setDraftColor(k)}
-                className="w-5 h-5 rounded-full transition-transform hover:scale-110"
-                style={{ background:c.bg, border:`1.5px solid ${draftColor===k ? "#2B5E46" : "rgba(61,61,59,0.18)"}`, boxShadow: draftColor===k ? "0 0 0 2px rgba(43,94,70,0.15)" : "none" }}/>
-            ))}
-          </div>
+          <ColorSwatches value={draftColor} onChange={setDraftColor} size={18}/>
           <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
             {syncedClients(draft, draftClients).map(id => (
               <span key={id} className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ background:"rgba(43,94,70,0.09)", color:"#2B5E46" }}>
@@ -10716,6 +10744,10 @@ function NotesPage() {
           style={fPinned ? { background:"#1A3829", color:"#fff", border:"1px solid #1A3829" } : selStyle}>
           Fixadas
         </button>
+        <select value={fColor} onChange={e => setFColor(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+          <option value="all">Todas as cores</option>
+          {Object.entries(NOTE_COLORS).filter(([k]) => notes.some(n => (n.color||"paper") === k)).map(([k, c]) => <option key={k} value={k}>{c.label}</option>)}
+        </select>
         {hasFilter && <button onClick={clearFilters} className="text-sm px-2 py-2" style={{ color:"#B8965A" }}>Limpar filtros</button>}
       </div>
 
@@ -10749,7 +10781,7 @@ function NotesPage() {
             return (
               <article key={n.id} className="group mb-4 rounded-2xl break-inside-avoid relative transition-shadow hover:shadow-md"
                 style={{ background:col.bg, border:`1px solid ${col.border}`, boxShadow: n.pinned ? "0 6px 18px rgba(184,150,90,0.18)" : "0 1px 2px rgba(26,56,41,0.04)" }}>
-                {n.pinned && <span className="absolute top-0 left-5 w-6 h-1 rounded-b" style={{ background:"#B8965A" }}/>}
+                {n.pinned && <span className="absolute top-0 left-5 w-6 h-1 rounded-b" style={{ background: col.dot === "#FFFFFF" ? "#B8965A" : col.dot }}/>}
                 <div className="p-5">
                   <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words" style={{ color:"#1C1C1A" }}>
                     <NoteText content={n.content} clients={linked} onClientClick={setFClient}/>
@@ -10759,7 +10791,10 @@ function NotesPage() {
                   <span className="text-[11px]" style={{ color:"#8A8A86" }}>
                     {fmtNoteDate(n.created_at)}{n.author_name ? ` por ${n.author_name}` : ""}
                   </span>
-                  <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <div className={"ml-auto flex items-center gap-0.5 transition-opacity " + (colorOpen === n.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100")}>
+                    <button onClick={() => setColorOpen(o => o === n.id ? null : n.id)} title="Mudar cor" className="p-1.5 rounded-md hover:bg-black/5" style={{ color:"#6B7C50" }}>
+                      <span className="block rounded-full" style={{ width:13, height:13, background:`conic-gradient(#2B5E46,#B8965A,#EAB308,#F97316,#EC4899,#8B5CF6,#3B82F6,#14B8A6,#2B5E46)` }}/>
+                    </button>
                     <button onClick={() => togglePin(n)} title={n.pinned ? "Desafixar" : "Fixar no topo"} className="p-1.5 rounded-md hover:bg-black/5" style={{ color: n.pinned ? "#B8965A" : "#6B7C50" }}>
                       <svg viewBox="0 0 24 24" fill={n.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z"/></svg>
                     </button>
@@ -10771,6 +10806,13 @@ function NotesPage() {
                     </button>
                   </div>
                 </div>
+                {colorOpen === n.id && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <div className="rounded-xl p-2.5" style={{ background:"rgba(255,255,255,0.85)", border:"1px solid rgba(61,61,59,0.08)" }}>
+                      <ColorSwatches value={n.color || "paper"} onChange={k => setNoteColor(n, k)} size={22}/>
+                    </div>
+                  </div>
+                )}
               </article>
             );
           })}
