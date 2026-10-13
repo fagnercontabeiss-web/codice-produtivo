@@ -1432,7 +1432,7 @@ function Dashboard() {
       {/* Marca d'água YOETZ — símbolo grande, 40% de opacidade, sem bloquear cliques */}
       <div aria-hidden="true" className="pointer-events-none fixed top-14 bottom-0 right-0 -z-10 overflow-hidden flex items-center justify-end"
         style={{ width:"60vw" }}>
-        <img src="/yoetz-simbolo.svg" alt="" draggable="false" style={{ height:"118vh", width:"auto", maxWidth:"none", opacity:0.4, marginRight:"-9vh" }} />
+        <img src="/yoetz-simbolo.svg" alt="" draggable="false" style={{ height:"118vh", width:"auto", maxWidth:"none", opacity:0.2, marginRight:"-9vh" }} />
       </div>
 
       {/* ═══ ABERTURA ═══ */}
