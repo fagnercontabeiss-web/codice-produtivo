@@ -786,7 +786,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
   ];
 
   // Abas exclusivas do admin (nunca aparecem para outros)
-  const adminOnlyTabs = ["settings", "team", "reports"];
+  const adminOnlyTabs = ["settings", "team", "reports", "notes"];
 
   const navGroups = allNavDefs.map(group => ({
     ...group,
@@ -11225,7 +11225,7 @@ function AppContent({ onLogout }) {
 
   // Guard: redirecionar se aba não permitida
   useEffect(() => {
-    const adminOnly = ["severance","settings","team"];
+    const adminOnly = ["severance","settings","team","notes"];
     const notForViewer = ["habits","clients","relationship","obligations","reports","severance","settings","team"];
     if (isViewer && notForViewer.includes(activeTab)) setActiveTab("tasks");
     if (!isAdmin && adminOnly.includes(activeTab)) setActiveTab("dashboard");
@@ -11264,7 +11264,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
       {!isViewer && activeTab === "checklist" && <ObligationChecklist />}
-      {!isViewer && activeTab === "notes" && <NotesPage />}
+      {isAdmin && activeTab === "notes" && <NotesPage />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
   );
