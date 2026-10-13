@@ -10853,21 +10853,26 @@ function ProgressRing({ value, size = 30, stroke = 3 }) {
   );
 }
 
-function CheckCell({ state, onClick, title }) {
+function CheckCell({ state, onClick, onMarkX, title }) {
   const [pulse, setPulse] = useState(false);
-  const click = () => { if (state !== "done") { setPulse(true); setTimeout(() => setPulse(false), 380); } onClick(); };
+  const click = e => {
+    if ((e.shiftKey || e.altKey) && onMarkX) { e.preventDefault(); onMarkX(); return; }
+    if (state !== "done") { setPulse(true); setTimeout(() => setPulse(false), 380); }
+    onClick();
+  };
   return (
     <button type="button" onClick={click} title={title}
+      onContextMenu={e => { if (onMarkX) { e.preventDefault(); onMarkX(); } }}
       className={`ochk ${pulse ? "ochk-pop" : ""}`}
       aria-label={title}
       style={{
         width:26, height:26, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
-        background: state === "done" ? "linear-gradient(135deg,#1A3829,#2B5E46)" : state === "na" ? "transparent" : "#fff",
-        border: state === "done" ? "1px solid #1A3829" : state === "na" ? "1px dashed rgba(61,61,59,0.22)" : "1.5px solid rgba(206,186,150,0.7)",
+        background: state === "done" ? "linear-gradient(135deg,#1A3829,#2B5E46)" : state === "na" ? "#F3F1EC" : "#fff",
+        border: state === "done" ? "1px solid #1A3829" : state === "na" ? "1px solid rgba(61,61,59,0.16)" : "1.5px solid rgba(206,186,150,0.7)",
         boxShadow: state === "done" ? "0 2px 6px rgba(26,56,41,0.22)" : "none",
       }}>
       {state === "done" && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" style={{ width:13, height:13 }}><polyline points="20 6 9 17 4 12"/></svg>}
-      {state === "na" && <span style={{ width:9, height:1.5, background:"rgba(61,61,59,0.3)", borderRadius:1 }}/>}
+      {state === "na" && <svg viewBox="0 0 24 24" fill="none" stroke="#8C8A84" strokeWidth="3" strokeLinecap="round" style={{ width:12, height:12 }}><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>}
     </button>
   );
 }
@@ -10936,6 +10941,20 @@ function ObligationChecklist() {
       setChecks(c => { const n = { ...c }; delete n[nk]; return n; });
       db.delete("obligation_checks", nk).catch(e => setError("Não salvou: " + e.message));
     }
+  };
+
+  // Marca/desmarca o X (obrigação não exigida) direto, sem passar por "feito"
+  const toggleX = (cid, col) => {
+    const k = keyOf(cid, col), nk = naKeyOf(cid, col);
+    if (stateOf(cid, col) === "na") {
+      setChecks(c => { const n = { ...c }; delete n[nk]; return n; });
+      db.delete("obligation_checks", nk).catch(e => setError("Não salvou: " + e.message));
+      return;
+    }
+    const row = { id:nk, month:"fixo", client_id:cid, ob_key:col, status:"na", done_by_name:who, done_at:new Date().toISOString() };
+    const hadDone = !!checks[k];
+    setChecks(c => { const n = { ...c, [nk]: row }; delete n[k]; return n; });
+    Promise.all([hadDone ? db.delete("obligation_checks", k) : null, db.upsert("obligation_checks", row)]).catch(e => setError("Não salvou: " + e.message));
   };
 
   const completeRow = async cid => {
@@ -11013,7 +11032,7 @@ function ObligationChecklist() {
     const head = ["Cliente", ...columns.map(c => c.label), "Concluído"];
     const lines = activeClients.map(c => {
       const s = rowStats(c.id);
-      return [c.name, ...columns.map(col => ({ done:"Feito", na:"N/A", pending:"" })[stateOf(c.id, col.id)]), `${s.done}/${s.total}`];
+      return [c.name, ...columns.map(col => ({ done:"Feito", na:"X (não exigida)", pending:"" })[stateOf(c.id, col.id)]), `${s.done}/${s.total}`];
     });
     const csv = [head, ...lines].map(r => r.map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(";")).join("\n");
     const a = document.createElement("a");
@@ -11149,12 +11168,12 @@ function ObligationChecklist() {
                       const st = stateOf(c.id, col.id);
                       const rec = checks[keyOf(c.id, col.id)];
                       const title = st === "done"
-                        ? `${col.label}: feito${rec?.done_by_name ? " por " + rec.done_by_name : ""}${rec?.done_at ? " em " + new Date(rec.done_at).toLocaleDateString("pt-BR") : ""}. Clique para marcar como "não se aplica".`
-                        : st === "na" ? `${col.label}: não se aplica a este cliente. Clique para voltar a pendente.`
-                        : `${col.label}: pendente. Clique para marcar como feito.`;
+                        ? `${col.label}: feito${rec?.done_by_name ? " por " + rec.done_by_name : ""}${rec?.done_at ? " em " + new Date(rec.done_at).toLocaleDateString("pt-BR") : ""}. Clique de novo para marcar X (não exigida).`
+                        : st === "na" ? `${col.label}: não exigida para este cliente (X). Clique para voltar a pendente.`
+                        : `${col.label}: pendente. Clique para marcar como feito, ou clique com o botão direito para marcar X (não exigida).`;
                       return (
                         <td key={col.id} className="px-2 py-2.5" style={{ background: full ? "#F5F8F5" : "transparent", borderBottom:"1px solid rgba(206,186,150,0.2)" }}>
-                          <div className="flex justify-center"><CheckCell state={st} title={title} onClick={() => cycle(c.id, col.id)}/></div>
+                          <div className="flex justify-center"><CheckCell state={st} title={title} onClick={() => cycle(c.id, col.id)} onMarkX={() => toggleX(c.id, col.id)}/></div>
                         </td>
                       );
                     })}
@@ -11173,8 +11192,8 @@ function ObligationChecklist() {
         <div className="flex items-center gap-5 px-5 py-3 flex-wrap" style={{ borderTop:"1px solid rgba(206,186,150,0.35)", background:"#FAFAF8" }}>
           <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="pending" onClick={() => {}} title="Pendente"/> Pendente</span>
           <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="done" onClick={() => {}} title="Feito"/> Feito no mês</span>
-          <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="na" onClick={() => {}} title="Não se aplica"/> Não se aplica (vale para todos os meses)</span>
-          <span className="text-xs ml-auto" style={{ color:"#94a3b8" }}>Clique de novo na célula para alternar entre os estados.</span>
+          <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="na" onClick={() => {}} title="Não exigida"/> Não exigida, vale para todos os meses</span>
+          <span className="text-xs ml-auto" style={{ color:"#94a3b8" }}>Um clique marca feito, dois cliques marcam X. Botão direito marca X direto.</span>
         </div>
       </div>
 
