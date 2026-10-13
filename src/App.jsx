@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
@@ -28,6 +28,12 @@ taskBtnStyle.textContent = `
   .tchk:not(.tchk-done):active { transform: scale(0.84) !important; }
   .tchk.tchk-pop { animation: task-pop 0.32s cubic-bezier(.36,.07,.19,.97) forwards, task-glow 0.45s ease-out forwards; }
   .tchk.tchk-undo { animation: task-undo 0.18s ease forwards; }
+  .ochk { transition: transform .12s ease, border-color .15s ease, background .15s ease; cursor:pointer; }
+  .ochk:hover { transform: scale(1.08); border-color:#2B5E46 !important; }
+  .ochk:active { transform: scale(.88); }
+  .ochk:focus-visible { outline:2px solid #B8965A; outline-offset:2px; }
+  .ochk.ochk-pop { animation: task-pop .32s cubic-bezier(.36,.07,.19,.97), task-glow .45s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .ochk, .ochk.ochk-pop { animation:none; transition:none; } }
   .tchk.tchk-done:hover { opacity: 0.7; transform: scale(1.06); }
 `;
 if (!document.getElementById("tchk-style")) { taskBtnStyle.id = "tchk-style"; document.head.appendChild(taskBtnStyle); }
@@ -563,6 +569,7 @@ async function callClaude(prompt, systemPrompt = "") {
 // NAV ICONS (SVG inline)
 // ============================================================
 const Icon = {
+  Notes: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M4 4h12l4 4v12H4z"/><path d="M16 4v4h4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>,
   Dashboard: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>,
   Tasks: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
   Habits: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
@@ -762,6 +769,8 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         { id: "relationship", label: "Relacionamento",         icon: Icon.Heart },
         { id: "onboarding",   label: "Onboarding",             icon: Icon.Clients },
         { id: "obligations",  label: "Obrigações",             icon: Icon.Obligations },
+        { id: "checklist",    label: "Checklist do Mês",       icon: Icon.Tasks },
+        { id: "notes",        label: "Anotações",              icon: Icon.Notes },
         { id: "severance",    label: "Simulação Rescisória",   icon: Icon.Calculator },
       ]
     },
@@ -769,10 +778,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
       label: "Análise",
       items: [
         { id: "projects",  label: "Projetos",     icon: Icon.Tasks },
-        { id: "codiceai",  label: "YOETZ IA",    icon: Icon.Sparkles },
-        { id: "sops",      label: "SOPs & Playbooks", icon: Icon.Tasks },
         { id: "reports",   label: "Relatórios",   icon: Icon.Reports },
-        { id: "workload", label: "Workload",       icon: Icon.Tasks },
         { id: "settings", label: "Configurações", icon: Icon.Settings },
         { id: "team",     label: "Equipe",         icon: Icon.Clients },
       ]
@@ -5117,7 +5123,7 @@ function Clients() {
     const clientProjects = projects.filter(p => p.clientId === c.id);
     const [activeTab, setActiveTab] = useState("overview");
 
-    const tabs = [["overview","📊 Resumo"],["tasks","📋 Tarefas"],["projects","🚀 Projetos"],["sops","📚 SOPs"]];
+    const tabs = [["overview","📊 Resumo"],["tasks","📋 Tarefas"],["projects","🚀 Projetos"]];
 
     return (
       <div>
@@ -9274,249 +9280,6 @@ function Onboarding() {
 // ============================================================
 // WORKLOAD — Gestão de carga do time
 // ============================================================
-function Workload() {
-  const { tasks, teamUsers, currentProfile } = useApp();
-  const t = today();
-  const [period, setPeriod] = useState(7);
-
-  const periodStart = useMemo(() => {
-    const d = new Date(); d.setDate(d.getDate()-period); return d.toISOString().split("T")[0];
-  }, [period]);
-
-  // Dados globais
-  const periodTasks = tasks.filter(x => x.dueDate >= periodStart && x.dueDate <= t);
-  const allActive  = tasks.filter(x => !x.completed && x.dueDate >= t);
-  const allOverdue = tasks.filter(x => !x.completed && x.dueDate < t);
-  const allDone    = tasks.filter(x => x.completed && x.dueDate >= periodStart);
-
-  // Por membro
-  const memberStats = useMemo(() => (teamUsers||[]).map(u => {
-    const assigned = tasks.filter(x => x.assignedTo === u.id);
-    const active   = assigned.filter(x => !x.completed && x.dueDate >= t);
-    const overdue  = assigned.filter(x => !x.completed && x.dueDate < t);
-    const done     = assigned.filter(x => x.completed && x.dueDate >= periodStart);
-    const total    = assigned.filter(x => x.dueDate >= periodStart);
-    const rate     = total.length > 0 ? Math.round(done.length/total.length*100) : 0;
-    const load     = active.length + overdue.length * 1.5; // peso maior para atrasadas
-    const maxLoad  = 10;
-    const loadPct  = Math.min(Math.round(load/maxLoad*100), 100);
-    const loadLevel = load <= 3 ? "leve" : load <= 7 ? "normal" : load <= 12 ? "pesada" : "crítica";
-    const loadColors = { leve:"#10b981", normal:"#B8965A", pesada:"#B8965A", crítica:"#ef4444" };
-
-    // Dias da semana
-    const daily = Array.from({length:7}, (_,i) => {
-      const d = new Date(); d.setDate(d.getDate()-6+i);
-      const ds = d.toISOString().split("T")[0];
-      const dt = assigned.filter(x => x.dueDate === ds);
-      return { day:d.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".",""), done:dt.filter(x=>x.completed).length, pending:dt.filter(x=>!x.completed).length, date:ds };
-    });
-
-    return { ...u, assigned, active, overdue, done, total, rate, load, loadPct, loadLevel, loadColor:loadColors[loadLevel], daily };
-  }), [tasks, teamUsers, t, periodStart]);
-
-  // Redistribuição sugerida (tarefas atrasadas sem responsável ou com sobrecarga)
-  const redistSuggestions = useMemo(() => {
-    const overloaded = memberStats.filter(m => m.loadLevel === "crítica" || m.loadLevel === "pesada");
-    const underloaded = memberStats.filter(m => m.loadLevel === "leve" && m.active.length < 3);
-    if (overloaded.length === 0 || underloaded.length === 0) return [];
-    return overloaded.slice(0,2).map(m => ({
-      from: m,
-      to: underloaded[0],
-      tasks: m.overdue.slice(0,2),
-    })).filter(s => s.tasks.length > 0);
-  }, [memberStats]);
-
-  const totalLoad = memberStats.reduce((s,m)=>s+m.load,0);
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>Workload do Time</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Carga de trabalho, produtividade e distribuição de tarefas</p>
-        </div>
-        <select value={period} onChange={e=>setPeriod(Number(e.target.value))}
-          className="border rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-600"
-          style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-          <option value={7}>Últimos 7 dias</option>
-          <option value={14}>Últimos 14 dias</option>
-          <option value={30}>Últimos 30 dias</option>
-        </select>
-      </div>
-
-      {/* KPIs globais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label:"Ativas no time", value:allActive.length, color:"#B8965A", icon:"📋" },
-          { label:"Atrasadas", value:allOverdue.length, color:allOverdue.length>0?"#ef4444":"#10b981", icon:"⚠️" },
-          { label:"Concluídas (período)", value:allDone.length, color:"#10b981", icon:"✅" },
-          { label:"Carga total", value:totalLoad.toFixed(0), color:totalLoad>20?"#ef4444":totalLoad>10?"#B8965A":"#10b981", icon:"⚡", sub:"pontos de carga" },
-        ].map(k => (
-          <div key={k.label} className="rounded-2xl p-4 transition-all"
-            style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.5)", boxShadow:"0 4px 16px rgba(17,24,20,0.04)", backdropFilter:"blur(8px)" }}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(17,24,20,0.08)";}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.04)";}}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>{k.label}</p>
-                <p className="text-2xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
-                {k.sub && <p className="text-[10px] mt-0.5" style={{ color:"#6B7C50" }}>{k.sub}</p>}
-              </div>
-              <span className="text-xl">{k.icon}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Cards de membros */}
-      {memberStats.length === 0 ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.5)" }}>
-          <p className="text-4xl mb-3">👥</p>
-          <p className="font-bold" style={{ color:"#111110" }}>Nenhuma tarefa atribuída ainda</p>
-          <p className="text-xs mt-1" style={{ color:"#6B7C50" }}>Atribua responsáveis nas tarefas para ver o workload</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {memberStats.map(m => (
-            <div key={m.id} className="rounded-2xl p-5 transition-all"
-              style={{ background:"rgba(255,255,255,0.98)", border:`1px solid ${m.loadColor}22`, boxShadow:"0 4px 16px rgba(17,24,20,0.05)", backdropFilter:"blur(8px)" }}
-              onMouseEnter={e=>{e.currentTarget.style.boxShadow=`0 8px 28px ${m.loadColor}12`;e.currentTarget.style.transform="translateY(-1px)";}}
-              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(17,24,20,0.05)";e.currentTarget.style.transform="translateY(0)";}}>
-
-              {/* Header membro */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black text-white flex-shrink-0"
-                  style={{ background:m.avatarColor||"#2B5E46", boxShadow:`0 3px 10px ${m.avatarColor||"#2B5E46"}44` }}>
-                  {m.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-black" style={{ color:"#111110" }}>{m.name.split(" ")[0]}</p>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                      style={{ background:m.loadColor+"18", color:m.loadColor, border:`1px solid ${m.loadColor}30` }}>
-                      Carga {m.loadLevel}
-                    </span>
-                  </div>
-                  <p className="text-[10px]" style={{ color:"#6B7C50" }}>{m.role} · {m.assigned.length} tarefas totais</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xl font-black" style={{ color:m.loadColor, fontVariantNumeric:"tabular-nums" }}>{m.rate}%</p>
-                  <p className="text-[9px]" style={{ color:"#6B7C50" }}>conclusão</p>
-                </div>
-              </div>
-
-              {/* Barra de carga */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold" style={{ color:"#6B7C50" }}>Nível de carga</span>
-                  <span className="text-[10px] font-black" style={{ color:m.loadColor }}>{m.loadPct}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full" style={{ background:"rgba(206,186,150,0.5)" }}>
-                  <div className="h-2 rounded-full transition-all duration-700"
-                    style={{ width:m.loadPct+"%", background:`linear-gradient(90deg,${m.loadColor},${m.loadColor}cc)`,
-                      boxShadow:m.loadLevel==="crítica"?`0 0 8px ${m.loadColor}66`:"none" }}/>
-                </div>
-              </div>
-
-              {/* Estatísticas inline */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[
-                  { l:"Ativas", v:m.active.length, c:"#B8965A" },
-                  { l:"Atrasadas", v:m.overdue.length, c:m.overdue.length>0?"#ef4444":"#10b981" },
-                  { l:"Concluídas", v:m.done.length, c:"#10b981" },
-                  { l:"No período", v:m.total.length, c:"#64748b" },
-                ].map(s => (
-                  <div key={s.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.5)" }}>
-                    <p className="text-base font-black" style={{ color:s.c }}>{s.v}</p>
-                    <p className="text-[9px]" style={{ color:"#6B7C50" }}>{s.l}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Mini gráfico diário */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:"#6B7C50" }}>Distribuição semanal</p>
-                <div className="h-20">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={m.daily} barGap={1} barCategoryGap="25%">
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill:"#6B7C50", fontSize:9 }}/>
-                      <Tooltip contentStyle={{ borderRadius:10, border:"1px solid rgba(206,186,150,0.8)", fontSize:10, background:"rgba(255,255,255,0.98)", boxShadow:"0 4px 12px rgba(17,24,20,0.1)" }}
-                        formatter={(val,name)=>[val,name]} labelStyle={{ fontWeight:700 }}/>
-                      <Bar dataKey="done" name="Concluídas" stackId="a" fill={m.avatarColor||"#2B5E46"} radius={[3,3,0,0]} maxBarSize={20}/>
-                      <Bar dataKey="pending" name="Pendentes" stackId="a" fill="rgba(206,186,150,0.8)" radius={[3,3,0,0]} maxBarSize={20}/>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Tarefas atrasadas */}
-              {m.overdue.length > 0 && (
-                <div className="mt-3 p-3 rounded-xl" style={{ background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)" }}>
-                  <p className="text-[10px] font-black mb-1.5" style={{ color:"#ef4444" }}>⚠ Tarefas atrasadas</p>
-                  {m.overdue.slice(0,3).map(task => (
-                    <div key={task.id} className="flex items-center justify-between text-xs mb-1">
-                      <span className="truncate" style={{ color:"#374151" }}>{task.title}</span>
-                      <span className="font-bold ml-2 flex-shrink-0" style={{ color:"#ef4444" }}>
-                        {Math.floor((new Date(t)-new Date(task.dueDate+"T12:00:00"))/(1000*60*60*24))}d
-                      </span>
-                    </div>
-                  ))}
-                  {m.overdue.length > 3 && <p className="text-[10px]" style={{ color:"#6B7C50" }}>+{m.overdue.length-3} mais</p>}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Sugestões de redistribuição */}
-      {redistSuggestions.length > 0 && (
-        <div className="rounded-2xl p-5" style={{ background:"linear-gradient(135deg,rgba(245,158,11,0.06),rgba(255,255,255,0.98))", border:"1px solid rgba(245,158,11,0.2)", boxShadow:"0 4px 16px rgba(245,158,11,0.06)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-lg">⚖️</span>
-            <h3 className="text-sm font-black" style={{ color:"#92400e" }}>Sugestões de Redistribuição</h3>
-          </div>
-          {redistSuggestions.map((s,i) => (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-xl mb-2" style={{ background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.15)" }}>
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0" style={{ background:s.from.avatarColor||"#ef4444" }}>{s.from.name.charAt(0)}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold" style={{ color:"#374151" }}>
-                  <span style={{ color:s.from.loadColor }}>{s.from.name.split(" ")[0]}</span> → <span style={{ color:"#10b981" }}>{s.to.name.split(" ")[0]}</span>
-                </p>
-                <p className="text-[10px]" style={{ color:"#6B7C50" }}>{s.tasks.map(t=>t.title).join(", ")}</p>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background:"rgba(245,158,11,0.15)", color:"#4A7454" }}>Sugerido</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-// ============================================================
-// PROJETOS — Kanban moderno
-// ============================================================
-
-const PRIORITY_CONFIG = {
-  low:    { label:"Baixa",   color:"#6B7C50", bg:"rgba(148,163,184,0.1)", dot:"#6B7C50", icon:"↓" },
-  medium: { label:"Média",   color:"#B8965A", bg:"rgba(245,158,11,0.1)",  dot:"#B8965A", icon:"→" },
-  high:   { label:"Alta",    color:"#f97316", bg:"rgba(249,115,22,0.1)",  dot:"#f97316", icon:"↑" },
-  urgent: { label:"Urgente", color:"#ef4444", bg:"rgba(239,68,68,0.1)",   dot:"#ef4444", icon:"⚡" },
-};
-
-const CATEGORY_OPTIONS = ["Fiscal","Contábil","Departamento Pessoal","Administrativo","Jurídico","Tecnologia","Marketing","Financeiro","Outros"];
-
-const COLUMN_CONFIG = {
-  todo:  { label:"Não Iniciado", color:"#6B7C50", bg:"rgba(148,163,184,0.06)", icon:"○" },
-  doing: { label:"Em Execução",  color:"#B8965A", bg:"rgba(43,94,70,0.06)",  icon:"◑" },
-  done:  { label:"Concluído",    color:"#10b981", bg:"rgba(16,185,129,0.06)",  icon:"●" },
-};
-
-const PROJECT_COLORS = ["#2B5E46","#10b981","#B8965A","#f97316","#ef4444","#B8965A","#ec4899","#06b6d4","#111110","#64748b"];
-
 function ProjectCard({ project, onEdit, onDelete, onMove, onUpdateChecklist }) {
   const { clients, teamUsers } = useApp();
   const [expanded, setExpanded] = useState(false);
@@ -10154,510 +9917,6 @@ function AIInsightCard({ icon, title, content, color, urgent }) {
   );
 }
 
-function YoetzIA() {
-  const { tasks, habits, projects, teamUsers, clients, onboardings, currentProfile, aiAnalyses, saveAiAnalysis } = useApp();
-  const [loading, setLoading] = useState({ full:false, burnout:false, workload:false, habits:false });
-  const [analysis, setAnalysis] = useState(null);
-  const [activeSection, setActiveSection] = useState("overview");
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatEndRef = useRef(null);
-  const t = today();
-
-  // Contexto real do sistema para enviar à IA
-  const buildContext = () => {
-    const overdue = tasks.filter(x => !x.completed && x.dueDate && x.dueDate < t && !x.parentId);
-    const doneThisWeek = tasks.filter(x => {
-      const d = new Date(); d.setDate(d.getDate()-7);
-      return x.completed && x.dueDate >= d.toISOString().split("T")[0];
-    });
-    const rate = tasks.length > 0 ? Math.round(tasks.filter(x=>x.completed).length/tasks.length*100) : 0;
-    return {
-      data_hoje: t,
-      tarefas: { total:tasks.filter(x=>!x.parentId).length, concluidas:tasks.filter(x=>x.completed).length, atrasadas:overdue.length, concluidas_7d:doneThisWeek.length, taxa_conclusao:rate },
-      habitos: { total:habits.length, consistencia_media: habits.length > 0 ? Math.round(habits.reduce((s,h)=>{ const d30=(h.completedDates||[]).filter(d=>{ const dt=new Date(); dt.setDate(dt.getDate()-30); return d >= dt.toISOString().split("T")[0]; }).length; return s+Math.round(d30/30*100); },0)/habits.length) : 0 },
-      projetos: { total:projects.length, ativos:projects.filter(p=>p.status!=="done").length, atrasados:projects.filter(p=>p.dueDate&&p.dueDate<t&&p.status!=="done").length },
-      equipe: (teamUsers||[]).map(u => { const ut=tasks.filter(x=>x.assignedTo===u.id); return { nome:u.name, ativas:ut.filter(x=>!x.completed).length, atrasadas:ut.filter(x=>!x.completed&&x.dueDate&&x.dueDate<t).length, concluidas:ut.filter(x=>x.completed).length }; }),
-      clientes: { total:clients.length, ativos:clients.filter(c=>c.status==="active").length },
-      onboardings: { ativos:onboardings.filter(o=>o.status==="em_andamento").length },
-      atrasadas_detalhes: overdue.slice(0,5).map(x=>({ titulo:x.title, dias:Math.floor((new Date(t)-new Date(x.dueDate+"T12:00:00"))/(1000*60*60*24)) })),
-    };
-  };
-
-  // Token JWT direto do auth module — sempre o mais atual
-  const getSession = () => {
-    try {
-      // Prioridade 1: session em memória (mais fresca)
-      const session = auth.getSession();
-      if (session?.access_token) return session.access_token;
-      // Prioridade 2: localStorage como fallback
-      const s = JSON.parse(localStorage.getItem("sb_session")||"{}");
-      return s.access_token || "";
-    } catch { return ""; }
-  };
-
-  const runAnalysis = async (type = "full") => {
-    setLoading(p=>({...p,[type]:true}));
-    try {
-      const ctx = buildContext();
-      const data = await callYoetzAI(type, ctx, null, getSession());
-      if (type === "full") setAnalysis(data);
-      await saveAiAnalysis(type, data);
-    } catch(e) {
-      console.error("YOETZ IA:", e.message);
-      // Mostrar erro real para diagnóstico
-      if (type === "full") {
-        setAnalysis({ _error: true, manchete: "Erro na análise", resumo_executivo: e.message, score: 0, score_label:"Erro", pontos_fortes:[], alertas:[], recomendacoes:[], previsao_7d:"", burnout_risk:"baixo", burnout_motivos:[], insight_habitos:"", insight_projetos:"", insight_equipe:"" });
-      }
-    } finally {
-      setLoading(p=>({...p,[type]:false}));
-    }
-  };
-
-  const sendChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMsg = { role:"user", content: chatInput.trim() };
-    const ctx = buildContext();
-    const history = [...chatMessages, userMsg];
-    setChatMessages(history);
-    setChatInput("");
-    setChatLoading(true);
-    try {
-      const msgs = [
-        { role:"user", content:`Contexto atual do escritório:\n${JSON.stringify(ctx, null, 2)}\n\nPergunta: ${userMsg.content}` }
-      ];
-      if (chatMessages.length > 0) {
-        msgs.unshift(...chatMessages.slice(-6));
-      }
-      const reply = await callYoetzAI("chat", ctx, msgs, getSession());
-      setChatMessages(p => [...p, { role:"assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) }]);
-    } catch(e) {
-      setChatMessages(p => [...p, { role:"assistant", content: `Erro: ${e.message}` }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatMessages]);
-
-  // Carregar última análise salva ao montar
-  useEffect(() => {
-    const last = (aiAnalyses||[]).find(a => a.type === "full");
-    if (last?.result && !analysis) setAnalysis(last.result);
-  }, [aiAnalyses]);
-
-  const ctx = buildContext();
-  const SECTIONS = [["overview","🎯 Visão Geral"],["burnout","🔥 Burnout"],["workload","⚡ Workload"],["habits","🌱 Hábitos"],["chat","💬 Chat IA"]];
-
-  return (
-    <div className="min-h-screen rounded-2xl overflow-hidden" style={{
-      background: "linear-gradient(160deg,#0f1117 0%,#0D1F15 40%,#0f1117 100%)",
-      border: "1px solid rgba(184,150,90,0.1)",
-    }}>
-
-      {/* ── HERO ── */}
-      <div className="px-6 pt-8 pb-6" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                style={{ background:"linear-gradient(135deg,rgba(184,150,90,0.2),rgba(43,94,70,0.1))", border:"1px solid rgba(206,186,150,0.5)" }}>
-                🧠
-              </div>
-              <div>
-                <h1 className="text-xl font-black" style={{ color:"#fff", letterSpacing:"-0.02em" }}>YOETZ IA</h1>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color:"rgba(184,150,90,0.7)" }}>Central de Inteligência Operacional</p>
-              </div>
-            </div>
-            <p className="text-xs max-w-lg" style={{ color:"rgba(255,255,255,0.45)" }}>
-              Análise estratégica com IA. Dados reais do escritório YOETZ transformados em inteligência acionável.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {analysis && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.2)" }}>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background:"#10b981", boxShadow:"0 0 6px #10b981" }}/>
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:"#10b981" }}>Análise ativa</span>
-              </div>
-            )}
-            <button onClick={()=>runAnalysis("full")} disabled={loading.full}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all"
-              style={{ background:loading.full?"rgba(184,150,90,0.1)":"linear-gradient(135deg,rgba(184,150,90,0.9),rgba(43,94,70,0.9))", color:"#fff", border:"1px solid rgba(184,150,90,0.3)", boxShadow:loading.full?"none":"0 4px 20px rgba(184,150,90,0.25)", opacity:loading.full?0.7:1 }}>
-              {loading.full ? <><Icon.Loader /><span>Analisando...</span></> : <><Icon.Sparkles /><span>Analisar Agora</span></>}
-            </button>
-          </div>
-        </div>
-
-        {/* Mini KPIs sempre visíveis */}
-        <div className="grid grid-cols-4 gap-3 mt-5">
-          {[
-            { label:"Tarefas ativas", value:ctx.tarefas.total-ctx.tarefas.concluidas, color:"#B8965A" },
-            { label:"Atrasadas", value:ctx.tarefas.atrasadas, color:ctx.tarefas.atrasadas>0?"#ef4444":"#10b981" },
-            { label:"Taxa conclusão", value:`${ctx.tarefas.taxa_conclusao}%`, color:ctx.tarefas.taxa_conclusao>=70?"#10b981":ctx.tarefas.taxa_conclusao>=40?"#B8965A":"#ef4444" },
-            { label:"Projetos ativos", value:ctx.projetos.ativos, color:"#B8965A" },
-          ].map(k=>(
-            <div key={k.label} className="rounded-xl p-3" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color:"rgba(255,255,255,0.35)" }}>{k.label}</p>
-              <p className="text-xl font-black" style={{ color:k.color, fontVariantNumeric:"tabular-nums" }}>{k.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── TABS ── */}
-      <div className="flex gap-1 px-4 pt-4" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        {SECTIONS.map(([id,label])=>(
-          <button key={id} onClick={()=>setActiveSection(id)}
-            className="px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all"
-            style={{ background:activeSection===id?"rgba(184,150,90,0.12)":"transparent", color:activeSection===id?"#B8965A":"rgba(255,255,255,0.35)", borderBottom:activeSection===id?"2px solid #B8965A":"2px solid transparent" }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-6">
-
-        {/* ── VISÃO GERAL ── */}
-        {activeSection === "overview" && (
-          <div className="space-y-6">
-            {!analysis ? (
-              <div className="rounded-2xl p-12 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(184,150,90,0.2)" }}>
-                <div className="text-5xl mb-4">🧠</div>
-                <p className="text-lg font-black mb-2" style={{ color:"#fff" }}>Inteligência ainda não ativada</p>
-                <p className="text-sm mb-6" style={{ color:"rgba(255,255,255,0.4)" }}>Clique em "Analisar Agora" para gerar a análise executiva completa do escritório com GPT-4o.</p>
-                <button onClick={()=>runAnalysis("full")} disabled={loading.full}
-                  className="px-6 py-3 rounded-xl text-sm font-black" style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff" }}>
-                  {loading.full ? "Analisando..." : "🚀 Gerar primeira análise"}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {/* Score + Manchete */}
-                <div className="rounded-2xl p-6" style={{ background:"linear-gradient(135deg,rgba(43,94,70,0.08),rgba(255,255,255,0.03))", border:"1px solid rgba(206,186,150,0.35)" }}>
-                  <div className="flex items-center gap-6">
-                    <ScoreRing score={analysis.score||0} size={88}/>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(184,150,90,0.6)" }}>Score operacional — {analysis.score_label||""}</p>
-                      <h2 className="text-xl font-black leading-snug mb-2" style={{ color:"#fff" }}>{analysis.manchete}</h2>
-                      <p className="text-sm leading-relaxed" style={{ color:"rgba(255,255,255,0.6)" }}>{analysis.resumo_executivo}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Pontos fortes */}
-                  {analysis.pontos_fortes?.length > 0 && (
-                    <div className="rounded-2xl p-5" style={{ background:"rgba(16,185,129,0.05)", border:"1px solid rgba(16,185,129,0.15)" }}>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#10b981" }}>✓ Pontos Fortes</p>
-                      <div className="space-y-2">
-                        {analysis.pontos_fortes.map((p,i)=>(
-                          <div key={i} className="flex items-start gap-2">
-                            <span className="text-xs mt-0.5" style={{ color:"#10b981" }}>•</span>
-                            <p className="text-sm" style={{ color:"rgba(255,255,255,0.7)" }}>{p}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Alertas */}
-                  {analysis.alertas?.length > 0 && (
-                    <div className="rounded-2xl p-5" style={{ background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)" }}>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#ef4444" }}>⚡ Alertas</p>
-                      <div className="space-y-2">
-                        {analysis.alertas.map((a,i)=>(
-                          <div key={i} className="p-2.5 rounded-xl" style={{ background:"rgba(239,68,68,0.06)" }}>
-                            <p className="text-xs font-bold" style={{ color:a.urgencia==="alta"?"#ef4444":a.urgencia==="media"?"#B8965A":"#6B7C50" }}>{a.titulo}</p>
-                            <p className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.5)" }}>{a.descricao}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Recomendações */}
-                {analysis.recomendacoes?.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(184,150,90,0.8)" }}>🎯 Recomendações</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {analysis.recomendacoes.map((r,i)=>{
-                        const prazoCor = r.prazo==="hoje"?"#ef4444":r.prazo==="semana"?"#B8965A":"#10b981";
-                        return (
-                          <div key={i} className="p-3 rounded-xl" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)" }}>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background:prazoCor+"20", color:prazoCor }}>{r.prazo}</span>
-                            </div>
-                            <p className="text-xs font-bold mb-1" style={{ color:"rgba(255,255,255,0.9)" }}>{r.acao}</p>
-                            <p className="text-[10px]" style={{ color:"rgba(255,255,255,0.4)" }}>{r.impacto}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Insights */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {analysis.insight_habitos && <AIInsightCard icon="🌱" title="Hábitos" content={analysis.insight_habitos} color="#10b981"/>}
-                  {analysis.insight_projetos && <AIInsightCard icon="🚀" title="Projetos" content={analysis.insight_projetos} color="#B8965A"/>}
-                  {analysis.insight_equipe && <AIInsightCard icon="👥" title="Equipe" content={analysis.insight_equipe} color="#4A7454"/>}
-                </div>
-
-                {/* Previsão */}
-                {analysis.previsao_7d && (
-                  <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background:"rgba(184,150,90,0.06)", border:"1px solid rgba(206,186,150,0.35)" }}>
-                    <span className="text-2xl">🔮</span>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color:"rgba(184,150,90,0.8)" }}>Previsão 7 dias</p>
-                      <p className="text-sm" style={{ color:"rgba(255,255,255,0.7)" }}>{analysis.previsao_7d}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── BURNOUT ── */}
-        {activeSection === "burnout" && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise de Risco de Burnout</h3>
-                <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>Baseada em carga, atrasos e padrões comportamentais</p>
-              </div>
-              <button onClick={()=>runAnalysis("burnout")} disabled={loading.burnout}
-                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(239,68,68,0.8),rgba(220,38,38,0.8))", color:"#fff" }}>
-                {loading.burnout ? "Analisando..." : "🔥 Analisar Burnout"}
-              </button>
-            </div>
-            {analysis?.burnout_risk ? (
-              <div className="space-y-4">
-                <div className="rounded-2xl p-6 text-center" style={{
-                  background:`rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.08)`,
-                  border:`1px solid rgba(${analysis.burnout_risk==="alto"?"239,68,68":analysis.burnout_risk==="medio"?"245,158,11":"16,185,129"},0.2)`
-                }}>
-                  <p className="text-5xl font-black uppercase mb-2" style={{ color:analysis.burnout_risk==="alto"?"#ef4444":analysis.burnout_risk==="medio"?"#B8965A":"#10b981" }}>
-                    {analysis.burnout_risk}
-                  </p>
-                  <p className="text-sm" style={{ color:"rgba(255,255,255,0.5)" }}>Risco de burnout detectado</p>
-                </div>
-                {analysis.burnout_motivos?.length > 0 && (
-                  <div className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"rgba(239,68,68,0.8)" }}>Sinais detectados</p>
-                    {analysis.burnout_motivos.map((m,i)=>(
-                      <div key={i} className="flex items-center gap-2 mb-2">
-                        <span className="text-xs" style={{ color:"#ef4444" }}>⚡</span>
-                        <p className="text-sm" style={{ color:"rgba(255,255,255,0.65)" }}>{m}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-2xl p-10 text-center" style={{ background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(239,68,68,0.2)" }}>
-                <p className="text-3xl mb-3">🔥</p>
-                <p className="text-sm" style={{ color:"rgba(255,255,255,0.4)" }}>Clique em "Analisar Burnout" para detectar sinais de sobrecarga</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── WORKLOAD ── */}
-        {activeSection === "workload" && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise de Workload da Equipe</h3>
-              <button onClick={()=>runAnalysis("workload")} disabled={loading.workload}
-                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(184,150,90,0.8),rgba(43,94,70,0.8))", color:"#fff" }}>
-                {loading.workload ? "Analisando..." : "⚡ Analisar Workload"}
-              </button>
-            </div>
-            {/* Cards da equipe */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ctx.equipe.map((u,i)=>{
-                const load = u.ativas + u.atrasadas * 1.5;
-                const pct = Math.min(Math.round(load/10*100),100);
-                const lc = pct>=80?"#ef4444":pct>=50?"#B8965A":"#10b981";
-                return (
-                  <div key={i} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-black" style={{ color:"#fff" }}>{u.nome}</p>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background:lc+"20", color:lc }}>
-                        {pct>=80?"Crítico":pct>=50?"Pesado":"Normal"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      {[{l:"Ativas",v:u.ativas,c:"#B8965A"},{l:"Atrasadas",v:u.atrasadas,c:"#ef4444"},{l:"Concluídas",v:u.concluidas,c:"#10b981"}].map(k=>(
-                        <div key={k.l} className="text-center p-2 rounded-xl" style={{ background:"rgba(255,255,255,0.04)" }}>
-                          <p className="text-base font-black" style={{ color:k.c }}>{k.v}</p>
-                          <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>{k.l}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="w-full h-1.5 rounded-full" style={{ background:"rgba(255,255,255,0.08)" }}>
-                      <div className="h-1.5 rounded-full" style={{ width:pct+"%", background:`linear-gradient(90deg,${lc},${lc}aa)` }}/>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── HÁBITOS ── */}
-        {activeSection === "habits" && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black" style={{ color:"#fff" }}>Análise Comportamental de Hábitos</h3>
-              <button onClick={()=>runAnalysis("habits")} disabled={loading.habits}
-                className="px-4 py-2 rounded-xl text-xs font-black" style={{ background:"linear-gradient(135deg,rgba(16,185,129,0.8),rgba(5,150,105,0.8))", color:"#fff" }}>
-                {loading.habits ? "Analisando..." : "🌱 Analisar Hábitos"}
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {habits.map(h=>{
-                const d30 = new Date(); d30.setDate(d30.getDate()-30);
-                const c = Math.round((h.completedDates||[]).filter(d=>d>=d30.toISOString().split("T")[0]).length/30*100);
-                return (
-                  <div key={h.id} className="rounded-2xl p-4" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-2xl">{h.emoji||"⭐"}</span>
-                      <div>
-                        <p className="text-sm font-black" style={{ color:"#fff" }}>{h.title}</p>
-                        {h.identity && <p className="text-[10px]" style={{ color:`${h.color||"#4A7454"}` }}>{h.identity}</p>}
-                      </div>
-                      <div className="ml-auto text-right">
-                        <p className="text-lg font-black" style={{ color:c>=70?"#10b981":c>=40?"#B8965A":"#ef4444" }}>{c}%</p>
-                        <p className="text-[9px]" style={{ color:"rgba(255,255,255,0.35)" }}>30 dias</p>
-                      </div>
-                    </div>
-                    <div className="w-full h-1 rounded-full" style={{ background:"rgba(255,255,255,0.08)" }}>
-                      <div className="h-1 rounded-full" style={{ width:c+"%", background:h.color||"#4A7454" }}/>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── CHAT IA ── */}
-        {activeSection === "chat" && (
-          <div className="flex flex-col" style={{ height:"calc(100vh - 380px)", minHeight:400 }}>
-            <div className="mb-4">
-              <h3 className="text-base font-black" style={{ color:"#fff" }}>Chat com o YOETZ IA</h3>
-              <p className="text-xs" style={{ color:"rgba(255,255,255,0.4)" }}>Consultor executivo com contexto real do seu escritório. Pergunte qualquer coisa.</p>
-            </div>
-            {/* Mensagens */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-              {chatMessages.length === 0 && (
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  {["Como está a produtividade da equipe esta semana?","Quais projetos correm mais risco de atraso?","Existe risco de burnout no time?","O que devo priorizar hoje?"].map(q=>(
-                    <button key={q} onClick={()=>{setChatInput(q);}}
-                      className="p-3 rounded-xl text-left text-xs transition-all"
-                      style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.6)" }}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(184,150,90,0.3)";e.currentTarget.style.color="#fff";}}
-                      onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {chatMessages.map((m,i)=>(
-                <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}>
-                  <div className="max-w-lg rounded-2xl px-4 py-3 text-sm"
-                    style={{
-                      background: m.role==="user" ? "linear-gradient(135deg,rgba(184,150,90,0.25),rgba(43,94,70,0.2))" : "rgba(255,255,255,0.05)",
-                      border: m.role==="user" ? "1px solid rgba(184,150,90,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                      color: "rgba(255,255,255,0.85)",
-                      lineHeight: 1.6,
-                    }}>
-                    {m.role==="assistant" && <span className="text-[10px] font-black uppercase tracking-widest block mb-1" style={{ color:"rgba(184,150,90,0.7)" }}>YOETZ IA</span>}
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl px-4 py-3" style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex items-center gap-1.5">
-                      {[0,1,2].map(i=>(
-                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background:"rgba(184,150,90,0.7)", animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef}/>
-            </div>
-            {/* Input */}
-            <div className="flex gap-3">
-              <input value={chatInput} onChange={e=>setChatInput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()}
-                placeholder="Pergunte sobre produtividade, equipe, projetos, hábitos..."
-                className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", caretColor:"#B8965A" }}/>
-              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
-                className="px-4 py-3 rounded-xl font-black text-sm transition-all disabled:opacity-40"
-                style={{ background:"linear-gradient(135deg,#4A7454,#2B5E46)", color:"#fff", minWidth:52 }}>
-                {chatLoading ? "..." : "→"}
-              </button>
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-}
-
-
-// ============================================================
-// SOPs & PLAYBOOKS — Central Operacional
-// ============================================================
-
-const SOP_CATEGORIES = ["Fiscal","Contábil","Departamento Pessoal","Jurídico","Administrativo","Comercial","Marketing","Financeiro","Atendimento","Operacional"];
-
-const SOP_PRIORITY = {
-  low:      { label:"Baixa",    color:"#6B7C50", bg:"rgba(148,163,184,0.1)" },
-  medium:   { label:"Média",    color:"#B8965A", bg:"rgba(245,158,11,0.1)"  },
-  high:     { label:"Alta",     color:"#f97316", bg:"rgba(249,115,22,0.1)"  },
-  critical: { label:"Crítica",  color:"#ef4444", bg:"rgba(239,68,68,0.1)"   },
-};
-const SOP_DIFFICULTY = {
-  easy:   { label:"Fácil",   color:"#10b981" },
-  medium: { label:"Médio",   color:"#B8965A" },
-  hard:   { label:"Difícil", color:"#ef4444" },
-};
-const SOP_TYPE = {
-  sop:      { label:"SOP",      icon:"📋", color:"#B8965A", bg:"rgba(43,94,70,0.08)"  },
-  playbook: { label:"Playbook", icon:"📘", color:"#B8965A", bg:"rgba(184,150,90,0.08)"  },
-};
-
-const SOP_TEMPLATES = [
-  { title:"Admissão de Colaborador", category:"Departamento Pessoal", type:"sop", priority:"high", estimatedTime:120, difficulty:"medium",
-    steps:["Receber documentos do colaborador","Registrar no e-Social","Assinar CTPS","Configurar folha de pagamento","Abertura de conta salário","Cadastro no plano de saúde","Entrega de EPIs","Integração e treinamento inicial"],
-    checklist:["Documentos recebidos e conferidos","Cadastro e-Social realizado","CTPS assinada","Folha configurada","Conta salário aberta","Cadastro benefícios realizado"] },
-  { title:"Rescisão de Contrato CLT", category:"Departamento Pessoal", type:"sop", priority:"high", estimatedTime:90, difficulty:"medium",
-    steps:["Receber comunicado de rescisão","Calcular verbas rescisórias","Emitir Termo de Rescisão","Homologar rescisão","Dar baixa na CTPS","Gerar guia FGTS e multa","Emitir Seguro Desemprego"],
-    checklist:["Motivo da rescisão verificado","Cálculo conferido","TRCT emitido","Baixa CTPS realizada","FGTS/multa quitados"] },
-  { title:"Abertura de CNPJ", category:"Fiscal", type:"sop", priority:"high", estimatedTime:480, difficulty:"hard",
-    steps:["Coleta de documentos dos sócios","Definir objeto social e CNAE","Escolher regime tributário","Elaborar contrato social","Registrar na Junta Comercial","Obter CNPJ na Receita Federal","Inscrição Estadual","Alvará de funcionamento","Abertura de conta PJ"],
-    checklist:["Documentos dos sócios coletados","Objeto social definido","Regime tributário escolhido","Contrato social elaborado","Registro Junta realizado","CNPJ obtido"] },
-  { title:"Onboarding de Cliente", category:"Contábil", type:"playbook", priority:"high", estimatedTime:240, difficulty:"medium",
-    steps:["Reunião de boas-vindas","Coleta de documentos da empresa","Levantamento de pendências fiscais","Migração do contador anterior","Parametrização no sistema","Primeiro fechamento contábil","Apresentação dos relatórios"],
-    checklist:["Reunião realizada","Documentos coletados","Pendências levantadas","Migração concluída","Sistema parametrizado"] },
-  { title:"Folha de Pagamento", category:"Departamento Pessoal", type:"sop", priority:"critical", estimatedTime:180, difficulty:"medium",
-    steps:["Verificar marcações de ponto","Lançar horas extras e faltas","Calcular descontos","Processar folha no sistema","Gerar guia INSS e IRRF","Emitir holerites","Realizar pagamento"],
-    checklist:["Ponto verificado","Horas extras lançadas","Descontos calculados","Folha processada","Guias geradas","Holerites emitidos","Pagamento realizado"] },
-  { title:"Regularização Fiscal", category:"Fiscal", type:"sop", priority:"critical", estimatedTime:360, difficulty:"hard",
-    steps:["Diagnóstico fiscal inicial","Levantamento de débitos","Negociar parcelamento (REFIS/PERT)","Entregar declarações em atraso","Regularização Receita Federal","Regularização Secretaria Estadual","Regularização Prefeitura","Obter Certidões Negativas"],
-    checklist:["Diagnóstico realizado","Débitos levantados","Parcelamento negociado","Declarações entregues","Certidões obtidas"] },
-];
-
 function SopCard({ sop, onOpen, onDelete, onFavorite, isAdmin }) {
   const typeConf = SOP_TYPE[sop.type] || SOP_TYPE.sop;
   const priorConf = SOP_PRIORITY[sop.priority] || SOP_PRIORITY.medium;
@@ -11134,253 +10393,786 @@ function SopForm({ sop, onSave, onClose }) {
   );
 }
 
-function SOPs() {
-  const { sops, addSop, updateSop, deleteSop, currentProfile } = useApp();
-  const isAdmin = !currentProfile || currentProfile.role === "admin";
-  const [view, setView] = useState("home"); // home | list
-  const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingSop, setEditingSop] = useState(null);
-  const [detailSop, setDetailSop] = useState(null);
-  const [templateMode, setTemplateMode] = useState(false);
+// ============================================================
+// ANOTAÇÕES — mural com menção @cliente
+// ============================================================
+const NOTE_COLORS = {
+  paper:  { bg:"#FFFFFF", border:"rgba(206,186,150,0.45)", label:"Branco" },
+  salvia: { bg:"#EEF3EF", border:"rgba(43,94,70,0.18)",   label:"Sálvia" },
+  areia:  { bg:"#F7F2E8", border:"rgba(184,150,90,0.28)", label:"Areia" },
+  ouro:   { bg:"#F2E8D3", border:"rgba(184,150,90,0.40)", label:"Dourado" },
+  nevoa:  { bg:"#F1F2F0", border:"rgba(61,61,59,0.12)",   label:"Névoa" },
+};
 
-  const { teamUsers } = useApp();
+const fmtNoteDate = iso => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  const hm = d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+  if (sameDay) return `Hoje, ${hm}`;
+  if (d.toDateString() === y.toDateString()) return `Ontem, ${hm}`;
+  return d.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year: d.getFullYear()!==now.getFullYear() ? "numeric" : undefined }) + `, ${hm}`;
+};
 
-  const handleSave = async (f) => {
-    if (editingSop) {
-      await updateSop({ ...editingSop, ...f, updatedAt:new Date().toISOString() });
-    } else {
-      await addSop({ id:uid(), ...f, views:0, executions:0, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
+// Renderiza o texto destacando @menções de clientes vinculados
+function NoteText({ content, clients, onClientClick }) {
+  const names = clients.map(c => c.name).filter(Boolean).sort((a,b) => b.length - a.length);
+  if (!names.length) return <>{content}</>;
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`@(${names.map(esc).join("|")})`, "g");
+  const parts = []; let last = 0; let m;
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > last) parts.push(content.slice(last, m.index));
+    const c = clients.find(x => x.name === m[1]);
+    parts.push(
+      <button key={m.index} type="button" onClick={e => { e.stopPropagation(); onClientClick && onClientClick(c.id); }}
+        className="font-semibold rounded px-1 -mx-0.5 transition-colors"
+        style={{ color:"#2B5E46", background:"rgba(43,94,70,0.09)" }}>
+        @{m[1]}
+      </button>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < content.length) parts.push(content.slice(last));
+  return <>{parts}</>;
+}
+
+// Caixa de texto com autocomplete de @cliente
+function MentionTextarea({ value, onChange, clients, onMention, placeholder, autoFocus, onSubmit }) {
+  const ref = useRef(null);
+  const [query, setQuery] = useState(null); // texto após @
+  const [start, setStart] = useState(0);
+  const [hi, setHi] = useState(0);
+  const caretRef = useRef(null);
+
+  const results = useMemo(() => {
+    if (query === null) return [];
+    const q = query.toLowerCase();
+    return clients.filter(c => (c.name||"").toLowerCase().includes(q)).slice(0, 6);
+  }, [query, clients]);
+
+  const detect = (text, caret) => {
+    const before = text.slice(0, caret);
+    const at = before.lastIndexOf("@");
+    if (at < 0) { setQuery(null); return; }
+    const prev = at === 0 ? " " : before[at - 1];
+    const frag = before.slice(at + 1);
+    if (!/\s/.test(prev) || frag.includes("\n") || frag.length > 40) { setQuery(null); return; }
+    setStart(at); setQuery(frag); setHi(0);
+  };
+
+  const pick = c => {
+    const el = ref.current;
+    const caret = el ? el.selectionStart : value.length;
+    const next = value.slice(0, start) + "@" + c.name + " " + value.slice(caret);
+    onChange(next);
+    onMention && onMention(c.id);
+    setQuery(null);
+    caretRef.current = start + c.name.length + 2;
+  };
+
+  useLayoutEffect(() => {
+    if (caretRef.current == null || !ref.current) return;
+    const pos = caretRef.current; caretRef.current = null;
+    ref.current.focus(); ref.current.setSelectionRange(pos, pos);
+  }, [value]);
+
+  const onKeyDown = e => {
+    if (query !== null && results.length) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setHi(h => (h + 1) % results.length); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setHi(h => (h - 1 + results.length) % results.length); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(results[hi]); return; }
+      if (e.key === "Escape") { setQuery(null); return; }
     }
-    setFormOpen(false); setEditingSop(null);
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit && onSubmit(); }
   };
-
-  const useTemplate = async (tpl) => {
-    await addSop({ id:uid(), ...tpl, isFavorite:false, isTemplate:false, views:0, executions:0, version:"1.0", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
-    setTemplateMode(false);
-  };
-
-  const filtered = sops.filter(s => {
-    if (search && !s.title.toLowerCase().includes(search.toLowerCase()) && !s.description?.toLowerCase().includes(search.toLowerCase()) && !s.tags?.some(t=>t.toLowerCase().includes(search.toLowerCase()))) return false;
-    if (filterCat !== "all" && s.category !== filterCat) return false;
-    if (filterType !== "all" && s.type !== filterType) return false;
-    if (filterPriority !== "all" && s.priority !== filterPriority) return false;
-    return true;
-  });
-
-  const favorites = sops.filter(s=>s.isFavorite);
-  const recents = [...sops].sort((a,b)=>b.updatedAt?.localeCompare(a.updatedAt||"")||0).slice(0,4);
-  const critical = sops.filter(s=>s.priority==="critical"&&s.type==="sop");
-  const categories = [...new Set(sops.map(s=>s.category).filter(Boolean))];
-
-  const catCounts = sops.reduce((acc,s)=>{ acc[s.category]=(acc[s.category]||0)+1; return acc; },{});
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-black" style={{ color:"#111110", letterSpacing:"-0.01em" }}>📚 SOPs & Playbooks</h2>
-          <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>Central operacional do escritório — processos, padrões e playbooks</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={()=>setTemplateMode(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background:"rgba(241,245,249,0.9)", color:"#64748b", border:"1px solid rgba(206,186,150,0.5)" }}>
-            📋 Templates
-          </button>
-          {isAdmin && (
-            <button onClick={()=>{setEditingSop(null);setFormOpen(true);}}
-              className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-bold"
-              style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)", boxShadow:"0 2px 8px rgba(17,24,20,0.25)" }}>
-              <Icon.Plus />Novo SOP
+    <div className="relative">
+      <textarea ref={ref} value={value} autoFocus={autoFocus} rows={3}
+        onChange={e => { onChange(e.target.value); detect(e.target.value, e.target.selectionStart); }}
+        onKeyDown={onKeyDown}
+        onClick={e => detect(value, e.target.selectionStart)}
+        onBlur={() => setTimeout(() => setQuery(null), 150)}
+        placeholder={placeholder}
+        className="w-full resize-none outline-none text-[15px] leading-relaxed bg-transparent"
+        style={{ color:"#1C1C1A", minHeight:76 }}/>
+      {query !== null && (
+        <div className="absolute left-0 z-30 mt-1 w-72 rounded-xl overflow-hidden"
+          style={{ background:"#fff", border:"1px solid rgba(206,186,150,0.6)", boxShadow:"0 12px 32px rgba(26,56,41,0.14)" }}>
+          {results.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs" style={{ color:"#94a3b8" }}>Nenhum cliente com "{query}"</p>
+          ) : results.map((c, i) => (
+            <button key={c.id} type="button" onMouseDown={e => { e.preventDefault(); pick(c); }}
+              onMouseEnter={() => setHi(i)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left"
+              style={{ background: i === hi ? "rgba(43,94,70,0.07)" : "transparent" }}>
+              <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
+                style={{ background:"#2B5E46" }}>{(c.name||"?")[0].toUpperCase()}</span>
+              <span className="text-sm truncate" style={{ color:"#1C1C1A" }}>{c.name}</span>
+              <span className="ml-auto text-[10px] uppercase" style={{ color:"#94a3b8" }}>{c.type||""}</span>
             </button>
-          )}
+          ))}
         </div>
-      </div>
-
-      {/* Search + Filtros */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="relative flex-1" style={{ minWidth:200, maxWidth:320 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="#6B7C50" strokeWidth="2" style={{width:14,height:14,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}>
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar SOPs, playbooks, tags..."
-            className="w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-            style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)" }}/>
-        </div>
-        <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-          style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-          <option value="all">Todos os tipos</option>
-          <option value="sop">📋 SOP</option>
-          <option value="playbook">📘 Playbook</option>
-        </select>
-        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-          style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-          <option value="all">Todas categorias</option>
-          {SOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)}
-          className="border rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-600"
-          style={{ borderColor:"rgba(206,186,150,0.6)", background:"rgba(255,255,255,0.98)", color:"#374151" }}>
-          <option value="all">Todas prioridades</option>
-          {Object.entries(SOP_PRIORITY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-        </select>
-      </div>
-
-      {/* Empty state */}
-      {sops.length === 0 && !templateMode ? (
-        <div className="rounded-2xl p-12 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.5)" }}>
-          <p className="text-5xl mb-4">📚</p>
-          <p className="text-lg font-bold" style={{ color:"#111110" }}>Nenhum SOP ainda</p>
-          <p className="text-sm mt-1 mb-5" style={{ color:"#6B7C50" }}>Comece pelos templates prontos ou crie do zero</p>
-          <div className="flex gap-3 justify-center">
-            <button onClick={()=>setTemplateMode(true)} className="px-5 py-2 rounded-xl text-sm font-bold" style={{ background:"rgba(241,245,249,0.9)", color:"#374151", border:"1px solid rgba(206,186,150,0.5)" }}>📋 Usar templates</button>
-            {isAdmin && <button onClick={()=>{setEditingSop(null);setFormOpen(true);}} className="px-5 py-2 text-white rounded-xl text-sm font-bold" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>+ Criar do zero</button>}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Favoritos */}
-          {favorites.length > 0 && !search && filterCat==="all" && filterType==="all" && (
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#6B7C50" }}>
-                <span style={{ color:"#B8965A" }}>★</span> Favoritos
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {favorites.map(s=>(
-                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
-                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Processos críticos */}
-          {critical.length > 0 && !search && filterCat==="all" && filterType==="all" && filterPriority==="all" && (
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color:"#6B7C50" }}>
-                <span style={{ color:"#ef4444" }}>⚡</span> Processos Críticos
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {critical.map(s=>(
-                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
-                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Categorias com contadores */}
-          {!search && categories.length > 0 && filterCat==="all" && filterType==="all" && (
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#6B7C50" }}>Por Categoria</p>
-              <div className="flex gap-2 flex-wrap">
-                {categories.map(c=>(
-                  <button key={c} onClick={()=>setFilterCat(c)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background:"rgba(255,255,255,0.98)", color:"#374151", border:"1px solid rgba(206,186,150,0.5)", boxShadow:"0 2px 6px rgba(17,24,20,0.04)" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(184,150,90,0.25)";e.currentTarget.style.color="#2B5E46";}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(206,186,150,0.6)";e.currentTarget.style.color="#374151";}}>
-                    {c}
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background:"rgba(184,150,90,0.1)", color:"#B8965A" }}>{catCounts[c]||0}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Todos os SOPs filtrados */}
-          {filtered.length > 0 && (
-            <div>
-              {(search || filterCat!=="all" || filterType!=="all" || filterPriority!=="all") && (
-                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#6B7C50" }}>
-                  {filtered.length} resultado{filtered.length!==1?"s":""}
-                  {filterCat!=="all" && ` — ${filterCat}`}
-                </p>
-              )}
-              {!search && filterCat==="all" && filterType==="all" && filterPriority==="all" && (
-                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color:"#6B7C50" }}>Todos ({filtered.length})</p>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map(s=>(
-                  <SopCard key={s.id} sop={s} onOpen={setDetailSop} onDelete={deleteSop} isAdmin={isAdmin}
-                    onFavorite={s=>updateSop({...s,isFavorite:!s.isFavorite})}/>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {filtered.length === 0 && search && (
-            <div className="rounded-2xl p-10 text-center" style={{ background:"#ffffff", border:"1px solid rgba(206,186,150,0.5)" }}>
-              <p className="text-3xl mb-2">🔍</p>
-              <p className="font-bold" style={{ color:"#111110" }}>Nenhum resultado para "{search}"</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Templates Modal */}
-      {templateMode && (
-        <Modal title="📋 Templates de SOPs" onClose={()=>setTemplateMode(false)} maxWidth="max-w-2xl">
-          <div className="p-5 overflow-y-auto" style={{ maxHeight:"75vh" }}>
-            <p className="text-xs mb-4" style={{ color:"#6B7C50" }}>Clique em um template para adicionar à sua biblioteca.</p>
-            <div className="grid grid-cols-1 gap-3">
-              {SOP_TEMPLATES.map((tpl,i)=>{
-                const tc = SOP_TYPE[tpl.type]||SOP_TYPE.sop;
-                const pc = SOP_PRIORITY[tpl.priority]||SOP_PRIORITY.medium;
-                const already = sops.some(s=>s.title===tpl.title);
-                return (
-                  <div key={i} className="flex items-center gap-3 p-4 rounded-xl transition-all"
-                    style={{ background:"rgba(248,250,252,0.7)", border:"1px solid rgba(206,186,150,0.6)", opacity:already?0.5:1 }}>
-                    <span className="text-2xl flex-shrink-0">{tc.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black" style={{ color:"#111110" }}>{tpl.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px]" style={{ color:tc.color }}>{tc.label}</span>
-                        <span className="text-[10px]" style={{ color:"#6B7C50" }}>• {tpl.category}</span>
-                        <span className="text-[10px]" style={{ color:pc.color }}>• {pc.label}</span>
-                        <span className="text-[10px]" style={{ color:"#6B7C50" }}>• ⏱{tpl.estimatedTime}min</span>
-                        <span className="text-[10px]" style={{ color:"#6B7C50" }}>• {tpl.steps?.length||0} etapas</span>
-                      </div>
-                    </div>
-                    <button onClick={()=>!already&&useTemplate(tpl)} disabled={already}
-                      className="px-3 py-1.5 text-white rounded-xl text-xs font-bold flex-shrink-0 disabled:opacity-40"
-                      style={{ background:already?"#6B7C50":"linear-gradient(135deg,#111110,#1A3829)" }}>
-                      {already?"Adicionado":"+ Usar"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Form */}
-      {formOpen && <SopForm sop={editingSop} onSave={handleSave} onClose={()=>{setFormOpen(false);setEditingSop(null);}}/>}
-
-      {/* Detail */}
-      {detailSop && (
-        <SopDetail
-          sop={sops.find(s=>s.id===detailSop.id)||detailSop}
-          onClose={()=>setDetailSop(null)}
-          onUpdate={updateSop}
-          isAdmin={isAdmin}
-          teamUsers={teamUsers}
-        />
       )}
     </div>
   );
 }
 
-// APP ROOT
+function NotesPage() {
+  const { clients, currentProfile } = useApp();
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // composer
+  const [draft, setDraft] = useState("");
+  const [draftClients, setDraftClients] = useState([]);
+  const [draftColor, setDraftColor] = useState("paper");
+  const [editing, setEditing] = useState(null);
+
+  // filtros
+  const [search, setSearch] = useState("");
+  const [fClient, setFClient] = useState("all");
+  const [fPeriod, setFPeriod] = useState("all");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fPinned, setFPinned] = useState(false);
+  const [fAuthor, setFAuthor] = useState("all");
+
+  const clientList = useMemo(() => [...clients].sort((a,b) => (a.name||"").localeCompare(b.name||"")), [clients]);
+  const clientById = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
+  const authorName = currentProfile?.name || (auth.getUserEmail()||"").split("@")[0] || "Eu";
+
+  useEffect(() => {
+    db.select("notes")
+      .then(rows => setNotes(rows || []))
+      .catch(e => setError("Não foi possível carregar as anotações: " + e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Mantém vínculos coerentes com o texto: remove cliente cuja @menção foi apagada
+  const syncedClients = (text, ids) => ids.filter(id => {
+    const c = clientById[id];
+    return c && text.includes("@" + c.name);
+  });
+
+  const resetComposer = () => { setDraft(""); setDraftClients([]); setDraftColor("paper"); setEditing(null); };
+
+  const saveNote = async () => {
+    const content = draft.trim();
+    if (!content) return;
+    const now = new Date().toISOString();
+    const row = editing
+      ? { ...editing, content, client_ids: syncedClients(content, draftClients), color: draftColor, updated_at: now }
+      : { id: uid(), content, client_ids: syncedClients(content, draftClients), color: draftColor, pinned:false, author_name: authorName, created_at: now, updated_at: now };
+    setNotes(ns => editing ? ns.map(n => n.id === row.id ? row : n) : [row, ...ns]);
+    resetComposer();
+    try { await db.upsert("notes", row); }
+    catch (e) { setError("A anotação não foi salva: " + e.message); }
+  };
+
+  const togglePin = async n => {
+    const row = { ...n, pinned: !n.pinned };
+    setNotes(ns => ns.map(x => x.id === n.id ? row : x));
+    db.upsert("notes", row).catch(e => setError("Não foi possível fixar: " + e.message));
+  };
+
+  const removeNote = async n => {
+    if (!window.confirm("Excluir esta anotação?")) return;
+    setNotes(ns => ns.filter(x => x.id !== n.id));
+    db.delete("notes", n.id).catch(e => setError("Não foi possível excluir: " + e.message));
+  };
+
+  const startEdit = n => {
+    setEditing(n); setDraft(n.content); setDraftClients(n.client_ids || []); setDraftColor(n.color || "paper");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const authors = useMemo(() => [...new Set(notes.map(n => n.author_name).filter(Boolean))], [notes]);
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    const startOf = days => { const d = new Date(now); d.setHours(0,0,0,0); d.setDate(d.getDate() - days); return d; };
+    return notes.filter(n => {
+      const d = new Date(n.created_at);
+      if (fPinned && !n.pinned) return false;
+      if (fClient !== "all" && !(n.client_ids||[]).includes(fClient)) return false;
+      if (fAuthor !== "all" && n.author_name !== fAuthor) return false;
+      if (fPeriod === "today" && d < startOf(0)) return false;
+      if (fPeriod === "7d" && d < startOf(6)) return false;
+      if (fPeriod === "30d" && d < startOf(29)) return false;
+      if (fPeriod === "custom") {
+        if (fFrom && d < new Date(fFrom + "T00:00:00")) return false;
+        if (fTo && d > new Date(fTo + "T23:59:59")) return false;
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        const names = (n.client_ids||[]).map(id => clientById[id]?.name || "").join(" ").toLowerCase();
+        if (!n.content.toLowerCase().includes(q) && !names.includes(q)) return false;
+      }
+      return true;
+    }).sort((a,b) => (b.pinned - a.pinned) || new Date(b.created_at) - new Date(a.created_at));
+  }, [notes, search, fClient, fPeriod, fFrom, fTo, fPinned, fAuthor, clientById]);
+
+  const mostMentioned = useMemo(() => {
+    const count = {};
+    notes.forEach(n => (n.client_ids||[]).forEach(id => { count[id] = (count[id]||0) + 1; }));
+    return Object.entries(count).sort((a,b) => b[1]-a[1]).slice(0, 6).filter(([id]) => clientById[id]);
+  }, [notes, clientById]);
+
+  const hasFilter = search || fClient !== "all" || fPeriod !== "all" || fPinned || fAuthor !== "all";
+  const clearFilters = () => { setSearch(""); setFClient("all"); setFPeriod("all"); setFFrom(""); setFTo(""); setFPinned(false); setFAuthor("all"); };
+
+  const selStyle = { border:"1px solid rgba(206,186,150,0.55)", background:"#fff", color:"#3D3D3B" };
+
+  return (
+    <div className="space-y-6 pb-10">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color:"#1A3829" }}>Anotações</h1>
+          <p className="text-sm mt-1" style={{ color:"#6B7C50" }}>Escreva livremente e use @ para vincular um cliente.</p>
+        </div>
+        <p className="text-sm" style={{ color:"#94a3b8" }}>{notes.length} anotaç{notes.length===1?"ão":"ões"}</p>
+      </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{ background:"#FEF2F2", border:"1px solid #FECACA", color:"#B91C1C" }}>
+          <span>{error}</span>
+          <button onClick={() => setError("")} className="font-bold">Fechar</button>
+        </div>
+      )}
+
+      {/* ── Composer ── */}
+      <div className="rounded-2xl transition-shadow focus-within:shadow-lg"
+        style={{ background: NOTE_COLORS[draftColor].bg, border:`1px solid ${editing ? "#B8965A" : NOTE_COLORS[draftColor].border}`, boxShadow:"0 1px 2px rgba(26,56,41,0.04)" }}>
+        <div className="px-5 pt-4">
+          {editing && <p className="text-xs font-semibold mb-2" style={{ color:"#B8965A" }}>Editando anotação de {fmtNoteDate(editing.created_at)}</p>}
+          <MentionTextarea value={draft} onChange={setDraft} clients={clientList}
+            onMention={id => setDraftClients(ids => ids.includes(id) ? ids : [...ids, id])}
+            placeholder="Ligação com @cliente sobre a documentação do trimestre…"
+            onSubmit={saveNote}/>
+        </div>
+        <div className="flex items-center gap-3 px-5 py-3 flex-wrap" style={{ borderTop:"1px solid rgba(206,186,150,0.3)" }}>
+          <div className="flex items-center gap-1.5">
+            {Object.entries(NOTE_COLORS).map(([k, c]) => (
+              <button key={k} type="button" title={c.label} onClick={() => setDraftColor(k)}
+                className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+                style={{ background:c.bg, border:`1.5px solid ${draftColor===k ? "#2B5E46" : "rgba(61,61,59,0.18)"}`, boxShadow: draftColor===k ? "0 0 0 2px rgba(43,94,70,0.15)" : "none" }}/>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+            {syncedClients(draft, draftClients).map(id => (
+              <span key={id} className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ background:"rgba(43,94,70,0.09)", color:"#2B5E46" }}>
+                {clientById[id]?.name}
+              </span>
+            ))}
+          </div>
+          <span className="hidden sm:inline text-[11px]" style={{ color:"#94a3b8" }}>⌘ + Enter para salvar</span>
+          {editing && <button onClick={resetComposer} className="text-sm px-3 py-1.5 rounded-lg" style={{ color:"#6B7C50" }}>Cancelar</button>}
+          <button onClick={saveNote} disabled={!draft.trim()}
+            className="text-sm font-bold px-4 py-1.5 rounded-lg text-white transition-opacity disabled:opacity-40"
+            style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>
+            {editing ? "Salvar alterações" : "Salvar anotação"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Filtros ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2" style={{ width:15, height:15 }}><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nas anotações"
+            className="w-full pl-9 pr-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-800/20" style={selStyle}/>
+        </div>
+        <select value={fClient} onChange={e => setFClient(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+          <option value="all">Todos os clientes</option>
+          {clientList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select value={fPeriod} onChange={e => setFPeriod(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+          <option value="all">Qualquer data</option>
+          <option value="today">Hoje</option>
+          <option value="7d">Últimos 7 dias</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="custom">Escolher período</option>
+        </select>
+        {fPeriod === "custom" && (
+          <div className="flex items-center gap-1.5">
+            <input type="date" value={fFrom} onChange={e => setFFrom(e.target.value)} className="py-1.5 px-2 rounded-lg text-sm" style={selStyle}/>
+            <span className="text-xs" style={{ color:"#94a3b8" }}>até</span>
+            <input type="date" value={fTo} onChange={e => setFTo(e.target.value)} className="py-1.5 px-2 rounded-lg text-sm" style={selStyle}/>
+          </div>
+        )}
+        {authors.length > 1 && (
+          <select value={fAuthor} onChange={e => setFAuthor(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+            <option value="all">Todos os autores</option>
+            {authors.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+        <button onClick={() => setFPinned(p => !p)} className="py-2 px-3 rounded-lg text-sm font-semibold transition-colors"
+          style={fPinned ? { background:"#1A3829", color:"#fff", border:"1px solid #1A3829" } : selStyle}>
+          Fixadas
+        </button>
+        {hasFilter && <button onClick={clearFilters} className="text-sm px-2 py-2" style={{ color:"#B8965A" }}>Limpar filtros</button>}
+      </div>
+
+      {mostMentioned.length > 0 && fClient === "all" && (
+        <div className="flex items-center gap-2 flex-wrap -mt-2">
+          <span className="text-xs" style={{ color:"#94a3b8" }}>Mais citados:</span>
+          {mostMentioned.map(([id, n]) => (
+            <button key={id} onClick={() => setFClient(id)} className="text-xs px-2.5 py-1 rounded-full transition-colors hover:bg-white"
+              style={{ border:"1px solid rgba(206,186,150,0.55)", color:"#3D3D3B" }}>
+              {clientById[id].name} <span style={{ color:"#B8965A" }}>{n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Mural ── */}
+      {loading ? (
+        <div className="columns-1 sm:columns-2 xl:columns-3 2xl:columns-4 gap-4">
+          {[90,140,70,120,100,80].map((h,i) => <div key={i} className="mb-4 rounded-2xl animate-pulse break-inside-avoid" style={{ height:h, background:"rgba(206,186,150,0.18)" }}/>)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl py-16 text-center" style={{ border:"1px dashed rgba(206,186,150,0.7)" }}>
+          <p className="text-sm font-semibold" style={{ color:"#3D3D3B" }}>{hasFilter ? "Nenhuma anotação com esses filtros" : "Seu mural está vazio"}</p>
+          <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>{hasFilter ? "Ajuste ou limpe os filtros para ver mais." : "Escreva a primeira anotação no campo acima."}</p>
+        </div>
+      ) : (
+        <div className="columns-1 sm:columns-2 xl:columns-3 2xl:columns-4 gap-4">
+          {filtered.map(n => {
+            const col = NOTE_COLORS[n.color] || NOTE_COLORS.paper;
+            const linked = (n.client_ids||[]).map(id => clientById[id]).filter(Boolean);
+            return (
+              <article key={n.id} className="group mb-4 rounded-2xl break-inside-avoid relative transition-shadow hover:shadow-md"
+                style={{ background:col.bg, border:`1px solid ${col.border}`, boxShadow: n.pinned ? "0 6px 18px rgba(184,150,90,0.18)" : "0 1px 2px rgba(26,56,41,0.04)" }}>
+                {n.pinned && <span className="absolute top-0 left-5 w-6 h-1 rounded-b" style={{ background:"#B8965A" }}/>}
+                <div className="p-5">
+                  <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words" style={{ color:"#1C1C1A" }}>
+                    <NoteText content={n.content} clients={linked} onClientClick={setFClient}/>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 px-5 pb-4">
+                  <span className="text-[11px]" style={{ color:"#8A8A86" }}>
+                    {fmtNoteDate(n.created_at)}{n.author_name ? ` por ${n.author_name}` : ""}
+                  </span>
+                  <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <button onClick={() => togglePin(n)} title={n.pinned ? "Desafixar" : "Fixar no topo"} className="p-1.5 rounded-md hover:bg-black/5" style={{ color: n.pinned ? "#B8965A" : "#6B7C50" }}>
+                      <svg viewBox="0 0 24 24" fill={n.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z"/></svg>
+                    </button>
+                    <button onClick={() => startEdit(n)} title="Editar" className="p-1.5 rounded-md hover:bg-black/5" style={{ color:"#6B7C50" }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+                    </button>
+                    <button onClick={() => removeNote(n)} title="Excluir" className="p-1.5 rounded-md hover:bg-black/5" style={{ color:"#B91C1C" }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============================================================
+// CHECKLIST MENSAL DE OBRIGAÇÕES POR CLIENTE
+// ============================================================
+const DEFAULT_CHECK_COLUMNS = [
+  { id:"col_fiscal",   label:"Escrita fiscal",       short:"Fiscal",   position:0 },
+  { id:"col_das",      label:"Simples / PGDAS-D",    short:"PGDAS",    position:1 },
+  { id:"col_folha",    label:"Folha de pagamento",   short:"Folha",    position:2 },
+  { id:"col_fgts",     label:"FGTS Digital",         short:"FGTS",     position:3 },
+  { id:"col_dctf",     label:"DCTFWeb",              short:"DCTFWeb",  position:4 },
+  { id:"col_reinf",    label:"EFD-Reinf",            short:"Reinf",    position:5 },
+  { id:"col_contabil", label:"Conciliação contábil", short:"Contábil", position:6 },
+  { id:"col_guias",    label:"Guias enviadas ao cliente", short:"Guias", position:7 },
+];
+const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+function ProgressRing({ value, size = 30, stroke = 3 }) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const color = value >= 100 ? "#2B5E46" : value >= 50 ? "#4A7454" : "#B8965A";
+  return (
+    <svg width={size} height={size} className="flex-shrink-0">
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(206,186,150,0.3)" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - value/100)} transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition:"stroke-dashoffset .4s ease" }}/>
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fontSize={size*0.3} fontWeight="800" fill={value>=100?"#2B5E46":"#3D3D3B"}>
+        {value >= 100 ? "✓" : Math.round(value)}
+      </text>
+    </svg>
+  );
+}
+
+function CheckCell({ state, onClick, title }) {
+  const [pulse, setPulse] = useState(false);
+  const click = () => { if (state !== "done") { setPulse(true); setTimeout(() => setPulse(false), 380); } onClick(); };
+  return (
+    <button type="button" onClick={click} title={title}
+      className={`ochk ${pulse ? "ochk-pop" : ""}`}
+      aria-label={title}
+      style={{
+        width:26, height:26, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
+        background: state === "done" ? "linear-gradient(135deg,#1A3829,#2B5E46)" : state === "na" ? "transparent" : "#fff",
+        border: state === "done" ? "1px solid #1A3829" : state === "na" ? "1px dashed rgba(61,61,59,0.22)" : "1.5px solid rgba(206,186,150,0.7)",
+        boxShadow: state === "done" ? "0 2px 6px rgba(26,56,41,0.22)" : "none",
+      }}>
+      {state === "done" && <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" style={{ width:13, height:13 }}><polyline points="20 6 9 17 4 12"/></svg>}
+      {state === "na" && <span style={{ width:9, height:1.5, background:"rgba(61,61,59,0.3)", borderRadius:1 }}/>}
+    </button>
+  );
+}
+
+function ObligationChecklist() {
+  const { clients, currentProfile } = useApp();
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth());
+  const [year, setYear] = useState(now.getFullYear());
+  const monthKey = `${year}-${String(month+1).padStart(2,"0")}`;
+
+  const [columns, setColumns] = useState(DEFAULT_CHECK_COLUMNS);
+  const [colsCustom, setColsCustom] = useState(false);
+  const [checks, setChecks] = useState({}); // id -> row
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [fType, setFType] = useState("all");
+  const [onlyPending, setOnlyPending] = useState(false);
+  const [sortBy, setSortBy] = useState("name");
+  const [colPanel, setColPanel] = useState(false);
+  const [newCol, setNewCol] = useState({ label:"", short:"" });
+
+  const who = currentProfile?.name || (auth.getUserEmail()||"").split("@")[0] || "";
+
+  // Clientes ativos — novos clientes entram automaticamente
+  const activeClients = useMemo(() => clients.filter(c => (c.status || "active") === "active")
+    .sort((a,b) => (a.name||"").localeCompare(b.name||"")), [clients]);
+
+  useEffect(() => {
+    db.select("checklist_columns").then(rows => {
+      if (rows && rows.length) {
+        setColumns(rows.filter(r => r.active !== false).sort((a,b) => a.position - b.position));
+        setColsCustom(true);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    db.select("obligation_checks", { filter: `month=in.(${monthKey},fixo)` })
+      .then(rows => setChecks(Object.fromEntries((rows||[]).map(r => [r.id, r]))))
+      .catch(e => setError("Não foi possível carregar o checklist: " + e.message))
+      .finally(() => setLoading(false));
+  }, [monthKey]);
+
+  const keyOf = (cid, col) => `${monthKey}_${cid}_${col}`;
+  const naKeyOf = (cid, col) => `na_${cid}_${col}`;
+  const stateOf = (cid, col) => checks[keyOf(cid, col)] ? "done" : checks[naKeyOf(cid, col)] ? "na" : "pending";
+
+  // Ciclo: pendente → feito → não se aplica (fixo, todos os meses) → pendente
+  const cycle = async (cid, col) => {
+    const s = stateOf(cid, col);
+    const k = keyOf(cid, col), nk = naKeyOf(cid, col);
+    const nowIso = new Date().toISOString();
+    if (s === "pending") {
+      const row = { id:k, month:monthKey, client_id:cid, ob_key:col, status:"done", done_by_name:who, done_at:nowIso };
+      setChecks(c => ({ ...c, [k]: row }));
+      db.upsert("obligation_checks", row).catch(e => { setError("Não salvou: " + e.message); setChecks(c => { const n = { ...c }; delete n[k]; return n; }); });
+    } else if (s === "done") {
+      const row = { id:nk, month:"fixo", client_id:cid, ob_key:col, status:"na", done_by_name:who, done_at:nowIso };
+      setChecks(c => { const n = { ...c, [nk]: row }; delete n[k]; return n; });
+      Promise.all([db.delete("obligation_checks", k), db.upsert("obligation_checks", row)]).catch(e => setError("Não salvou: " + e.message));
+    } else {
+      setChecks(c => { const n = { ...c }; delete n[nk]; return n; });
+      db.delete("obligation_checks", nk).catch(e => setError("Não salvou: " + e.message));
+    }
+  };
+
+  const completeRow = async cid => {
+    const nowIso = new Date().toISOString();
+    const rows = columns.filter(col => stateOf(cid, col.id) === "pending")
+      .map(col => ({ id:keyOf(cid, col.id), month:monthKey, client_id:cid, ob_key:col.id, status:"done", done_by_name:who, done_at:nowIso }));
+    if (!rows.length) return;
+    setChecks(c => ({ ...c, ...Object.fromEntries(rows.map(r => [r.id, r])) }));
+    db.upsert("obligation_checks", rows).catch(e => setError("Não salvou: " + e.message));
+  };
+
+  const rowStats = cid => {
+    const applicable = columns.filter(col => stateOf(cid, col.id) !== "na");
+    const done = applicable.filter(col => stateOf(cid, col.id) === "done").length;
+    return { done, total: applicable.length, pct: applicable.length ? (done / applicable.length) * 100 : 100 };
+  };
+
+  const visibleClients = useMemo(() => {
+    let list = activeClients.filter(c => {
+      if (search && !(c.name||"").toLowerCase().includes(search.toLowerCase())) return false;
+      if (fType !== "all" && (c.type||"pj") !== fType) return false;
+      if (onlyPending && rowStats(c.id).pct >= 100) return false;
+      return true;
+    });
+    if (sortBy === "progress") list = [...list].sort((a,b) => rowStats(a.id).pct - rowStats(b.id).pct);
+    return list;
+  }, [activeClients, search, fType, onlyPending, sortBy, checks, columns]);
+
+  const colStats = col => {
+    const applicable = activeClients.filter(c => stateOf(c.id, col) !== "na");
+    const done = applicable.filter(c => stateOf(c.id, col) === "done").length;
+    return { done, total: applicable.length, pct: applicable.length ? done / applicable.length * 100 : 100 };
+  };
+
+  const overall = useMemo(() => {
+    let done = 0, total = 0, clientsDone = 0;
+    activeClients.forEach(c => { const s = rowStats(c.id); done += s.done; total += s.total; if (s.pct >= 100) clientsDone++; });
+    return { done, total, pct: total ? done/total*100 : 0, clientsDone };
+  }, [activeClients, checks, columns]);
+
+  const shiftMonth = d => {
+    let m = month + d, y = year;
+    if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
+    setMonth(m); setYear(y);
+  };
+
+  // Colunas
+  const persistColumns = async list => {
+    setColumns(list); setColsCustom(true);
+    try { await db.upsert("checklist_columns", list.map((c, i) => ({ id:c.id, label:c.label, short:c.short, position:i, active:true }))); }
+    catch (e) { setError("Colunas não salvas: " + e.message); }
+  };
+  const addColumn = () => {
+    const label = newCol.label.trim(); if (!label) return;
+    const short = (newCol.short.trim() || label).slice(0, 10);
+    persistColumns([...columns, { id:"col_" + uid(), label, short, position:columns.length }]);
+    setNewCol({ label:"", short:"" });
+  };
+  const removeColumn = async col => {
+    if (!window.confirm(`Remover a coluna "${col.label}"? As marcações já feitas ficam guardadas.`)) return;
+    const rest = columns.filter(c => c.id !== col.id);
+    setColumns(rest);
+    try {
+      if (colsCustom) await db.upsert("checklist_columns", { id:col.id, label:col.label, short:col.short, position:col.position||0, active:false });
+      else await persistColumns(rest);
+    } catch (e) { setError("Não foi possível remover: " + e.message); }
+  };
+  const moveColumn = (i, d) => {
+    const j = i + d; if (j < 0 || j >= columns.length) return;
+    const list = [...columns]; [list[i], list[j]] = [list[j], list[i]];
+    persistColumns(list);
+  };
+
+  const exportCsv = () => {
+    const head = ["Cliente", ...columns.map(c => c.label), "Concluído"];
+    const lines = activeClients.map(c => {
+      const s = rowStats(c.id);
+      return [c.name, ...columns.map(col => ({ done:"Feito", na:"N/A", pending:"" })[stateOf(c.id, col.id)]), `${s.done}/${s.total}`];
+    });
+    const csv = [head, ...lines].map(r => r.map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(";")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" }));
+    a.download = `checklist-obrigacoes-${monthKey}.csv`; a.click();
+  };
+
+  const selStyle = { border:"1px solid rgba(206,186,150,0.55)", background:"#fff", color:"#3D3D3B" };
+  const isCurrent = month === now.getMonth() && year === now.getFullYear();
+  const remaining = overall.total - overall.done;
+
+  return (
+    <div className="space-y-6 pb-10">
+      {/* ── Cabeçalho com o mês como protagonista ── */}
+      <div className="flex items-end justify-between gap-6 flex-wrap">
+        <div>
+          <p className="text-sm" style={{ color:"#6B7C50" }}>Checklist de obrigações</p>
+          <div className="flex items-center gap-3 mt-1">
+            <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior" className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5" style={{ color:"#2B5E46" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ width:16, height:16 }}><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h1 className="text-[34px] leading-none font-black tracking-tight" style={{ color:"#1A3829", fontFeatureSettings:"'tnum'" }}>
+              {MONTHS_PT[month]} <span style={{ color:"#B8965A", fontWeight:600 }}>{year}</span>
+            </h1>
+            <button onClick={() => shiftMonth(1)} aria-label="Próximo mês" className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5" style={{ color:"#2B5E46" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ width:16, height:16 }}><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            {!isCurrent && <button onClick={() => { setMonth(now.getMonth()); setYear(now.getFullYear()); }} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ border:"1px solid rgba(206,186,150,0.6)", color:"#6B7C50" }}>Mês atual</button>}
+          </div>
+        </div>
+        <div className="flex items-center gap-8">
+          <div>
+            <p className="text-3xl font-black" style={{ color:"#1A3829", fontFeatureSettings:"'tnum'" }}>{Math.round(overall.pct)}%</p>
+            <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>do mês concluído</p>
+          </div>
+          <div>
+            <p className="text-3xl font-black" style={{ color:"#1A3829", fontFeatureSettings:"'tnum'" }}>{overall.clientsDone}<span className="text-lg font-semibold" style={{ color:"#CEBA96" }}>/{activeClients.length}</span></p>
+            <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>clientes fechados</p>
+          </div>
+          <div>
+            <p className="text-3xl font-black" style={{ color: remaining ? "#B8965A" : "#2B5E46", fontFeatureSettings:"'tnum'" }}>{remaining}</p>
+            <p className="text-xs mt-0.5" style={{ color:"#6B7C50" }}>entregas pendentes</p>
+          </div>
+        </div>
+      </div>
+
+      {/* barra do mês segmentada por coluna */}
+      <div className="flex gap-1.5">
+        {columns.map(col => {
+          const s = colStats(col.id);
+          return (
+            <div key={col.id} className="flex-1 min-w-0" title={`${col.label}: ${s.done}/${s.total}`}>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background:"rgba(206,186,150,0.28)" }}>
+                <div className="h-full rounded-full" style={{ width:`${s.pct}%`, background: s.pct>=100 ? "#2B5E46" : "#4A7454", transition:"width .5s ease" }}/>
+              </div>
+              <p className="text-[10px] mt-1.5 truncate" style={{ color: s.pct>=100 ? "#2B5E46" : "#94a3b8" }}>{col.short}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm" style={{ background:"#FEF2F2", border:"1px solid #FECACA", color:"#B91C1C" }}>
+          <span>{error}</span><button onClick={() => setError("")} className="font-bold">Fechar</button>
+        </div>
+      )}
+
+      {/* ── Filtros ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2" style={{ width:15, height:15 }}><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente" className="w-full pl-9 pr-3 py-2 rounded-lg text-sm outline-none" style={selStyle}/>
+        </div>
+        <select value={fType} onChange={e => setFType(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+          <option value="all">PF e PJ</option><option value="pj">Somente PJ</option><option value="pf">Somente PF</option>
+        </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="py-2 px-3 rounded-lg text-sm outline-none" style={selStyle}>
+          <option value="name">Ordem alfabética</option><option value="progress">Menos concluídos primeiro</option>
+        </select>
+        <button onClick={() => setOnlyPending(p => !p)} className="py-2 px-3 rounded-lg text-sm font-semibold"
+          style={onlyPending ? { background:"#1A3829", color:"#fff", border:"1px solid #1A3829" } : selStyle}>Só com pendência</button>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={exportCsv} className="py-2 px-3 rounded-lg text-sm" style={selStyle}>Exportar CSV</button>
+          <button onClick={() => setColPanel(true)} className="py-2 px-3 rounded-lg text-sm font-semibold" style={selStyle}>Editar colunas</button>
+        </div>
+      </div>
+
+      {/* ── Matriz ── */}
+      <div className="rounded-2xl overflow-hidden" style={{ background:"#fff", border:"1px solid rgba(206,186,150,0.45)", boxShadow:"0 1px 2px rgba(26,56,41,0.04)" }}>
+        <div className="overflow-auto" style={{ maxHeight:"calc(100vh - 330px)" }}>
+          <table className="w-full border-separate" style={{ borderSpacing:0 }}>
+            <thead>
+              <tr>
+                <th className="sticky top-0 left-0 z-20 text-left px-5 py-3 text-xs font-semibold" style={{ background:"#FAFAF8", color:"#6B7C50", borderBottom:"1px solid rgba(206,186,150,0.4)", minWidth:320 }}>
+                  {visibleClients.length} cliente{visibleClients.length!==1?"s":""}
+                </th>
+                {columns.map(col => {
+                  const s = colStats(col.id);
+                  return (
+                    <th key={col.id} title={col.label} className="sticky top-0 z-10 px-2 py-3 text-center" style={{ background:"#FAFAF8", borderBottom:"1px solid rgba(206,186,150,0.4)", minWidth:76 }}>
+                      <p className="text-xs font-bold" style={{ color:"#1A3829" }}>{col.short}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: s.pct>=100 ? "#2B5E46" : "#94a3b8", fontFeatureSettings:"'tnum'" }}>{s.done}/{s.total}</p>
+                    </th>
+                  );
+                })}
+                <th className="sticky top-0 z-10 px-4 py-3 text-right text-xs font-semibold" style={{ background:"#FAFAF8", color:"#6B7C50", borderBottom:"1px solid rgba(206,186,150,0.4)", minWidth:110 }}>Progresso</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? Array.from({ length:8 }).map((_, i) => (
+                <tr key={i}><td colSpan={columns.length + 2} className="px-5 py-3"><div className="h-6 rounded-lg animate-pulse" style={{ background:"rgba(206,186,150,0.16)" }}/></td></tr>
+              )) : visibleClients.length === 0 ? (
+                <tr><td colSpan={columns.length + 2} className="py-14 text-center">
+                  <p className="text-sm font-semibold" style={{ color:"#3D3D3B" }}>{activeClients.length ? "Nenhum cliente com esses filtros" : "Cadastre clientes para montar o checklist"}</p>
+                  <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>{activeClients.length ? "Ajuste a busca ou os filtros." : "Todo cliente ativo aparece aqui automaticamente."}</p>
+                </td></tr>
+              ) : visibleClients.map(c => {
+                const s = rowStats(c.id);
+                const full = s.pct >= 100;
+                return (
+                  <tr key={c.id} className="group">
+                    <td className="sticky left-0 z-10 px-5 py-2.5" style={{ background: full ? "#F5F8F5" : "#fff", borderBottom:"1px solid rgba(206,186,150,0.2)" }}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold truncate max-w-[300px]" style={{ color: full ? "#2B5E46" : "#1C1C1A" }} title={c.name}>{c.name}</span>
+                        <span className="text-[10px] uppercase flex-shrink-0" style={{ color:"#B8B5AC" }}>{c.type||"pj"}</span>
+                        {!full && (
+                          <button onClick={() => completeRow(c.id)} className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex-shrink-0"
+                            style={{ color:"#2B5E46", background:"rgba(43,94,70,0.08)" }}>Concluir tudo</button>
+                        )}
+                      </div>
+                    </td>
+                    {columns.map(col => {
+                      const st = stateOf(c.id, col.id);
+                      const rec = checks[keyOf(c.id, col.id)];
+                      const title = st === "done"
+                        ? `${col.label}: feito${rec?.done_by_name ? " por " + rec.done_by_name : ""}${rec?.done_at ? " em " + new Date(rec.done_at).toLocaleDateString("pt-BR") : ""}. Clique para marcar como "não se aplica".`
+                        : st === "na" ? `${col.label}: não se aplica a este cliente. Clique para voltar a pendente.`
+                        : `${col.label}: pendente. Clique para marcar como feito.`;
+                      return (
+                        <td key={col.id} className="px-2 py-2.5" style={{ background: full ? "#F5F8F5" : "transparent", borderBottom:"1px solid rgba(206,186,150,0.2)" }}>
+                          <div className="flex justify-center"><CheckCell state={st} title={title} onClick={() => cycle(c.id, col.id)}/></div>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-2.5" style={{ background: full ? "#F5F8F5" : "transparent", borderBottom:"1px solid rgba(206,186,150,0.2)" }}>
+                      <div className="flex items-center justify-end gap-2.5">
+                        <span className="text-xs" style={{ color:"#94a3b8", fontFeatureSettings:"'tnum'" }}>{s.done}/{s.total}</span>
+                        <ProgressRing value={s.pct}/>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center gap-5 px-5 py-3 flex-wrap" style={{ borderTop:"1px solid rgba(206,186,150,0.35)", background:"#FAFAF8" }}>
+          <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="pending" onClick={() => {}} title="Pendente"/> Pendente</span>
+          <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="done" onClick={() => {}} title="Feito"/> Feito no mês</span>
+          <span className="flex items-center gap-2 text-xs" style={{ color:"#6B7C50" }}><CheckCell state="na" onClick={() => {}} title="Não se aplica"/> Não se aplica (vale para todos os meses)</span>
+          <span className="text-xs ml-auto" style={{ color:"#94a3b8" }}>Clique de novo na célula para alternar entre os estados.</span>
+        </div>
+      </div>
+
+      {/* ── Painel de colunas ── */}
+      {colPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(17,17,16,0.4)", backdropFilter:"blur(4px)" }} onClick={() => setColPanel(false)}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background:"#fff", boxShadow:"0 24px 60px rgba(26,56,41,0.25)" }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom:"1px solid rgba(206,186,150,0.35)" }}>
+              <h3 className="font-black" style={{ color:"#1A3829" }}>Colunas do checklist</h3>
+              <button onClick={() => setColPanel(false)} aria-label="Fechar" className="text-xl leading-none" style={{ color:"#94a3b8" }}>×</button>
+            </div>
+            <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
+              {columns.map((col, i) => (
+                <div key={col.id} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ border:"1px solid rgba(206,186,150,0.4)" }}>
+                  <div className="flex flex-col">
+                    <button onClick={() => moveColumn(i, -1)} disabled={i===0} className="text-[10px] leading-none disabled:opacity-20" style={{ color:"#6B7C50" }} aria-label="Subir">▲</button>
+                    <button onClick={() => moveColumn(i, 1)} disabled={i===columns.length-1} className="text-[10px] leading-none disabled:opacity-20" style={{ color:"#6B7C50" }} aria-label="Descer">▼</button>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color:"#1C1C1A" }}>{col.label}</p>
+                    <p className="text-[11px]" style={{ color:"#94a3b8" }}>Aparece como "{col.short}"</p>
+                  </div>
+                  <button onClick={() => removeColumn(col)} className="text-xs px-2 py-1 rounded-md hover:bg-red-50" style={{ color:"#B91C1C" }}>Remover</button>
+                </div>
+              ))}
+            </div>
+            <div className="p-5 pt-0 space-y-2">
+              <div className="flex gap-2">
+                <input value={newCol.label} onChange={e => setNewCol(n => ({ ...n, label:e.target.value }))} placeholder="Nova obrigação, ex.: DEFIS" className="flex-1 px-3 py-2 rounded-lg text-sm outline-none" style={selStyle}/>
+                <input value={newCol.short} onChange={e => setNewCol(n => ({ ...n, short:e.target.value }))} placeholder="Sigla" maxLength={10} className="w-24 px-3 py-2 rounded-lg text-sm outline-none" style={selStyle}
+                  onKeyDown={e => e.key === "Enter" && addColumn()}/>
+              </div>
+              <button onClick={addColumn} disabled={!newCol.label.trim()} className="w-full py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40" style={{ background:"linear-gradient(135deg,#1A3829,#2B5E46)" }}>Adicionar coluna</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AppContent({ onLogout }) {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -11429,9 +11221,8 @@ function AppContent({ onLogout }) {
       {!isViewer && activeTab === "relationship" && <Relationship />}
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
-      {activeTab === "codiceai" && <YoetzIA />}
-      {activeTab === "sops" && <SOPs />}
-      {activeTab === "workload" && <Workload />}
+      {!isViewer && activeTab === "checklist" && <ObligationChecklist />}
+      {!isViewer && activeTab === "notes" && <NotesPage />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
   );
