@@ -9892,6 +9892,35 @@ const fmtNoteDate = iso => {
 };
 
 // Renderiza o texto destacando @menções de clientes vinculados
+function NoteBody({ note, linked, bg, onClientClick, onExpand }) {
+  const ref = useRef(null);
+  const [over, setOver] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const check = () => setOver(el.scrollHeight > el.clientHeight + 2);
+    check();
+    const ro = new ResizeObserver(check); ro.observe(el);
+    return () => ro.disconnect();
+  }, [note.content]);
+  return (
+    <div className="relative flex-1 min-h-0">
+      <div ref={ref} className="h-full overflow-hidden">
+        <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words" style={{ color:"#1C1C1A" }}>
+          <NoteText content={note.content} clients={linked} onClientClick={onClientClick}/>
+        </p>
+      </div>
+      {over && (
+        <div className="absolute inset-x-0 bottom-0 h-14 flex items-end justify-start"
+          style={{ background:`linear-gradient(to bottom, ${bg}00, ${bg} 70%)` }}>
+          <button onClick={onExpand} className="text-[12px] font-medium px-2 py-0.5 -ml-2 rounded-md hover:bg-black/5" style={{ color:"#2B5E46" }}>
+            Ler nota completa
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NoteText({ content, clients, onClientClick }) {
   const names = clients.map(c => c.name).filter(Boolean).sort((a,b) => b.length - a.length);
   if (!names.length) return <>{content}</>;
@@ -10022,6 +10051,7 @@ function NotesPage() {
   const [fAuthor, setFAuthor] = useState("all");
   const [fColor, setFColor] = useState("all");
   const [colorOpen, setColorOpen] = useState(null);
+  const [viewNote, setViewNote] = useState(null);
 
   const clientList = useMemo(() => [...clients].sort((a,b) => (a.name||"").localeCompare(b.name||"")), [clients]);
   const clientById = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
@@ -10220,8 +10250,8 @@ function NotesPage() {
 
       {/* ── Mural ── */}
       {loading ? (
-        <div className="columns-1 sm:columns-2 xl:columns-3 2xl:columns-4 gap-4">
-          {[90,140,70,120,100,80].map((h,i) => <div key={i} className="mb-4 rounded-2xl animate-pulse break-inside-avoid" style={{ height:h, background:"rgba(206,186,150,0.18)" }}/>)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          {[0,1,2,3,4,5].map(i => <div key={i} className="rounded-2xl animate-pulse h-[230px]" style={{ background:"rgba(206,186,150,0.18)" }}/>)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl py-16 text-center" style={{ border:"1px dashed #E6E3DC" }}>
@@ -10229,20 +10259,18 @@ function NotesPage() {
           <p className="text-sm mt-1" style={{ color:"#94a3b8" }}>{hasFilter ? "Ajuste ou limpe os filtros para ver mais." : "Escreva a primeira anotação no campo acima."}</p>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 xl:columns-3 2xl:columns-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {filtered.map(n => {
             const col = NOTE_COLORS[n.color] || NOTE_COLORS.paper;
             const linked = (n.client_ids||[]).map(id => clientById[id]).filter(Boolean);
             return (
-              <article key={n.id} className="group mb-4 rounded-2xl break-inside-avoid relative transition-shadow hover:shadow-md"
+              <article key={n.id} className="group h-[230px] flex flex-col rounded-2xl relative transition-shadow hover:shadow-md overflow-hidden"
                 style={{ background:col.bg, border:`1px solid ${col.border}`, boxShadow: n.pinned ? "0 6px 18px rgba(184,150,90,0.18)" : "0 1px 2px rgba(26,56,41,0.04)" }}>
                 {n.pinned && <span className="absolute top-0 left-5 w-6 h-1 rounded-b" style={{ background: col.dot === "#FFFFFF" ? "#B8965A" : col.dot }}/>}
-                <div className="p-5">
-                  <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words" style={{ color:"#1C1C1A" }}>
-                    <NoteText content={n.content} clients={linked} onClientClick={setFClient}/>
-                  </p>
+                <div className="flex-1 min-h-0 flex flex-col px-5 pt-5 pb-2">
+                  <NoteBody note={n} linked={linked} bg={col.bg} onClientClick={setFClient} onExpand={() => setViewNote(n)}/>
                 </div>
-                <div className="flex items-center gap-2 px-5 pb-4">
+                <div className="flex items-center gap-2 px-5 pb-4 pt-1 flex-shrink-0">
                   <span className="text-[11px]" style={{ color:"#8A8A86" }}>
                     {fmtNoteDate(n.created_at)}{n.author_name ? ` por ${n.author_name}` : ""}
                   </span>
@@ -10253,6 +10281,9 @@ function NotesPage() {
                     <button onClick={() => togglePin(n)} title={n.pinned ? "Desafixar" : "Fixar no topo"} className="p-1.5 rounded-md hover:bg-black/5" style={{ color: n.pinned ? "#B8965A" : "#6B7C50" }}>
                       <svg viewBox="0 0 24 24" fill={n.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z"/></svg>
                     </button>
+                    <button onClick={() => setViewNote(n)} title="Abrir" className="p-1.5 rounded-md hover:bg-black/5" style={{ color:"#6B7C50" }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    </button>
                     <button onClick={() => startEdit(n)} title="Editar" className="p-1.5 rounded-md hover:bg-black/5" style={{ color:"#6B7C50" }}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width:14, height:14 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
                     </button>
@@ -10262,8 +10293,8 @@ function NotesPage() {
                   </div>
                 </div>
                 {colorOpen === n.id && (
-                  <div className="px-5 pb-4 -mt-1">
-                    <div className="rounded-xl p-2.5" style={{ background:"rgba(255,255,255,0.85)", border:"1px solid rgba(61,61,59,0.08)" }}>
+                  <div className="absolute inset-x-0 bottom-12 px-4 z-10">
+                    <div className="rounded-xl p-2.5" style={{ background:"rgba(255,255,255,0.97)", border:"1px solid rgba(61,61,59,0.1)", boxShadow:"0 8px 24px rgba(17,24,20,0.12)" }}>
                       <ColorSwatches value={n.color || "paper"} onChange={k => setNoteColor(n, k)} size={22}/>
                     </div>
                   </div>
@@ -10273,6 +10304,30 @@ function NotesPage() {
           })}
         </div>
       )}
+
+      {viewNote && (() => {
+        const n = notes.find(x => x.id === viewNote.id) || viewNote;
+        const col = NOTE_COLORS[n.color] || NOTE_COLORS.paper;
+        const linked = (n.client_ids||[]).map(id => clientById[id]).filter(Boolean);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:"rgba(19,36,27,0.35)" }} onClick={() => setViewNote(null)}>
+            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl" style={{ background:col.bg, border:`1px solid ${col.border}`, boxShadow:"0 24px 60px rgba(17,24,20,0.25)" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 px-6 pt-5 pb-3">
+                <span className="text-[12px]" style={{ color:"#8A8A86" }}>{fmtNoteDate(n.created_at)}{n.author_name ? ` por ${n.author_name}` : ""}</span>
+                <div className="ml-auto flex items-center gap-1">
+                  <button onClick={() => { setViewNote(null); startEdit(n); }} className="text-[13px] px-3 py-1.5 rounded-lg hover:bg-black/5" style={{ color:"#2B5E46" }}>Editar</button>
+                  <button onClick={() => setViewNote(null)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color:"#6B6B66" }} title="Fechar"><Icon.X /></button>
+                </div>
+              </div>
+              <div className="px-6 pb-6 overflow-y-auto">
+                <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words" style={{ color:"#1C1C1A" }}>
+                  <NoteText content={n.content} clients={linked} onClientClick={id => { setViewNote(null); setFClient(id); }}/>
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
