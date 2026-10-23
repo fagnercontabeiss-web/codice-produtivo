@@ -168,13 +168,21 @@ async function withAuth(requestFn) {
 
 export const db = {
   async select(table, options) {
-    let url = SUPABASE_URL + "/rest/v1/" + table + "?order=created_at.desc&limit=2000";
-    if (options && options.filter) url += "&" + options.filter;
+    // Paginação: busca tudo em blocos de 1000 (sem teto fixo que esconda registros antigos)
+    const PAGE = 1000, MAX_ROWS = 50000;
+    let base = SUPABASE_URL + "/rest/v1/" + table + "?order=created_at.desc,id.desc";
+    if (options && options.filter) base += "&" + options.filter;
 
-    const res = await withAuth(headers => fetch(url, { headers }));
-    if (!res.ok) throw new Error("Supabase select error [" + table + "]: " + res.statusText);
-
-    const data = await res.json();
+    const data = [];
+    for (let offset = 0; offset < MAX_ROWS; offset += PAGE) {
+      const url = base + "&limit=" + PAGE + "&offset=" + offset;
+      const res = await withAuth(headers => fetch(url, { headers }));
+      if (!res.ok) throw new Error("Supabase select error [" + table + "]: " + res.statusText);
+      const page = await res.json();
+      if (!Array.isArray(page)) return page;
+      data.push(...page);
+      if (page.length < PAGE) break;
+    }
     if (Array.isArray(data) && data.length === 0 && !auth.isAuthenticated()) {
       console.warn("[supabase] select(" + table + ") retornou [] sem autenticação — possível sessão inválida");
     }
