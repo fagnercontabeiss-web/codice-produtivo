@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, createContext, u
 import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, auth } from "./supabase.js";
+import EnvioFolha from "./EnvioFolha.jsx";
 
 // ── Animações do botão de tarefa ─────────────────────────
 const taskBtnStyle = document.createElement("style");
@@ -813,6 +814,7 @@ function Layout({ children, activeTab, setActiveTab, onLogout }) {
         { id: "onboarding",   label: "Onboarding",             icon: Icon.Clients },
         { id: "obligations",  label: "Obrigações",             icon: Icon.Obligations },
         { id: "checklist",    label: "Checklist do Mês",       icon: Icon.Tasks },
+        { id: "envio-folha",  label: "Envio de Folha",         icon: Icon.Send },
         { id: "notes",        label: "Anotações",              icon: Icon.Notes },
         { id: "severance",    label: "Simulação Rescisória",   icon: Icon.Calculator },
       ]
@@ -8362,6 +8364,7 @@ function Team() {
     { id:"relationship", label:"Relacionamento",      group:"Escritório" },
     { id:"onboarding",   label:"Onboarding",          group:"Escritório" },
     { id:"obligations",  label:"Obrigações",          group:"Escritório" },
+    { id:"envio-folha",  label:"Envio de Folha",      group:"Escritório" },
   ];
 
   const emptyUf = { name:"", email:"", password:"", role:"colaborador", avatarColor:"#B8965A", allowedTabs:null, canCreateTasks:false };
@@ -10755,7 +10758,7 @@ function AppContent({ onLogout }) {
   // Guard: redirecionar se aba não permitida
   useEffect(() => {
     const adminOnly = ["severance","settings","team","notes"];
-    const notForViewer = ["habits","clients","relationship","obligations","reports","severance","settings","team"];
+    const notForViewer = ["habits","clients","relationship","obligations","reports","severance","settings","team","envio-folha"];
     if (isViewer && notForViewer.includes(activeTab)) setActiveTab("tasks");
     if (!isAdmin && adminOnly.includes(activeTab)) setActiveTab("dashboard");
   }, [activeTab, isAdmin, isViewer]);
@@ -10793,6 +10796,7 @@ function AppContent({ onLogout }) {
       {isAdmin   && activeTab === "settings" && <SettingsPage />}
       {activeTab === "projects" && <Projects />}
       {!isViewer && activeTab === "checklist" && <ObligationChecklist />}
+      {!isViewer && activeTab === "envio-folha" && <EnvioFolha />}
       {isAdmin && activeTab === "notes" && <NotesPage />}
       {isAdmin   && activeTab === "team" && <Team />}
     </Layout>
