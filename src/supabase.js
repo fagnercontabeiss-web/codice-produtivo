@@ -224,3 +224,27 @@ export const db = {
     return res.json().catch(() => null);
   },
 };
+
+// Acesso REST genérico (tabelas sem coluna user_id) — usado pela Central de Envio de Folha
+export async function rest(path, options = {}) {
+  const res = await withAuth(headers => fetch(SUPABASE_URL + "/rest/v1/" + path, {
+    method: options.method || "GET",
+    headers: { ...headers, ...(options.prefer ? { "Prefer": options.prefer } : {}) },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+  }));
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+  if (!res.ok) throw new Error((data && (data.message || data.error)) || res.statusText || ("Erro " + res.status));
+  return data;
+}
+
+// Chamada de Edge Function com a sessão do usuário
+export async function callFunction(name, body) {
+  const res = await withAuth(headers => fetch(SUPABASE_URL + "/functions/v1/" + name, {
+    method: "POST", headers, body: JSON.stringify(body || {}),
+  }));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || ("Erro " + res.status));
+  return data;
+}
