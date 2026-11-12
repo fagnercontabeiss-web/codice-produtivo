@@ -160,8 +160,9 @@ export default function EnvioFolha() {
     enviados: docs.filter(entregue).length,
     lidos: docs.filter((d) => d.status === "lido").length,
     falhas: docs.filter((d) => d.status === "falhou").length,
-    ajustar: grupos.filter((g) => !confirmado(g) || g.contatos.length === 0).length,
-  }), [grupos, docs]);
+    // Sem o WhatsApp oficial ligado, falta de contato não é pendência: só conta pasta sem cliente confirmado
+    ajustar: grupos.filter((g) => !confirmado(g) || (!!(config && config.whatsapp) && g.contatos.length === 0)).length,
+  }), [grupos, docs, config]);
 
   // ------------------------------------------------------------ ações
   async function sincronizar() {
